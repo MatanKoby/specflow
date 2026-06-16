@@ -1,0 +1,26 @@
+{
+  "name": "specflow",
+  "version": "0.1.0",
+  "description": "Spec-driven, batch, claim-before-work protocol for AI coding agents — drop it into any repo with one command.",
+  "bin": {
+    "specflow": "bin/specflow.js"
+  },
+  "type": "module",
+  "files": [
+    "bin",
+    "templates"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "claude",
+    "cursor",
+    "copilot",
+    "spec-driven",
+    "scaffold"
+  ],
+  "license": "MIT"
+}
