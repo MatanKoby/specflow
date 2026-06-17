@@ -18,9 +18,9 @@ Completed history: [`BUILD_QUEUE_DONE.md`](BUILD_QUEUE_DONE.md) — one-paragrap
 
 > **Pick-order pointer.** Correctness-first: **Batch U** (non-destructive upgrade — `upgrade` is
 > provisional/unsafe until this lands). Then claimable: **Batch 1** (add-agent) · **Batch 2**
-> (status) · **Batch 3** (broaden tests) · **Batch 4** (README badges + file-map) · **Batch 5** (CLI
-> paper-cuts). Blocked on design: **Batch W** (workflow config). Later: **Batch E** (enforcement —
-> research-first), **Batch P** (npm publish).
+> (status) · **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch 5**
+> (`--dry-run`). Blocked on design: **Batch W** (workflow config) · **Batch NB** (`new-batch` quick
+> flow). Later: **Batch E** (enforcement — research-first), **Batch P** (npm publish).
 
 ---
 
@@ -94,19 +94,20 @@ one agent's adapter into an already-initialized repo and records it in the stamp
 
 ---
 
-## Batch 5 — CLI paper-cuts: NO_COLOR + Node guard
+## Batch 5 — `--dry-run` (preview)
 
-**Goal.** Two cheap robustness fixes (see `open-questions.md` → CLI).
+**Goal.** A preview flag for `init` and `upgrade` that writes nothing and prints exactly what
+*would* be created / overwritten / skipped.
 
 ### Deliverables
-- Honor `NO_COLOR` and non-TTY (`!process.stdout.isTTY`) — disable ANSI so piped/CI output is clean.
-- Runtime Node-version guard: friendly "specflow needs Node 18+, you have X" instead of a crash.
+- `specflow init --dry-run` and `specflow upgrade --dry-run` list the planned file operations and
+  exit without touching disk.
 
 ### Files this batch creates/edits
 - `bin/specflow.js` · `test/smoke.js`.
 
 ### Verification
-- `npm test`; `node bin/specflow.js init | cat` shows no escape codes.
+- `npm test`; manual: `--dry-run` in a fresh dir creates no files.
 
 ---
 
@@ -150,6 +151,20 @@ default profile; `--profile` required non-interactively), the `workflow` stamp b
 
 ### Verification
 - Init each profile into a temp repo; confirm stamp + `config.md` + procedures match.
+
+---
+
+## Batch NB `[NOT READY]` — `new-batch` / `--nb` quick flow
+
+**Goal.** A "now-to-now" command for when the user wants something specced and queued immediately:
+it **initiates a short planning phase**, writes the result into `spec/`, then appends it to
+`BUILD_QUEUE.md` as a batch (optionally handing it to the agent to claim + execute).
+
+**Why `[NOT READY]`:** the flow needs a small design pass first — what the planning phase asks, how
+much it writes to `spec/` vs the batch, and the hand-off to execution. Design, then build.
+
+### Files this batch creates/edits
+- `bin/specflow.js` · a `spec/` write + `BUILD_QUEUE.md` append · `test/smoke.js`.
 
 ---
 

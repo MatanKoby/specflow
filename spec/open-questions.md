@@ -17,12 +17,14 @@ one is settled, **move it into the design file whose concern it matches** (`arch
   marker-delimited managed regions (`<!-- specflow:start/end -->`) + drift detection (warn/back-up,
   never silently clobber). This supersedes the earlier "managed files are overwritten" framing and
   retires the stub-refresh question. Tracked as **Batch U**.
-- **`--dry-run`** (preview only — writes nothing, prints what init/upgrade *would* create / overwrite
-  / skip) · **`--force`** (overwrite existing files on init instead of skipping — conflicts with the
+- **`--force`** (overwrite existing files on init instead of skipping — conflicts with the
   non-destructive principle; lean against) · **`--cwd <dir>`** (target another directory without
   cd-ing) — keep or cut? *(clarifications given; decision pending)*
+- **`remove-agent`** — build it? Would delete only specflow-authored stub files for an agent
+  (`.cursor/rules/specflow.mdc`, the Claude skills) and strip only specflow's marked region from
+  shared files like `CLAUDE.md` (never user content). *(decision pending)*
 - **NO_COLOR / non-TTY** — real bug: the CLI always emits ANSI; piping embeds escape codes. Fix.
-  *(drafted into Batch 5, not yet user-approved)*
+  *(not yet user-approved)*
 - **upgrade changelog** — print "vX → vY changed …" on upgrade.
 - **stamp validation** — fail friendly on a corrupt/hand-edited `.spec-batch.json`.
 - **runtime Node-version guard** — friendly "needs Node 18+" instead of a cryptic crash.
@@ -33,15 +35,6 @@ one is settled, **move it into the design file whose concern it matches** (`arch
   Upside. Batch E researches/discusses how to add it incrementally (validator → hooks → CI → branch
   protection) before building. (`verify` / `install-hooks` / host-CI become sub-batches there.)
 - **npm-pack-manifest test** — assert every template file ships (guards the dropped-dotfile footgun).
-
-## Docs / distribution
-- **Demo project in-repo?** — leaning **no**: the README file-map (Batch 4) covers the need. Note
-  the npm/npx asymmetry: `npm publish` ships only the `files` allowlist (a demo wouldn't ship), but
-  `npx github:` clones the **whole repo** (a demo *would* download, though it never lands in a user's
-  project since `init` only copies `templates/`). Final call pending.
-- **`new-batch` → "quick spec → batch → execute" flow?** — user likes the richer idea (capture a
-  short spec, write a batch, optionally hand to the agent to run) over a plain skeleton-appender.
-  Pending: scope it as its own feature with a small design step.
 
 ## Distribution
 - **Automated npm release on tag** — when we decide to publish.

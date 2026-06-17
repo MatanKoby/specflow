@@ -22,6 +22,7 @@ the procedure in `specflow/procedures/spec-edit.md`.
   on-ramps, the `config.md` rendering, and the `init` setup flow.
 - **`open-questions.md`** — decisions still under discussion, kept here so they survive beyond any
   one conversation. Resolved items graduate into the file above whose concern they match.
+- **`roadmap.md`** — deferred-but-intended directions (standalone demo repo, the SaaS tier).
 
 ## Reading order
 

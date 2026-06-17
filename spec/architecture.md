@@ -8,7 +8,7 @@ imports — specflow's output is **plain markdown + git**, which is what makes i
 
 ```
 specflow/                  (this repo — the tool)
-  bin/specflow.js          the CLI: init, upgrade, --version  (+ planned: add-agent, status, verify)
+  bin/specflow.js          the CLI: init, upgrade, --version  (+ planned: add-agent, status, new-batch/--nb, verify)
   templates/
     base/                  files every install gets (AGENTS.md, queue/claims skeletons, spec/, specflow/)
     agents/<agent>/        per-agent adapter stubs, copied when that agent is selected
