@@ -18,9 +18,9 @@ Completed history: [`BUILD_QUEUE_DONE.md`](BUILD_QUEUE_DONE.md) — one-paragrap
 
 > **Pick-order pointer.** Correctness-first: **Batch U** (non-destructive upgrade — `upgrade` is
 > provisional/unsafe until this lands). Then claimable: **Batch 1** (add-agent) · **Batch 2**
-> (status) · **Batch 3** (broaden tests) · **Batch 4** (README badges + GIF) · **Batch 5** (CLI
-> paper-cuts). Blocked on design: **Batch W** (workflow config). Later: **Batch V/H/CI**
-> (enforcement), **Batch P** (npm publish).
+> (status) · **Batch 3** (broaden tests) · **Batch 4** (README badges + file-map) · **Batch 5** (CLI
+> paper-cuts). Blocked on design: **Batch W** (workflow config). Later: **Batch E** (enforcement —
+> research-first), **Batch P** (npm publish).
 
 ---
 
@@ -76,20 +76,21 @@ one agent's adapter into an already-initialized repo and records it in the stamp
 
 ---
 
-## Batch 4 — README badges + demo
+## Batch 4 — README badges + file-map
 
-**Goal.** Make the repo legible at a glance.
+**Goal.** Make the repo legible at a glance and the file-contract obvious to a newcomer.
 
 ### Deliverables
-- CI + license badges; once published, an npm-version badge. A short asciinema/GIF of `init`.
-- Strengthen the "what each file is + the agent's loop over them" section (replaces the dropped
-  demo-repo idea).
+- CI + license badges (npm-version badge once published).
+- A **pretty, simple file-map** in the README: each file specflow creates, what it does, and the
+  flow the agent follows over them (spec → queue → claim → build). Directed by the user.
+- **Deferred:** an animated demo (GIF/asciinema) — design the visual first before producing it.
 
 ### Files this batch creates/edits
-- `README.md` · `docs/` asset.
+- `README.md`.
 
 ### Verification
-- Render check; links resolve.
+- Render check; links resolve; a new reader can follow the file-map without prior context.
 
 ---
 
@@ -135,8 +136,9 @@ regions + drift detection.
 
 ## Batch W `[NOT READY]` — Workflow config model
 
-**Depends on:** `open-questions.md` → Workflow section resolved (profile names + default, dimension
-defaults, fifth-lever question, enforcement coupling).
+**Depends on:** the profile→dimension mapping in `open-questions.md` → Workflow (the only remaining
+build-time detail; the rest of the workflow design — 5 dimensions, no-default explicit-choice flow,
+guidelines-only enforcement — is settled).
 
 **Goal.** Implement `spec/workflow.md`: the five dimensions, the explicit-choice setup flow (no
 default profile; `--profile` required non-interactively), the `workflow` stamp block, and
@@ -151,22 +153,28 @@ default profile; `--profile` required non-interactively), the `workflow` stamp b
 
 ---
 
-## Batch V `[NOT READY]` — `specflow verify`
+## Batch E `[NOT READY]` — Enforcement (research-first)
 
-**Goal.** Read-only protocol validator: every changed file maps to an owned `## In progress` claim,
-no state leaked into `BUILD_QUEUE.md`, commit grammar valid. Carve-outs for `meta:`/`spec:`/doc-only.
+**For now, enforcement is exactly as in Upside: honor-system / written guidelines** — the procedures
++ `AGENTS.md` tell the agent what to do; nothing executable checks it. This batch does **not** jump
+to implementation. It **starts with research + discussion** of how to add enforcement incrementally,
+then drafts the sub-batches.
 
----
+### Phase 1 — research & discuss (the deliverable)
+- Survey the layers, cheapest → most authoritative: a read-only validator (`specflow verify` —
+  changed files map to an owned claim, no state leaked into `BUILD_QUEUE.md`, commit grammar), local
+  git hooks (`commit-msg` / `pre-push` via `core.hooksPath`), CI running the validator, and GitHub
+  branch protection.
+- For each: what it binds, prevents-vs-detects, bypassability, and the carve-outs needed
+  (`meta:` / `spec:` / doc-only) so it never fights legitimate work.
+- Output a short `spec/enforcement.md` design doc + a proposed **incremental** sub-batch sequence.
+  Generalizes Upside's `docs/process/agent-discipline.md`.
 
-## Batch H `[NOT READY]` — `specflow install-hooks`
+### Then — sub-batches (only after Phase 1 is agreed with the user)
+- `verify` validator → opt-in `install-hooks` → optional host-repo CI template → branch-protection guidance.
 
-**Depends on:** Batch V. Opt-in `commit-msg` + `pre-push` hooks (via `core.hooksPath`) running `verify`.
-
----
-
-## Batch CI `[NOT READY]` — host-repo CI template
-
-**Depends on:** Batch V. An optional GitHub Action `init` can drop into the host repo to run `verify`.
+### Files this batch creates/edits (Phase 1)
+- `spec/enforcement.md` · queue updates for the agreed sub-batches.
 
 ---
 

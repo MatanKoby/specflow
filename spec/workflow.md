@@ -53,10 +53,12 @@ this**: on a strict profile (Supervised / Reviewed), `init` prints one line noti
 advisory-until-enforced and offers the branch-protection command a user can run today. The
 Autonomous profile shows nothing (no noise for solo users).
 
-Real enforcement — branch-protection guidance, a `pre-push` hook, and a CI `verify` check — is
-deferred to later research/development (Batches V / H / CI). The model is **start by telling the
-agent; add strict enforcement once designed** — never mislead a user that a chosen policy is locked
-down when it is currently a written promise.
+Real enforcement — a `verify` validator, `pre-push`/`commit-msg` hooks, a CI check, and
+branch-protection guidance — is deferred to **Batch E**, a research-first track that keeps
+enforcement exactly as in Upside (honor-system) today and *designs how to add it incrementally
+before building it*. The model is **start by telling the agent; add strict enforcement once
+designed** — never mislead a user that a chosen policy is locked down when it is currently a written
+promise.
 
 ## Still open
 
