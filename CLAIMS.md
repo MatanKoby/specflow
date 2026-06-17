@@ -19,6 +19,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch U — Non-destructive upgrade redesign
+- Owner: claude
+- Started: 2026-06-17 14:54
+
 ## Completed
 
 <!-- Recent finishes, newest first. Older entries archived to CLAIMS_DONE.md. -->
