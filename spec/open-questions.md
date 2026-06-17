@@ -5,13 +5,13 @@ one is settled, **move it into the design file whose concern it matches** (`arch
 `workflow.md`) and delete it here — don't leave it in two places.
 
 ## Workflow / config flow
-- **Profile names + default** — are the three Autonomous / Supervised / Reviewed, and which is the
-  pre-selected default in `init`? (see `workflow.md`)
-- **Dimension set + a fifth lever** — confirm the four dimensions; is commit cadence (incremental
-  vs one-commit-per-batch) a real fifth lever or out of scope?
-- **Per-dimension defaults** — the concrete default value of each dimension (user deferred this).
+- **Profile → dimension mapping** — what concrete value each profile (Autonomous / Supervised /
+  Reviewed) sets for each of the five levers; this is the starting point a Customize walk edits.
+  *(Decided: names are those three; `init` requires an explicit choice — no pre-selected default;
+  `commitCadence` is the fifth lever.)*
 - **Enforcement coupling** — do strict profiles offer to set up the guardrails (hooks / host CI /
   branch-protection guidance) in the same flow, or is enforcement a wholly separate opt-in step?
+  *(Pending: user wants clarification on what this means before deciding.)*
 
 ## CLI / upgrade behavior
 - **`--dry-run`** (preview init/upgrade) · **`--force`** (overwrite-on-init) · **`--cwd`** (target

@@ -113,8 +113,9 @@ one agent's adapter into an already-initialized repo and records it in the stamp
 **Depends on:** `open-questions.md` → Workflow section resolved (profile names + default, dimension
 defaults, fifth-lever question, enforcement coupling).
 
-**Goal.** Implement `spec/workflow.md`: the four dimensions, the "default profile then customize"
-setup flow, the `workflow` stamp block, and `config.md` rendering; procedures reference `config.md`.
+**Goal.** Implement `spec/workflow.md`: the five dimensions, the explicit-choice setup flow (no
+default profile; `--profile` required non-interactively), the `workflow` stamp block, and
+`config.md` rendering; procedures reference `config.md`.
 
 ### Files this batch creates/edits
 - `bin/specflow.js` (setup flow + render) · `templates/base/specflow/procedures/*` (policy-dependent

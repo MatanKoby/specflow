@@ -5,12 +5,12 @@ team raising a new repo that wants **accountability — PRs, review, no direct p
 getting the spec-batch, token-saving, spec-guided benefits. The setup flow must make a user
 **understand what they are authorizing the agent to do.**
 
-## Model: four orthogonal dimensions (not presets)
+## Model: five orthogonal dimensions (not presets)
 
 Workflow is configured as independent levers, stored in `specflow/.spec-batch.json` under
 `workflow`, and rendered into a per-repo **`specflow/config.md`** that both humans and agents read.
 The **single, universal** procedures reference `config.md` for the policy-dependent steps
-(push / branch / merge) — there are no per-mode procedure variants.
+(push / branch / merge / commit cadence) — there are no per-mode procedure variants.
 
 | Dimension | Options | Meaning |
 |---|---|---|
@@ -18,11 +18,13 @@ The **single, universal** procedures reference `config.md` for the policy-depend
 | `branchPerBatch` | `false` · `"batch-{n}-{slug}"` | work on trunk, or an isolated branch per batch |
 | `push` | `agent` · `user` | agent commits **and pushes**, or agent commits only and the user pushes |
 | `integration` | `direct` · `pr` · `manual` | land on trunk directly · open a PR on finish · leave the branch for the user to merge |
+| `commitCadence` | `incremental` · `squash` | many `batch-N:` commits per batch, or one commit per batch |
 
-These four cover the scenarios raised: "commit + push freely" (`push:agent, branchPerBatch:false,
+These five cover the scenarios raised: "commit + push freely" (`push:agent, branchPerBatch:false,
 integration:direct`), "agent commits, I push" (`push:user`), "a branch per batch with PRs"
-(`branchPerBatch:"batch-{n}-{slug}", integration:pr`). Commit is always the agent's action; the
-levers vary **push, branch, merge**.
+(`branchPerBatch:"batch-{n}-{slug}", integration:pr`), and clean one-commit-per-batch history
+(`commitCadence:squash`). Commit is always the agent's action; the levers vary **push, branch,
+merge, and commit cadence**.
 
 ## Profiles — educational on-ramps
 
@@ -35,11 +37,13 @@ plain-English "what the agent may do" sentence:
 
 ## The `init` setup flow
 
-**Start with a default profile, then customize.** `init` pre-selects a profile, displays exactly
-what it authorizes, and lets the user accept it or drop into a **Customize** path that walks the
-four dimensions individually. It ends with a **plain-English confirmation** of the agent's
-permissions before any file is written. The chosen config → the stamp's `workflow` block + a
-freshly rendered `config.md`. `upgrade` re-renders `config.md` from the stored config.
+**The user must choose — there is no pre-selected default to blind-accept.** `init` runs an
+interactive setup flow that presents the profiles, each as a plain-English "what the agent may do"
+sentence; the user picks one, then may drop into a **Customize** path that walks the five dimensions
+individually from that starting point. It ends with a **plain-English confirmation** of the agent's
+permissions before any file is written. Non-interactive use must pass `--profile` explicitly (there
+is no implicit default). The chosen config → the stamp's `workflow` block + a freshly rendered
+`config.md`. `upgrade` re-renders `config.md` from the stored config.
 
 ## Enforcement (relationship)
 
@@ -50,6 +54,7 @@ won't push to trunk" is honor-system. How tightly the setup flow couples to enfo
 
 ## Still open
 
-The profile names, **which profile is the default**, the exact defaults per dimension, whether a
-fifth lever (commit cadence) exists, and the enforcement-coupling question are unresolved — tracked
-in `open-questions.md`.
+The exact **profile → dimension mapping** (what each profile sets each lever to — the starting
+point a Customize walk edits) and the **enforcement-coupling** question are unresolved — tracked in
+`open-questions.md`. **Decided:** profiles are Autonomous / Supervised / Reviewed; `init` requires
+an explicit choice (no default); `commitCadence` is the fifth lever.
