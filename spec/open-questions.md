@@ -8,10 +8,8 @@ one is settled, **move it into the design file whose concern it matches** (`arch
 - **Profile → dimension mapping** — what concrete value each profile (Autonomous / Supervised /
   Reviewed) sets for each of the five levers; this is the starting point a Customize walk edits.
   *(Decided: names are those three; `init` requires an explicit choice — no pre-selected default;
-  `commitCadence` is the fifth lever.)*
-- **Enforcement coupling** — do strict profiles offer to set up the guardrails (hooks / host CI /
-  branch-protection guidance) in the same flow, or is enforcement a wholly separate opt-in step?
-  *(Pending: user wants clarification on what this means before deciding.)*
+  `commitCadence` is the fifth lever; v1 enforces strict profiles by agent guidelines only, with
+  `init` honest about the advisory gap — see `workflow.md` → Enforcement.)*
 
 ## CLI / upgrade behavior
 - **`--dry-run`** (preview init/upgrade) · **`--force`** (overwrite-on-init) · **`--cwd`** (target

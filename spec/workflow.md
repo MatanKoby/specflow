@@ -47,14 +47,21 @@ is no implicit default). The chosen config → the stamp's `workflow` block + a 
 
 ## Enforcement (relationship)
 
-Strict profiles (Supervised / Reviewed) are only *real* if enforced — branch protection on trunk
-plus the hooks/CI layer (`specflow verify`, `install-hooks`, host CI template). Otherwise "the agent
-won't push to trunk" is honor-system. How tightly the setup flow couples to enforcement setup is
-**open** — see `open-questions.md` (enforcement coupling).
+**v1 enforces strict profiles by agent guidelines only.** The procedures + `config.md` tell the
+agent what it may do; nothing physically blocks a misbehaving agent. specflow is **honest about
+this**: on a strict profile (Supervised / Reviewed), `init` prints one line noting the policy is
+advisory-until-enforced and offers the branch-protection command a user can run today. The
+Autonomous profile shows nothing (no noise for solo users).
+
+Real enforcement — branch-protection guidance, a `pre-push` hook, and a CI `verify` check — is
+deferred to later research/development (Batches V / H / CI). The model is **start by telling the
+agent; add strict enforcement once designed** — never mislead a user that a chosen policy is locked
+down when it is currently a written promise.
 
 ## Still open
 
 The exact **profile → dimension mapping** (what each profile sets each lever to — the starting
-point a Customize walk edits) and the **enforcement-coupling** question are unresolved — tracked in
-`open-questions.md`. **Decided:** profiles are Autonomous / Supervised / Reviewed; `init` requires
-an explicit choice (no default); `commitCadence` is the fifth lever.
+point a Customize walk edits) is the remaining build-time detail, tracked in `open-questions.md`.
+**Decided:** profiles are Autonomous / Supervised / Reviewed; `init` requires an explicit choice (no
+default); `commitCadence` is the fifth lever; v1 enforces strict profiles by agent guidelines only
+(see Enforcement above).
