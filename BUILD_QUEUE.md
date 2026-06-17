@@ -16,10 +16,11 @@ Completed history: [`BUILD_QUEUE_DONE.md`](BUILD_QUEUE_DONE.md) — one-paragrap
 
 ## Un-done batches
 
-> **Pick-order pointer.** Claimable now: **Batch 1** (add-agent) · **Batch 2** (status) ·
-> **Batch 3** (broaden tests) · **Batch 4** (README badges + GIF) · **Batch 5** (CLI paper-cuts).
-> Blocked on design: **Batch W** (workflow config) — needs `open-questions.md` → Workflow resolved.
-> Blocked/later: **Batch V/H/CI** (enforcement), **Batch P** (npm publish).
+> **Pick-order pointer.** Correctness-first: **Batch U** (non-destructive upgrade — `upgrade` is
+> provisional/unsafe until this lands). Then claimable: **Batch 1** (add-agent) · **Batch 2**
+> (status) · **Batch 3** (broaden tests) · **Batch 4** (README badges + GIF) · **Batch 5** (CLI
+> paper-cuts). Blocked on design: **Batch W** (workflow config). Later: **Batch V/H/CI**
+> (enforcement), **Batch P** (npm publish).
 
 ---
 
@@ -105,6 +106,30 @@ one agent's adapter into an already-initialized repo and records it in the stamp
 
 ### Verification
 - `npm test`; `node bin/specflow.js init | cat` shows no escape codes.
+
+---
+
+## Batch U — Non-destructive upgrade redesign
+
+**Goal.** Enforce the hard invariant: `upgrade` must never remove or overwrite text authored by a
+user or another agent, in any file. Replace wholesale file-overwrite with marker-delimited managed
+regions + drift detection.
+
+### Deliverables
+- specflow's managed content in `AGENTS.md` (and any managed file) is wrapped in
+  `<!-- specflow:start -->` … `<!-- specflow:end -->`; `upgrade` replaces only that region and
+  preserves everything outside it verbatim.
+- `upgrade` detects a hand-edited managed region (drift) and warns / backs up rather than clobbering.
+- `init` writes the markers; an existing install without markers is migrated on first upgrade.
+- Tests assert: a user paragraph added outside the markers survives an upgrade; edited-region drift
+  is reported, not silently overwritten.
+
+### Files this batch creates/edits
+- `bin/specflow.js` · `templates/base/AGENTS.md` (markers) · `templates/base/specflow/procedures/*`
+  · `test/smoke.js`.
+
+### Verification
+- `npm test`; manual: add a user paragraph to `AGENTS.md`, run `upgrade`, confirm it survives.
 
 ---
 

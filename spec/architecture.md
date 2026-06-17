@@ -33,27 +33,34 @@ requirement is that every agent honors the same protocol.
 
 | Path | Owner | On `upgrade` |
 |---|---|---|
-| `AGENTS.md`, `specflow/procedures/**` | **specflow** (mechanism) | overwritten |
+| `AGENTS.md`, `specflow/procedures/**` | **specflow** (mechanism) | managed region refreshed — **never user/agent text** |
 | `specflow/.spec-batch.json` | specflow (stamp) | version bumped |
 | `BUILD_QUEUE.md` / `BUILD_QUEUE_DONE.md`, `CLAIMS.md` / `CLAIMS_DONE.md` | user/agents (state) | untouched |
 | `spec/**` | user (content) | untouched |
-| per-agent stubs (`CLAUDE.md`, `.cursor/rules`, …) | user (after first write) | untouched (see open-questions #10) |
+| per-agent stubs (`CLAUDE.md`, `.cursor/rules`, …) | user (after first write) | untouched |
 
-**specflow owns the mechanism; the host owns content and state.** This is exactly what makes
-`upgrade` safe — it can replace the procedure prose without ever touching a user's spec, queue, or
-claims.
+**specflow owns the mechanism; the host owns content and state.** Hard invariant: `upgrade` is
+**non-destructive — it never removes or overwrites text authored by a user or another agent**, in
+any file. It refreshes only specflow's own marker-delimited region; everything outside is preserved.
+(The current code still wholesale-overwrites — that's the redesign in Batch U.)
 
 ## init / upgrade
 
 - **`init`** — interactive (or `--agents=…`/`--all`): pick agents, scaffold base + selected
   adapters, fill the stamp. Skips any file that already exists (never clobbers). Guards re-init.
-- **`upgrade`** — re-copies only the **managed** paths (`AGENTS.md` + `specflow/procedures/`) from
-  the installed kit version, bumps the stamp. State and content are never touched.
+- **`upgrade`** — refreshes specflow's managed mechanism to the installed kit version and bumps the
+  stamp. **Hard invariant: `upgrade` never removes or overwrites text authored by a user or another
+  agent, in any file.** The current code wholesale-overwrites `AGENTS.md` + `specflow/procedures/`,
+  which violates this if those files were edited — so the mechanism is being **redesigned** around
+  marker-delimited managed regions (`<!-- specflow:start -->` … `<!-- specflow:end -->`) + drift
+  detection: only specflow's own region is replaced, everything else is preserved, and a hand-edited
+  region is reported rather than clobbered. **Treat `upgrade` as provisional until Batch U lands.**
 
 ## Versioning & the stamp
 
 One file: `specflow/.spec-batch.json` carrying `kitVersion` + `schemaVersion`. Procedure prose is
-*instructions, not data*, so `upgrade` just overwrites it — no migration. `schemaVersion` gates the
+*instructions, not data*, so a refresh replaces specflow's managed region (never user/agent text —
+see the `upgrade` invariant above) — no migration. `schemaVersion` gates the
 rare case where the **format** of the state files changes; only then is a migration needed. No
 migration runner is built until a format actually breaks (the file-contract is kept stable on
 purpose to keep that rare).
