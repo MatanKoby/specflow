@@ -16,34 +16,10 @@ Completed history: [`BUILD_QUEUE_DONE.md`](BUILD_QUEUE_DONE.md) — one-paragrap
 
 ## Un-done batches
 
-> **Pick-order pointer.** Quick correctness follow-up: **Batch U2** (self-documenting markers).
-> Then claimable: **Batch 1** (add-agent) · **Batch 2** (status) · **Batch 3** (broaden tests) ·
-> **Batch 4** (badges + file-map) · **Batch 5** (`--dry-run`). Blocked on design: **Batch W**
-> (workflow config) · **Batch NB** (`--new-batch` quick flow). Later: **Batch E** (enforcement —
-> research-first), **Batch P** (npm publish).
-
----
-
-## Batch U2 — Self-documenting, edit-resistant region markers
-
-**Goal.** Make the `specflow:start/end` markers tell a human reading the raw file not to edit inside
-the region — without making marker parsing brittle.
-
-### Deliverables
-- Marker comments carry a short "managed by specflow; do not edit inside" note (invisible in
-  rendered markdown; visible only in the raw file where edits happen).
-- `extractRegion` matches markers by the `specflow:start`/`specflow:end` **token** (regex), not an
-  exact string, so the note can change without breaking parsing or forcing a migration. `upgrade`
-  canonicalizes a clean file's markers to the template's current text.
-- Tests token-match; a marker-text change is verified non-destructive on an existing install.
-
-### Files this batch creates/edits
-- `bin/specflow.js` · `templates/base/AGENTS.md` · `templates/base/specflow/procedures/*` ·
-  `test/smoke.js`.
-
-### Verification
-- `npm test`; manual: `upgrade` an install carrying the old bare markers → markers updated, region
-  and outside-text preserved, no `.specflow-bak`.
+> **Pick-order pointer.** Claimable now: **Batch 1** (add-agent) · **Batch 2** (status) ·
+> **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch 5** (`--dry-run`).
+> Blocked on design: **Batch W** (workflow config) · **Batch NB** (`--new-batch` quick flow).
+> Later: **Batch E** (enforcement — research-first), **Batch P** (npm publish).
 
 ---
 

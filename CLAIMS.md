@@ -19,13 +19,25 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
-### Batch U2 — Self-documenting, edit-resistant region markers
-- Owner: claude
-- Started: 2026-06-17 15:21
-
 ## Completed
 
 <!-- Recent finishes, newest first. Older entries archived to CLAIMS_DONE.md. -->
+
+### Batch U2 — Self-documenting, edit-resistant region markers
+- Owner: claude
+- Started: 2026-06-17 15:21
+- Finished: 2026-06-17 15:55
+- Commit: 66442e0
+
+**What shipped.** The `specflow:start` marker now carries an inline note — `managed by specflow; do
+not edit inside these markers (your edits block specflow upgrade). Add your own notes outside them.`
+— so a human editing the raw file is warned (the note is an HTML comment, invisible in rendered
+markdown). To keep that safe, `extractRegion` matches markers by their `specflow:start`/`specflow:end`
+**token** (regex `START_RE`/`END_RE`) rather than an exact string, and returns the matched marker
+text; the clean-path rewrite re-applies the *template's* marker wording, so the note can evolve
+without breaking parsing or forcing a migration. Smoke suite at 19 checks (added: marker-wording
+change is canonicalized, outside text preserved, no backup). Dogfooded: ran `upgrade` on the repo
+root — only the marker line changed in each managed file. No follow-ups.
 
 ### Batch U — Non-destructive upgrade redesign
 - Owner: claude
