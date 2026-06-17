@@ -138,6 +138,11 @@ it **initiates a short planning phase**, writes the result into `spec/`, then ap
 **Why `[NOT READY]`:** the flow needs a small design pass first — what the planning phase asks, how
 much it writes to `spec/` vs the batch, and the hand-off to execution. Design, then build.
 
+**Related (open):** the clarify-and-approve discipline in `spec/open-questions.md` → *Speccing &
+approval discipline*. NB's planning phase is the natural home for the explicit clarify+approve gate
+(ask the questions, end on a user OK before anything is written or claimed), but the gate principle
+is broader than NB — it also bears on `claim-batch` for batches not created through NB.
+
 ### Files this batch creates/edits
 - `bin/specflow.js` · a `spec/` write + `BUILD_QUEUE.md` append · `test/smoke.js`.
 
