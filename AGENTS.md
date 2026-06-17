@@ -1,9 +1,12 @@
+<!-- specflow:start -->
 # AGENTS.md — Shared Agent Protocol (specflow)
 
-> **Managed by [specflow](https://github.com/MatanKoby/specflow).** This file is the
-> mechanism, not your project. Don't hand-edit it — `specflow upgrade` overwrites it.
-> Project identity and project-specific agent rules belong in `README.md` / `CLAUDE.md` /
-> your agent's own config, never here.
+> **Managed by [specflow](https://github.com/MatanKoby/specflow).** Everything between the
+> `specflow:start` / `specflow:end` markers is generated — `specflow upgrade` refreshes that
+> region and **only** that region; text outside the markers is preserved. Add repo-specific
+> notes *outside* the markers (project identity is better in `README.md` / `CLAUDE.md` / your
+> agent's own config). Don't edit *inside* the markers — `upgrade` flags an edited region and
+> leaves it untouched rather than clobbering it, so your change blocks future refreshes.
 
 This is the single source of truth for how one or more AI coding agents collaborate on this
 repo. **Every agent must read this before starting work.** It applies to *all* agents equally
@@ -113,3 +116,4 @@ don't reconstruct it from memory.
 - Anyone may add new `CLAIMS.md` entries, but only the current Owner mutates a batch's entry
   (except stale-claim recovery — see `claim-batch.md`).
 - Always `git pull --ff-only` before claiming so you don't race another agent.
+<!-- specflow:end -->

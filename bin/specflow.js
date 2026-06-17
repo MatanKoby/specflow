@@ -4,6 +4,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -15,9 +16,59 @@ const BASE = path.join(TEMPLATES, 'base');
 const AGENTS_DIR = path.join(TEMPLATES, 'agents');
 const VERSION = createRequire(import.meta.url)('../package.json').version;
 
-// Paths specflow owns and will overwrite on `upgrade`. Everything else (queue, claims, spec,
-// agent stubs) is written once at init and never clobbered.
+// Files/dirs whose specflow-managed *region* `upgrade` refreshes. Each managed file wraps its
+// generated content in `START … END` markers; `upgrade` replaces only what's between them and
+// preserves everything outside. Everything else (queue, claims, spec, agent stubs) is written
+// once at init and never touched.
 const MANAGED = ['AGENTS.md', 'specflow/procedures'];
+
+const START = '<!-- specflow:start -->';
+const END = '<!-- specflow:end -->';
+
+// Expand MANAGED into concrete relpaths by walking the template tree (the authoritative set).
+function managedFileList() {
+  const out = [];
+  for (const rel of MANAGED) {
+    const src = path.join(BASE, rel);
+    if (!fs.existsSync(src)) continue;
+    if (fs.statSync(src).isDirectory()) {
+      for (const f of listFiles(src)) out.push(path.relative(BASE, f).split(path.sep).join('/'));
+    } else {
+      out.push(rel);
+    }
+  }
+  return out;
+}
+
+// Split a managed file around its single specflow region. Returns null if the markers are
+// absent or malformed (a pre-marker install, or hand-mangled).
+function extractRegion(content) {
+  const s = content.indexOf(START);
+  const e = content.indexOf(END);
+  if (s === -1 || e === -1 || e < s) return null;
+  return {
+    before: content.slice(0, s),
+    region: content.slice(s + START.length, e),
+    after: content.slice(e + END.length),
+  };
+}
+
+function hashRegion(region) {
+  return crypto.createHash('sha256').update(region).digest('hex');
+}
+
+// Baseline hash of each managed file's region, as currently on disk. Stored in the stamp so a
+// later `upgrade` can tell a pristine region (safe to refresh) from a hand-edited one (drift).
+function computeManaged(targetDir) {
+  const map = {};
+  for (const rel of managedFileList()) {
+    const dest = path.join(targetDir, rel);
+    if (!fs.existsSync(dest)) continue;
+    const parts = extractRegion(fs.readFileSync(dest, 'utf8'));
+    if (parts) map[rel] = hashRegion(parts.region);
+  }
+  return map;
+}
 
 const AGENT_CHOICES = [
   { key: 'claude', label: 'Claude Code', detail: 'CLAUDE.md + auto-triggering skills' },
@@ -85,6 +136,16 @@ function fillStamp(targetDir, agentKeys) {
   fs.writeFileSync(stampPath, filled);
 }
 
+// Read the stamp, attach/refresh the managed-region baseline map, write it back.
+function recordManaged(targetDir, extra) {
+  const stampPath = path.join(targetDir, 'specflow', '.spec-batch.json');
+  if (!fs.existsSync(stampPath)) return;
+  const stamp = JSON.parse(fs.readFileSync(stampPath, 'utf8'));
+  stamp.managed = computeManaged(targetDir);
+  Object.assign(stamp, extra);
+  fs.writeFileSync(stampPath, JSON.stringify(stamp, null, 2) + '\n');
+}
+
 function ask(question) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => rl.question(question, (a) => { rl.close(); resolve(a.trim()); }));
@@ -143,6 +204,7 @@ async function cmdInit(args) {
     skipped = skipped.concat(res.skipped);
   }
   fillStamp(targetDir, agentKeys);
+  recordManaged(targetDir);
 
   console.log(C.green('\n✓ specflow installed.'));
   console.log('  Base protocol:   AGENTS.md, BUILD_QUEUE.md, CLAIMS.md, spec/, specflow/');
@@ -166,29 +228,80 @@ function cmdUpgrade() {
   }
   const stamp = JSON.parse(fs.readFileSync(stampPath, 'utf8'));
   const from = stamp.kitVersion;
+  const baseline = stamp.managed || {};
+  const nextManaged = { ...baseline };
 
-  // Overwrite only the managed mechanism files; never touch queue/claims/spec state.
-  let count = 0;
-  for (const rel of MANAGED) {
-    const src = path.join(BASE, rel);
+  // Refresh only specflow's own marked region in each managed file; never touch text outside
+  // the markers, and never clobber a region that's been hand-edited since install.
+  const refreshed = [];
+  const added = [];
+  const migrated = [];
+  const drifted = [];
+
+  for (const rel of managedFileList()) {
+    const srcContent = fs.readFileSync(path.join(BASE, rel), 'utf8');
+    const srcParts = extractRegion(srcContent);
+    if (!srcParts) continue; // template lacks markers — nothing to manage (shouldn't happen)
     const dest = path.join(targetDir, rel);
-    if (!fs.existsSync(src)) continue;
-    const stat = fs.statSync(src);
-    if (stat.isDirectory()) {
-      const res = copyTree(src, dest, 'overwrite');
-      count += res.written.length;
-    } else {
+
+    // Managed file introduced by a newer kit version: write it whole.
+    if (!fs.existsSync(dest)) {
       fs.mkdirSync(path.dirname(dest), { recursive: true });
-      fs.copyFileSync(src, dest);
-      count += 1;
+      fs.writeFileSync(dest, srcContent);
+      nextManaged[rel] = hashRegion(srcParts.region);
+      added.push(rel);
+      continue;
     }
+
+    const destContent = fs.readFileSync(dest, 'utf8');
+    const destParts = extractRegion(destContent);
+
+    // Pre-marker install: no region to target. Back up verbatim, then write the marked template.
+    if (!destParts) {
+      fs.writeFileSync(dest + '.specflow-bak', destContent);
+      fs.writeFileSync(dest, srcContent);
+      nextManaged[rel] = hashRegion(srcParts.region);
+      migrated.push(rel);
+      continue;
+    }
+
+    // Region hand-edited since install → never overwrite. Leave it, drop the new version
+    // alongside for manual reconciliation, and keep flagging it (baseline hash unchanged).
+    const baseHash = baseline[rel];
+    if (baseHash && hashRegion(destParts.region) !== baseHash) {
+      fs.writeFileSync(dest + '.specflow-new', srcContent);
+      drifted.push(rel);
+      continue;
+    }
+
+    // Clean: swap in the fresh region, preserve everything outside the markers verbatim.
+    const updated = destParts.before + START + srcParts.region + END + destParts.after;
+    if (updated !== destContent) {
+      fs.writeFileSync(dest, updated);
+      refreshed.push(rel);
+    }
+    nextManaged[rel] = hashRegion(srcParts.region);
   }
+
   stamp.kitVersion = VERSION;
   stamp.upgradedAt = new Date().toISOString().slice(0, 10);
+  stamp.managed = nextManaged;
   fs.writeFileSync(stampPath, JSON.stringify(stamp, null, 2) + '\n');
 
-  console.log(C.green(`\n✓ Upgraded specflow ${from} → ${VERSION}`) + C.dim(` (${count} managed file(s) refreshed)`));
-  console.log(C.dim('  AGENTS.md + specflow/procedures/ updated. Your queue, claims, and spec were left untouched.'));
+  console.log(C.green(`\n✓ Upgraded specflow ${from} → ${VERSION}`));
+  if (refreshed.length) console.log(C.dim(`  refreshed: ${refreshed.join(', ')}`));
+  if (added.length) console.log(C.dim(`  added:     ${added.join(', ')}`));
+  if (migrated.length) {
+    console.log(C.yellow(`  migrated to managed-region format (previous saved as *.specflow-bak): ${migrated.join(', ')}`));
+  }
+  if (drifted.length) {
+    console.log(C.yellow(`\n  ⚠ ${drifted.length} managed region(s) edited since install — left untouched:`));
+    drifted.forEach((f) => console.log(C.dim(`    · ${f}  → new version written to ${f}.specflow-new (reconcile, then re-run upgrade)`)));
+  }
+  if (!refreshed.length && !added.length && !migrated.length && !drifted.length) {
+    console.log(C.dim('  Already current — nothing to refresh.'));
+  }
+  console.log(C.dim('\n  Your queue, claims, and spec were left untouched.'));
   if (stamp.schemaVersion !== 1) console.log(C.yellow('  Note: schema changed — review state-file format.'));
   console.log('');
 }

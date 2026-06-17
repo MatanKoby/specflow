@@ -1,3 +1,4 @@
+<!-- specflow:start -->
 # Procedure: claim a batch from `BUILD_QUEUE.md`
 
 Run this before starting any new batch. `AGENTS.md` carries only the pointer to this file.
@@ -76,3 +77,4 @@ Use sparingly — prefer to wait or ask the user.
 After step 6 you're the owner. Commit incrementally with `batch-N: <imperative>` messages and
 push at sensible checkpoints. On any rejected push during work commits, `git pull --rebase`,
 never force. When finishing, follow `finish-batch.md`.
+<!-- specflow:end -->

@@ -1,3 +1,4 @@
+<!-- specflow:start -->
 # Procedure: edit the spec (or persist a design decision)
 
 Run this before editing any file under `spec/**`, or when persisting a design decision the
@@ -71,3 +72,4 @@ stay agent discretion.
 
 A spec edit + a queue revision from the same decision are normally two commits (`spec:` then
 `meta:`), but one combined commit is fine when small and unambiguous.
+<!-- specflow:end -->

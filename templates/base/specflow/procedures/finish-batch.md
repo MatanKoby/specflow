@@ -1,3 +1,4 @@
+<!-- specflow:start -->
 # Procedure: finish a claimed batch
 
 Run this when wrapping up. `AGENTS.md` carries only the pointer to this file.
@@ -52,3 +53,4 @@ Run this when wrapping up. `AGENTS.md` carries only the pointer to this file.
 
 7. Decide: claim the next eligible batch (run `claim-batch.md`) or stop. Either is fine — don't
    auto-chain unless the user asked you to.
+<!-- specflow:end -->
