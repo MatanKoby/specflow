@@ -31,6 +31,7 @@ function run(cwd, args) {
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'specflow-test-'));
 const tmp2 = fs.mkdtempSync(path.join(os.tmpdir(), 'specflow-test-'));
 const tmp3 = fs.mkdtempSync(path.join(os.tmpdir(), 'specflow-test-'));
+const tmp4 = fs.mkdtempSync(path.join(os.tmpdir(), 'specflow-test-'));
 try {
   // --- init ---
   const init = run(tmp, ['init', '--agents=claude,cursor']);
@@ -61,7 +62,7 @@ try {
   check('managed files carry specflow region markers', () => {
     for (const f of ['AGENTS.md', 'specflow/procedures/claim-batch.md']) {
       const c = fs.readFileSync(path.join(tmp, f), 'utf8');
-      assert.ok(c.includes('<!-- specflow:start -->') && c.includes('<!-- specflow:end -->'), f + ' lacks markers');
+      assert.ok(/<!--\s*specflow:start\b/.test(c) && /<!--\s*specflow:end\b/.test(c), f + ' lacks markers');
     }
   });
 
@@ -116,13 +117,29 @@ try {
   // 3. a pre-marker install is migrated: backed up, then markers added — no data lost.
   run(tmp3, ['init', '--agents=claude']);
   const AG3 = path.join(tmp3, 'AGENTS.md');
-  const stripped = fs.readFileSync(AG3, 'utf8').split('<!-- specflow:start -->').join('').split('<!-- specflow:end -->').join('');
+  const stripped = fs.readFileSync(AG3, 'utf8').replace(/<!--\s*specflow:(start|end)\b.*?-->/gs, '');
   fs.writeFileSync(AG3, stripped);
   const up4 = run(tmp3, ['upgrade']);
   check('upgrade migrates a pre-marker file with a backup', () => {
     assert.strictEqual(up4.status, 0);
     assert.ok(fs.existsSync(AG3 + '.specflow-bak'), 'no .specflow-bak backup');
-    assert.ok(fs.readFileSync(AG3, 'utf8').includes('<!-- specflow:start -->'), 'markers not added on migrate');
+    assert.ok(/<!--\s*specflow:start\b/.test(fs.readFileSync(AG3, 'utf8')), 'markers not added on migrate');
+  });
+
+  // 4. changing only the marker WORDING is non-destructive: token-matched, canonicalized, no backup.
+  run(tmp4, ['init', '--agents=claude']);
+  const AG4 = path.join(tmp4, 'AGENTS.md');
+  const downgraded = fs.readFileSync(AG4, 'utf8')
+    .replace(/<!--\s*specflow:start\b.*?-->/s, '<!-- specflow:start -->')
+    + '\n## team note\nkeep me\n';
+  fs.writeFileSync(AG4, downgraded);
+  const up5 = run(tmp4, ['upgrade']);
+  check('upgrade canonicalizes bare markers to template wording, no backup', () => {
+    assert.strictEqual(up5.status, 0);
+    const out = fs.readFileSync(AG4, 'utf8');
+    assert.ok(/do not edit inside these markers/.test(out), 'marker note not re-applied');
+    assert.ok(out.includes('keep me'), 'outside text lost during canonicalize');
+    assert.ok(!fs.existsSync(AG4 + '.specflow-bak'), 'unexpected backup on a clean canonicalize');
   });
 
   // --- version ---
@@ -143,7 +160,7 @@ try {
     assert.ok(/not a git repository/i.test(init.stdout), 'no git warning');
   });
 } finally {
-  for (const d of [tmp, tmp2, tmp3]) fs.rmSync(d, { recursive: true, force: true });
+  for (const d of [tmp, tmp2, tmp3, tmp4]) fs.rmSync(d, { recursive: true, force: true });
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

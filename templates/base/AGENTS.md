@@ -1,4 +1,4 @@
-<!-- specflow:start -->
+<!-- specflow:start - managed by specflow; do not edit inside these markers (your edits block specflow upgrade). Add your own notes outside them. -->
 # AGENTS.md — Shared Agent Protocol (specflow)
 
 > **Managed by [specflow](https://github.com/MatanKoby/specflow).** Everything between the

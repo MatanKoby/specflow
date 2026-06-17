@@ -1,4 +1,4 @@
-<!-- specflow:start -->
+<!-- specflow:start - managed by specflow; do not edit inside these markers (your edits block specflow upgrade). Add your own notes outside them. -->
 # Procedure: edit the spec (or persist a design decision)
 
 Run this before editing any file under `spec/**`, or when persisting a design decision the

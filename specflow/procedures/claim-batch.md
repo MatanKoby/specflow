@@ -1,4 +1,4 @@
-<!-- specflow:start -->
+<!-- specflow:start - managed by specflow; do not edit inside these markers (your edits block specflow upgrade). Add your own notes outside them. -->
 # Procedure: claim a batch from `BUILD_QUEUE.md`
 
 Run this before starting any new batch. `AGENTS.md` carries only the pointer to this file.

@@ -22,8 +22,10 @@ const VERSION = createRequire(import.meta.url)('../package.json').version;
 // once at init and never touched.
 const MANAGED = ['AGENTS.md', 'specflow/procedures'];
 
-const START = '<!-- specflow:start -->';
-const END = '<!-- specflow:end -->';
+// Markers are matched by their `specflow:start` / `specflow:end` token, not an exact string, so the
+// human-readable note inside a marker can evolve without breaking parsing or forcing a migration.
+const START_RE = /<!--\s*specflow:start\b.*?-->/s;
+const END_RE = /<!--\s*specflow:end\b.*?-->/s;
 
 // Expand MANAGED into concrete relpaths by walking the template tree (the authoritative set).
 function managedFileList() {
@@ -41,15 +43,20 @@ function managedFileList() {
 }
 
 // Split a managed file around its single specflow region. Returns null if the markers are
-// absent or malformed (a pre-marker install, or hand-mangled).
+// absent or malformed (a pre-marker install, or hand-mangled). `startMarker`/`endMarker` carry the
+// matched marker text verbatim so the template's wording can be re-applied on a clean refresh.
 function extractRegion(content) {
-  const s = content.indexOf(START);
-  const e = content.indexOf(END);
-  if (s === -1 || e === -1 || e < s) return null;
+  const sm = content.match(START_RE);
+  const em = content.match(END_RE);
+  if (!sm || !em) return null;
+  const sEnd = sm.index + sm[0].length;
+  if (em.index < sEnd) return null;
   return {
-    before: content.slice(0, s),
-    region: content.slice(s + START.length, e),
-    after: content.slice(e + END.length),
+    before: content.slice(0, sm.index),
+    startMarker: sm[0],
+    region: content.slice(sEnd, em.index),
+    endMarker: em[0],
+    after: content.slice(em.index + em[0].length),
   };
 }
 
@@ -274,8 +281,9 @@ function cmdUpgrade() {
       continue;
     }
 
-    // Clean: swap in the fresh region, preserve everything outside the markers verbatim.
-    const updated = destParts.before + START + srcParts.region + END + destParts.after;
+    // Clean: swap in the fresh region (and the template's current marker wording), preserve
+    // everything outside the markers verbatim.
+    const updated = destParts.before + srcParts.startMarker + srcParts.region + srcParts.endMarker + destParts.after;
     if (updated !== destContent) {
       fs.writeFileSync(dest, updated);
       refreshed.push(rel);

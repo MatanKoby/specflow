@@ -1,4 +1,4 @@
-<!-- specflow:start -->
+<!-- specflow:start - managed by specflow; do not edit inside these markers (your edits block specflow upgrade). Add your own notes outside them. -->
 # Procedure: finish a claimed batch
 
 Run this when wrapping up. `AGENTS.md` carries only the pointer to this file.
