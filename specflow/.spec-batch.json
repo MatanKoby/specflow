@@ -1,0 +1,7 @@
+{
+  "kit": "specflow",
+  "kitVersion": "0.1.0",
+  "schemaVersion": 1,
+  "initializedAt": "2026-06-17",
+  "agents": "claude"
+}
