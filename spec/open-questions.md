@@ -12,11 +12,6 @@ one is settled, **move it into the design file whose concern it matches** (`arch
   `init` honest about the advisory gap — see `workflow.md` → Enforcement.)*
 
 ## CLI / upgrade behavior
-- **Upgrade redesign (non-destructive invariant) — HIGH PRIORITY.** `upgrade` must never remove or
-  overwrite text authored by a user or another agent, in any file. Replace wholesale-overwrite with
-  marker-delimited managed regions (`<!-- specflow:start/end -->`) + drift detection (warn/back-up,
-  never silently clobber). This supersedes the earlier "managed files are overwritten" framing and
-  retires the stub-refresh question. Tracked as **Batch U**.
 - **`--force`** (overwrite existing files on init instead of skipping — conflicts with the
   non-destructive principle; lean against) · **`--cwd <dir>`** (target another directory without
   cd-ing) — keep or cut? *(clarifications given; decision pending)*

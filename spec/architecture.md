@@ -42,7 +42,6 @@ requirement is that every agent honors the same protocol.
 **specflow owns the mechanism; the host owns content and state.** Hard invariant: `upgrade` is
 **non-destructive — it never removes or overwrites text authored by a user or another agent**, in
 any file. It refreshes only specflow's own marker-delimited region; everything outside is preserved.
-(The current code still wholesale-overwrites — that's the redesign in Batch U.)
 
 ## init / upgrade
 
@@ -50,15 +49,20 @@ any file. It refreshes only specflow's own marker-delimited region; everything o
   adapters, fill the stamp. Skips any file that already exists (never clobbers). Guards re-init.
 - **`upgrade`** — refreshes specflow's managed mechanism to the installed kit version and bumps the
   stamp. **Hard invariant: `upgrade` never removes or overwrites text authored by a user or another
-  agent, in any file.** The current code wholesale-overwrites `AGENTS.md` + `specflow/procedures/`,
-  which violates this if those files were edited — so the mechanism is being **redesigned** around
-  marker-delimited managed regions (`<!-- specflow:start -->` … `<!-- specflow:end -->`) + drift
-  detection: only specflow's own region is replaced, everything else is preserved, and a hand-edited
-  region is reported rather than clobbered. **Treat `upgrade` as provisional until Batch U lands.**
+  agent, in any file.** Each managed file wraps its generated content in marker-delimited regions
+  (`<!-- specflow:start -->` … `<!-- specflow:end -->`); `init` records a SHA-256 of each region in
+  the stamp's `managed` map. On `upgrade`:
+  - **Clean region** (on-disk hash matches the stored baseline) → only the content *between* the
+    markers is replaced; everything outside is preserved verbatim, and the baseline is re-recorded.
+  - **Drifted region** (hash differs — someone edited inside the markers) → left **untouched**; the
+    fresh version is written to a `<file>.specflow-new` sidecar and reported, so nothing is clobbered.
+  - **Pre-marker file** (an install predating markers) → migrated: backed up to `<file>.specflow-bak`,
+    then rewritten with markers.
 
 ## Versioning & the stamp
 
-One file: `specflow/.spec-batch.json` carrying `kitVersion` + `schemaVersion`. Procedure prose is
+One file: `specflow/.spec-batch.json` carrying `kitVersion` + `schemaVersion`, plus a `managed` map
+(per managed file → SHA-256 of its region) that powers the drift detection above. Procedure prose is
 *instructions, not data*, so a refresh replaces specflow's managed region (never user/agent text —
 see the `upgrade` invariant above) — no migration. `schemaVersion` gates the
 rare case where the **format** of the state files changes; only then is a migration needed. No
