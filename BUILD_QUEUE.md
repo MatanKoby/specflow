@@ -19,7 +19,7 @@ Completed history: [`BUILD_QUEUE_DONE.md`](BUILD_QUEUE_DONE.md) — one-paragrap
 > **Pick-order pointer.** Correctness-first: **Batch U** (non-destructive upgrade — `upgrade` is
 > provisional/unsafe until this lands). Then claimable: **Batch 1** (add-agent) · **Batch 2**
 > (status) · **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch 5**
-> (`--dry-run`). Blocked on design: **Batch W** (workflow config) · **Batch NB** (`new-batch` quick
+> (`--dry-run`). Blocked on design: **Batch W** (workflow config) · **Batch NB** (`--new-batch` quick
 > flow). Later: **Batch E** (enforcement — research-first), **Batch P** (npm publish).
 
 ---
@@ -154,7 +154,7 @@ default profile; `--profile` required non-interactively), the `workflow` stamp b
 
 ---
 
-## Batch NB `[NOT READY]` — `new-batch` / `--nb` quick flow
+## Batch NB `[NOT READY]` — `--new-batch` quick flow
 
 **Goal.** A "now-to-now" command for when the user wants something specced and queued immediately:
 it **initiates a short planning phase**, writes the result into `spec/`, then appends it to
