@@ -19,6 +19,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch U2 — Self-documenting, edit-resistant region markers
+- Owner: claude
+- Started: 2026-06-17 15:21
+
 ## Completed
 
 <!-- Recent finishes, newest first. Older entries archived to CLAIMS_DONE.md. -->
