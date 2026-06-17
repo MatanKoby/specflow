@@ -50,8 +50,12 @@ any file. It refreshes only specflow's own marker-delimited region; everything o
 - **`upgrade`** — refreshes specflow's managed mechanism to the installed kit version and bumps the
   stamp. **Hard invariant: `upgrade` never removes or overwrites text authored by a user or another
   agent, in any file.** Each managed file wraps its generated content in marker-delimited regions
-  (`<!-- specflow:start -->` … `<!-- specflow:end -->`); `init` records a SHA-256 of each region in
-  the stamp's `managed` map. On `upgrade`:
+  (`<!-- specflow:start … -->` … `<!-- specflow:end -->`); the start marker carries a "do not edit
+  inside" note (an HTML comment — invisible in rendered markdown). Markers are matched by their
+  `specflow:start` / `specflow:end` **token**, not exact text, so the note can evolve without
+  breaking parsing or forcing a migration (a clean `upgrade` canonicalizes a file's markers to the
+  template's current wording). `init` records a SHA-256 of each region in the stamp's `managed` map.
+  On `upgrade`:
   - **Clean region** (on-disk hash matches the stored baseline) → only the content *between* the
     markers is replaced; everything outside is preserved verbatim, and the baseline is re-recorded.
   - **Drifted region** (hash differs — someone edited inside the markers) → left **untouched**; the
