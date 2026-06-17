@@ -21,9 +21,6 @@ one is settled, **move it into the design file whose concern it matches** (`arch
   another dir) — keep, or cut as scope creep?
 - **NO_COLOR / non-TTY** — real bug: the CLI always emits ANSI; piping embeds escape codes. Fix.
 - **`new-batch`** — a scaffolder that appends a batch skeleton to `BUILD_QUEUE.md`. Worth it?
-- **Drift detection** — warn (and back up) before `upgrade` overwrites a hand-edited managed file.
-- **upgrade refreshes per-agent stubs?** — currently only `AGENTS.md` + procedures refresh; stub
-  improvements never reach installed repos. Refresh them too (same drift risk as `CLAUDE.md`)?
 - **upgrade changelog** — print "vX → vY changed …" on upgrade.
 - **stamp validation** — fail friendly on a corrupt/hand-edited `.spec-batch.json`.
 - **runtime Node-version guard** — friendly "needs Node 18+" instead of a cryptic crash.
