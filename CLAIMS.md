@@ -19,10 +19,25 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
-### Batch U — Non-destructive upgrade redesign
-- Owner: claude
-- Started: 2026-06-17 14:54
-
 ## Completed
 
 <!-- Recent finishes, newest first. Older entries archived to CLAIMS_DONE.md. -->
+
+### Batch U — Non-destructive upgrade redesign
+- Owner: claude
+- Started: 2026-06-17 14:54
+- Finished: 2026-06-17 14:59
+- Commit: 42cd047
+
+**What shipped.** `upgrade` no longer wholesale-overwrites managed files. Each managed file
+(`AGENTS.md` + the three procedures) wraps its generated content in `<!-- specflow:start -->` /
+`<!-- specflow:end -->` markers; `init` records a SHA-256 of each region in the stamp's new
+`managed` map. On `upgrade`: a clean region (hash matches baseline) has only its between-markers
+content replaced (everything outside preserved verbatim); a drifted region (hash differs) is left
+untouched, with the fresh version dropped to a `<file>.specflow-new` sidecar and reported; a
+pre-marker file is migrated (backed up to `<file>.specflow-bak`, then rewritten with markers).
+Implemented in `bin/specflow.js`; markers added to `templates/base/AGENTS.md` + procedures; 18-check
+smoke suite green (outside-text-survives, drift-not-clobbered, pre-marker-migration). Dogfooded:
+specflow's own root `AGENTS.md` + procedures migrated to the format, stamp now carries `managed`.
+Spec updated (`architecture.md`, `open-questions.md`). **Follow-ups deferred:** none specific to U;
+`--dry-run` (Batch 5) and `status`/drift-flag (Batch 2) build naturally on this.
