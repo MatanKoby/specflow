@@ -35,6 +35,16 @@ const C = {
   cyan: (s) => `\x1b[36m${s}\x1b[0m`,
 };
 
+function isGitRepo(dir) {
+  let cur = dir;
+  for (;;) {
+    if (fs.existsSync(path.join(cur, '.git'))) return true;
+    const parent = path.dirname(cur);
+    if (parent === cur) return false;
+    cur = parent;
+  }
+}
+
 function listFiles(dir) {
   const out = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -110,6 +120,13 @@ async function cmdInit(args) {
     return;
   }
 
+  if (!isGitRepo(targetDir)) {
+    console.log(
+      C.yellow('\n⚠ Not a git repository.') +
+        C.dim(" specflow's claim/commit workflow assumes git — run `git init` for the full flow.")
+    );
+  }
+
   const agentKeys = await pickAgents(preset);
   if (!agentKeys.length) {
     console.log(C.yellow('\nNo agents selected. Writing the universal AGENTS.md base only.\n'));
@@ -183,6 +200,7 @@ ${C.bold('specflow')} ${C.dim(VERSION)} — spec-driven batch/claim protocol for
 ${C.bold('Usage:')}
   npx specflow init [--agents=claude,cursor] [--all]   ${C.dim('scaffold into the current repo')}
   npx specflow upgrade                                 ${C.dim('refresh the managed protocol files')}
+  npx specflow --version                               ${C.dim('print the installed version')}
   npx specflow --help
 
 ${C.bold('Agents:')} ${AGENT_CHOICES.map((c) => c.key).join(', ')}
@@ -191,16 +209,24 @@ ${C.bold('Agents:')} ${AGENT_CHOICES.map((c) => c.key).join(', ')}
 
 const [, , command, ...args] = process.argv;
 (async () => {
-  switch (command) {
-    case 'init': await cmdInit(args); break;
-    case 'upgrade': cmdUpgrade(); break;
-    case undefined:
-    case '--help':
-    case '-h':
-    case 'help': usage(); break;
-    default:
-      console.log(C.yellow(`Unknown command: ${command}`));
-      usage();
-      process.exit(1);
+  try {
+    switch (command) {
+      case 'init': await cmdInit(args); break;
+      case 'upgrade': cmdUpgrade(); break;
+      case '--version':
+      case '-v':
+      case 'version': console.log(VERSION); break;
+      case undefined:
+      case '--help':
+      case '-h':
+      case 'help': usage(); break;
+      default:
+        console.log(C.yellow(`Unknown command: ${command}`));
+        usage();
+        process.exit(1);
+    }
+  } catch (err) {
+    console.error(C.yellow('\nspecflow error: ') + (err && err.message ? err.message : String(err)));
+    process.exit(1);
   }
 })();

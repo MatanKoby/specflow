@@ -6,6 +6,9 @@
     "specflow": "bin/specflow.js"
   },
   "type": "module",
+  "scripts": {
+    "test": "node test/smoke.js"
+  },
   "files": [
     "bin",
     "templates"
@@ -22,5 +25,14 @@
     "spec-driven",
     "scaffold"
   ],
-  "license": "MIT"
+  "author": "Matan Koby <matankoby88@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MatanKoby/specflow.git"
+  },
+  "homepage": "https://github.com/MatanKoby/specflow#readme",
+  "bugs": {
+    "url": "https://github.com/MatanKoby/specflow/issues"
+  }
 }
