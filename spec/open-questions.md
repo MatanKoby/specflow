@@ -5,24 +5,17 @@ one is settled, **move it into the design file whose concern it matches** (`arch
 `workflow.md`) and delete it here — don't leave it in two places.
 
 ## Speccing & approval discipline  `[HIGH]`
-- **The speccing/planning flow must force clarify-and-approve gates — the agent should ask, not
-  wing it.** Today the agent can read the queue, design a batch, and ship it end-to-end off a vague
-  "continue"; in practice it has (Batches U/U2 were designed *and* shipped — including a self-invented
-  marker-matching refinement — from a single "let's continue"). The protocol should make the agent
-  **stop, ask for clarification, and get an explicit OK before** (a) persisting a design decision to
-  `spec/`, and (b) claiming/building a batch that wasn't already approved. **"Continue" must not be
-  read as blanket authorization to design new scope.**
-- **Where it lives.** `spec-edit.md` and `claim-batch.md` already half-state this (`spec-edit.md` →
-  "don't quietly make and persist a decision" for mid-execution forks), but it's advisory and easy to
-  skip past. Decide how to harden it: sharper procedure wording, an explicit **approval-gate step** in
-  `claim-batch` (a batch that introduces new design can't be claimed until the user has OK'd the
-  design), and/or building the clarify+approve loop into the **Batch NB `--new-batch` planning flow**
-  (the planning phase asks the questions and ends on an explicit user OK before anything is written or
-  claimed).
-- **Open.** How strict by default — always-ask, or ask-only-when-new-scope-is-introduced (small
-  in-scope follow-ups still flow)? Does it couple to the workflow profile (Autonomous waives some
-  gates; Supervised / Reviewed don't)? And is the mechanism guidelines-only (honor-system, like Batch
-  E enforcement today) or an actually-enforced step?
+The two-gate **baseline is decided** and now lives in `workflow.md` → *Work-admission gates*
+(**approval → spec → batch**, both gates always on). The U/U2 incident — design *and* ship two
+batches off one "continue" — is the failure this closes. What remains open is the **mechanism**:
+- **Profile coupling** — may the **Autonomous** profile relax gate 1 (let a solo user's agent
+  self-approve *in-scope* design), or is the approval gate always-on regardless of profile?
+- **Strictness of gate 1** — always-ask, or ask-only-when-*new scope* is introduced (small in-scope
+  follow-ups flow without a fresh OK)? Needs a crisp line between "in scope" and "new scope."
+- **Mechanism** — guidelines-only (honor-system, like Batch E enforcement) or an enforced step
+  (e.g. `verify` flags a batch whose design isn't in `spec/`). Harden `spec-edit.md` /
+  `claim-batch.md` wording first; consider enforcement later. Build home: the `claim-batch` precheck
+  and/or **Batch NB**'s planning phase.
 
 ## Workflow / config flow
 - **Profile → dimension mapping** — what concrete value each profile (Autonomous / Supervised /

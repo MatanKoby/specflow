@@ -5,6 +5,26 @@ team raising a new repo that wants **accountability — PRs, review, no direct p
 getting the spec-batch, token-saving, spec-guided benefits. The setup flow must make a user
 **understand what they are authorizing the agent to do.**
 
+## Work-admission gates — the agent's authoring authority
+
+Distinct from the git levers below (which govern how *code lands*), two gates govern whether the
+agent may *author design and work* at all. **Both are always on — they are the baseline protocol,
+not a profile knob:**
+
+1. **Approval → spec.** A design decision may not be persisted to `spec/` until the user has
+   **explicitly approved** it. The agent surfaces the choice and its tradeoffs and waits; it does
+   not quietly write a decision it reached on its own. A vague "continue" authorizes finishing
+   **already-approved, in-scope** work — it is **not** authorization to open new scope.
+2. **Spec → batch.** A batch may not be created in `BUILD_QUEUE.md` unless the design it builds is
+   **already in `spec/`**. The batch entry *references* the spec; it never carries design that lives
+   nowhere else.
+
+Together: **idea → (approval) → spec → batch → claim → build.** The two upstream gates are what keep
+the agent from designing-and-shipping unprompted; the git levers below only shape the build/land
+step once work is admitted. These gates live in the procedures (`spec-edit.md` → gate 1,
+`claim-batch.md` → gate 2); hardening their wording so gate 1 can't be skipped, and whether it is
+guidelines-only or enforced, is tracked in `open-questions.md` → *Speccing & approval discipline*.
+
 ## Model: five orthogonal dimensions (not presets)
 
 Workflow is configured as independent levers, stored in `specflow/.spec-batch.json` under
