@@ -15,12 +15,12 @@ Baked a "managed by specflow; do not edit inside" note into the `specflow:start`
 comment — invisible in rendered markdown, visible in the raw file). Made marker matching token-based
 (regex on `specflow:start`/`specflow:end`) so the note can evolve without breaking parsing or forcing
 a migration; a clean `upgrade` canonicalizes a file's markers to the template's wording. Key commit
-`66442e0`. Smoke suite at 19 checks; dogfooded onto the repo's own files. No follow-ups.
+`66442e0`. Smoke suite at 19 checks; applied to the repo's own files (self-hosting). No follow-ups.
 
 ## Batch U — Non-destructive upgrade redesign
 Made `upgrade` non-destructive: managed files (`AGENTS.md` + procedures) wrap their generated content
 in `<!-- specflow:start/end -->` markers, `init` records a SHA-256 of each region in the stamp's
 `managed` map, and `upgrade` refreshes only the region — preserving everything outside, leaving a
 hand-edited (drifted) region untouched with a `.specflow-new` sidecar, and migrating pre-marker
-installs via a `.specflow-bak` backup. Key commit `42cd047`. Smoke suite at 18 checks; dogfooded onto
-specflow's own root files. No follow-ups specific to U.
+installs via a `.specflow-bak` backup. Key commit `42cd047`. Smoke suite at 18 checks; applied to
+specflow's own root files (self-hosting). No follow-ups specific to U.

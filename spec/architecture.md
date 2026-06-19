@@ -78,9 +78,9 @@ purpose to keep that rare).
 - **Now:** runnable from GitHub — `npx github:MatanKoby/specflow init`. No registry needed.
 - **Later:** publish to npm for `npx specflow init`. The package ships **only the `files`
   allowlist** (`bin/` + `templates/` + auto LICENSE/README/package.json). Because it's an allowlist,
-  this repo dogfooding the protocol at its own root does not leak those files into the package.
+  this repo self-hosting the protocol at its own root does not leak those files into the package.
 - **Caveat:** a future Claude-plugin packaging must target `templates/agents/claude/.claude/`, never
-  a dogfood `.claude/` at the repo root.
+  a self-hosted `.claude/` at the repo root.
 
 ## SaaS frontier (later)
 

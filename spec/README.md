@@ -8,7 +8,7 @@ every batch is claimed in git (`CLAIMS.md`) before code is written — so multip
 can share a branch without colliding, and progress survives a crashed machine.
 
 > specflow uses specflow. This `spec/` (and the root `AGENTS.md` / `BUILD_QUEUE.md` / `CLAIMS.md`)
-> are the project dogfooding its own protocol. They do **not** ship in the npm package — only
+> are the project self-hosting its own protocol. They do **not** ship in the npm package — only
 > `bin/` + `templates/` do (see `architecture.md` → Distribution).
 
 The spec is split across concern-focused files. Each file is small and edited as a unit. Edit via

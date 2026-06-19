@@ -36,8 +36,8 @@ markdown). To keep that safe, `extractRegion` matches markers by their `specflow
 **token** (regex `START_RE`/`END_RE`) rather than an exact string, and returns the matched marker
 text; the clean-path rewrite re-applies the *template's* marker wording, so the note can evolve
 without breaking parsing or forcing a migration. Smoke suite at 19 checks (added: marker-wording
-change is canonicalized, outside text preserved, no backup). Dogfooded: ran `upgrade` on the repo
-root — only the marker line changed in each managed file. No follow-ups.
+change is canonicalized, outside text preserved, no backup). Self-hosting check: ran `upgrade` on the
+repo root — only the marker line changed in each managed file. No follow-ups.
 
 ### Batch U — Non-destructive upgrade redesign
 - Owner: claude
@@ -53,7 +53,7 @@ content replaced (everything outside preserved verbatim); a drifted region (hash
 untouched, with the fresh version dropped to a `<file>.specflow-new` sidecar and reported; a
 pre-marker file is migrated (backed up to `<file>.specflow-bak`, then rewritten with markers).
 Implemented in `bin/specflow.js`; markers added to `templates/base/AGENTS.md` + procedures; 18-check
-smoke suite green (outside-text-survives, drift-not-clobbered, pre-marker-migration). Dogfooded:
+smoke suite green (outside-text-survives, drift-not-clobbered, pre-marker-migration). Self-hosting:
 specflow's own root `AGENTS.md` + procedures migrated to the format, stamp now carries `managed`.
 Spec updated (`architecture.md`, `open-questions.md`). **Follow-ups deferred:** none specific to U;
 `--dry-run` (Batch 5) and `status`/drift-flag (Batch 2) build naturally on this.
