@@ -9,21 +9,48 @@ getting the spec-batch, token-saving, spec-guided benefits. The setup flow must 
 
 Distinct from the git levers below (which govern how *code lands*), two gates govern whether the
 agent may *author design and work* at all. **Both are always on — they are the baseline protocol,
-not a profile knob:**
+not a profile knob.** No profile, Autonomous included, relaxes them; profiles govern git/build
+autonomy only.
 
 1. **Approval → spec.** A design decision may not be persisted to `spec/` until the user has
-   **explicitly approved** it. The agent surfaces the choice and its tradeoffs and waits; it does
-   not quietly write a decision it reached on its own. A vague "continue" authorizes finishing
-   **already-approved, in-scope** work — it is **not** authorization to open new scope.
+   **explicitly approved** it. The agent *recommends and proposes* how something should work and
+   surfaces the tradeoffs, then waits — it does not write a design it settled on its own. A vague
+   "continue" authorizes finishing **already-approved, in-scope** work; it is **not** authorization
+   to open new scope.
 2. **Spec → batch.** A batch may not be created in `BUILD_QUEUE.md` unless the design it builds is
    **already in `spec/`**. The batch entry *references* the spec; it never carries design that lives
    nowhere else.
 
-Together: **idea → (approval) → spec → batch → claim → build.** The two upstream gates are what keep
-the agent from designing-and-shipping unprompted; the git levers below only shape the build/land
-step once work is admitted. These gates live in the procedures (`spec-edit.md` → gate 1,
-`claim-batch.md` → gate 2); hardening their wording so gate 1 can't be skipped, and whether it is
-guidelines-only or enforced, is tracked in `open-questions.md` → *Speccing & approval discipline*.
+Together: **idea → (approval) → spec → batch → claim → build.**
+
+### Who decides what
+
+- **The user owns the design.** Broad strokes, wanted functionality, and *how a thing should
+  operate* are the user's call. The agent recommends, lays out options/tradeoffs, and asks — then
+  implements what the user approves.
+- **The agent owns the code.** Once the design is settled, *how* it is implemented (internal
+  structure, naming, algorithm, file layout) is the agent's call — unless the user specified
+  otherwise.
+- **A clash is a stop.** If new design collides with something already decided, the agent raises it
+  and asks for direction rather than resolving it itself.
+
+### The two phases
+
+- **Spec phase — dialogue; the user decides.** The agent asks about anything unfilled and raises
+  every question that arises; the user answers; they converge until the spec is complete.
+- **Implementation phase — conditional autonomy.** When the spec is complete enough to build
+  *without further questions*, the agent implements autonomously. The moment a real question
+  surfaces mid-build, it **stops and asks** rather than guessing.
+
+**The test for "is this mine to decide?"** — if a choice affects *what the thing does or how it
+behaves* (anything the user would plausibly have a view on), it is design: propose and get approval.
+If it only affects *how the code achieves an already-approved behavior*, it is the agent's. When
+genuinely unsure which side a choice falls on, treat it as design and ask.
+
+These gates live in the procedures (`spec-edit.md` → gate 1, `claim-batch.md` → gate 2). How
+strictly they are *enforced* — written guidelines vs. an executable check — is the one piece still
+open (see `open-questions.md` → *Speccing & approval discipline*); v1 is guidelines-only, consistent
+with enforcement generally (see Enforcement below / Batch E).
 
 ## Model: five orthogonal dimensions (not presets)
 

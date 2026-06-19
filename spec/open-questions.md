@@ -4,18 +4,16 @@ Decisions still under discussion, kept here so they survive beyond any single wo
 one is settled, **move it into the design file whose concern it matches** (`architecture.md` or
 `workflow.md`) and delete it here — don't leave it in two places.
 
-## Speccing & approval discipline  `[HIGH]`
-The two-gate **baseline is decided** and now lives in `workflow.md` → *Work-admission gates*
-(**approval → spec → batch**, both gates always on). The U/U2 incident — design *and* ship two
-batches off one "continue" — is the failure this closes. What remains open is the **mechanism**:
-- **Profile coupling** — may the **Autonomous** profile relax gate 1 (let a solo user's agent
-  self-approve *in-scope* design), or is the approval gate always-on regardless of profile?
-- **Strictness of gate 1** — always-ask, or ask-only-when-*new scope* is introduced (small in-scope
-  follow-ups flow without a fresh OK)? Needs a crisp line between "in scope" and "new scope."
-- **Mechanism** — guidelines-only (honor-system, like Batch E enforcement) or an enforced step
-  (e.g. `verify` flags a batch whose design isn't in `spec/`). Harden `spec-edit.md` /
-  `claim-batch.md` wording first; consider enforcement later. Build home: the `claim-batch` precheck
-  and/or **Batch NB**'s planning phase.
+## Speccing & approval discipline
+The gates, the division of authority, the two phases, and the "is this mine to decide?" test are
+all **decided** and live in `workflow.md` → *Work-admission gates*. Profile coupling is resolved
+(gates are always-on, profile-independent) and gate-1 strictness is resolved (the
+in-scope-vs-new-scope test). The **one open piece** is the *mechanism*:
+- **Guidelines-only vs. enforced.** v1 is guidelines-only (honor-system, consistent with Batch E).
+  Open: whether/when to add an executable check — e.g. `verify` flags a batch whose design isn't in
+  `spec/`, or a claim-time precheck. Harden `spec-edit.md` / `claim-batch.md` wording first; fold
+  any executable enforcement into **Batch E**. Build home for the wording: a procedure-hardening
+  batch (+ optionally **Batch NB**'s planning phase).
 
 ## Workflow / config flow
 - **Profile → dimension mapping** — what concrete value each profile (Autonomous / Supervised /
