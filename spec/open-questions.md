@@ -35,16 +35,20 @@ in-scope-vs-new-scope test). The **one open piece** is the *mechanism*:
 - **stamp validation** — fail friendly on a corrupt/hand-edited `.spec-batch.json`.
 
 ## init UX (brownfield)
-- **Consent flow for `init` injection.** The two-phase inject-with-consent flow is decided (see
-  `architecture.md` → init / upgrade); three details remain:
-  - **Granularity** — per-file consent (one allow/deny per existing file we'd modify), or a single
-    batched "here's everything we'd inject; allow?" *(lean: per-file — most transparent.)*
-  - **Declining the mandatory `AGENTS.md` region** — if the user refuses the universal `AGENTS.md`
-    injection (the base every agent reads), does `init` abort, or proceed without it (specflow won't
-    actually function)? *(lean: abort, with an explanation.)*
-  - **Non-interactive consent** — `--agents=` / `--all` / CI have no human to prompt; add a `--yes`
-    (grant-all) flag? What is the default when there is neither a TTY nor `--yes`? *(lean: require
-    `--yes` to inject into existing files non-interactively; refuse otherwise.)*
+- **Consent flow for `init` injection.** Two-phase inject-with-consent is decided (see
+  `architecture.md` → init / upgrade). **Settled: batched consent** — `init` shows everything it
+  would inject + why and asks once; the user may allow, then review `git diff` and remove anything,
+  warned that specflow may be limited if required pieces go; `specflow verify` re-checks integrity.
+  Still open:
+  - **What counts as required vs. per-agent-optional** — being worked from the dependency list; the
+    chosen handling is **warn-not-abort** (confirm).
+  - **Non-interactive consent** — flag-driven `init` (`--agents=` / `--all`, used by agents/CI with
+    no human to prompt): grant via a `--yes` flag and refuse to modify existing files without it?
+    *(under discussion.)*
+- **`verify` scope** — `specflow verify` is referenced by the init review handoff to re-check
+  install integrity (required files present, managed blocks intact). Open: is that the **same**
+  command as the Batch E enforcement validator (claim-before-work, commit grammar), or a separate
+  integrity / `doctor` check? See `BUILD_QUEUE.md` → Batch E.
 
 ## Quality / enforcement (later)
 - **ESLint + Prettier in CI** — adopt as the code grows.

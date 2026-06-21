@@ -57,16 +57,20 @@ consent and never commits** (see below).
   2. **Phase 1 — files to modify (inject).** specflow's contribution to a shared agent file is a
      marker-wrapped *region*. For every target file that **already exists** (`AGENTS.md` always; each
      selected agent's instruction file as applicable), `init` shows *what* region it will inject and
-     *why*, and asks the user to allow it. Existing content is preserved — the region is inserted
-     between markers (the non-destructive model, applied at init time).
+     *why*, then asks **once** to allow the whole set (batched consent, not per-file). Existing
+     content is preserved — the region is inserted between markers (the non-destructive model,
+     applied at init time).
   3. **Phase 2 — files to create.** `init` then explains the specflow-owned files it will create
      fresh (`BUILD_QUEUE.md`, `CLAIMS.md`, `spec/`, `specflow/**`, the skills) and why.
   4. **Write** the approved modifications + creations and fill the stamp, while tracking its **own**
      list of every file it created or modified (not derived from `git` — the tree may carry
      unrelated changes).
-  5. **Hand off for review.** Print that tracked created/modified list and ask the user to run
-     `git diff` and verify the modified files (e.g. `AGENTS.md`) were not damaged, then commit when
-     satisfied. Re-init is guarded (a stamp already present → bail).
+  5. **Hand off for review.** Print the tracked created/modified list and tell the user they can
+     review `git diff` and remove anything unwanted — with the caveat that **specflow may be limited
+     or not work properly in some contexts** if required pieces are removed — then commit when
+     satisfied. Point them at **`specflow verify`**, which re-checks install integrity (a required
+     file missing, or present but missing its managed block). Re-init is guarded (a stamp already
+     present → bail).
 - **`upgrade`** — refreshes specflow's managed mechanism to the installed kit version and bumps the
   stamp. **Hard invariant: `upgrade` never removes or overwrites text authored by a user or another
   agent, in any file.** Each managed file wraps its generated content in marker-delimited regions
