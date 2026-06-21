@@ -77,6 +77,17 @@ Resolve them, then build.
 - `specflow init --help` and `specflow upgrade --help` (per-subcommand help) alongside the existing
   top-level `specflow --help`; tier-aware notices on declined/missing pieces (Tier 1 → can't work
   properly; Tier 3 → that agent isn't auto-wired, works once its file points at `AGENTS.md`).
+- **Idempotent injection:** for a per-agent file, inject only when needed — refresh an existing
+  specflow region (markers), and skip with an "already wired" note when the file already references
+  `AGENTS.md`.
+- **Relocate the `_DONE` archives** to `specflow/history/` (`BUILD_QUEUE_DONE.md`, `CLAIMS_DONE.md`)
+  and update every path reference (`AGENTS.md`, procedures, templates); active queue + claims stay at
+  root.
+- A basic **`specflow verify`** (install-integrity facet) for the review handoff to point at:
+  Tier 1 present & valid, managed blocks intact, Tier 3 agent files present / pointing at `AGENTS.md`.
+
+> **Note:** BI has grown into the pre-release file-contract + init-UX overhaul. Propose a split into
+> sub-batches at claim time if it's too big for one pass.
 
 ### Files this batch creates/edits
 - `cmd/specflow/` + `internal/kit/` (two-phase flow, injection, consent, self-tracking) ·
