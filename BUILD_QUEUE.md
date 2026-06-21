@@ -72,7 +72,11 @@ Resolve them, then build.
   inject it between markers (existing content preserved); (2) explain the specflow-owned files
   before creating them.
 - `init` tracks its **own** created/modified list and prints it with a "review `git diff`, verify
-  nothing was damaged, then commit" handoff. `init` never commits.
+  nothing was damaged, then commit" handoff. `init` never commits. Non-interactive `init` proceeds
+  with the modifications and tells the user to check `git status` (no `--yes` flag).
+- `specflow init --help` and `specflow upgrade --help` (per-subcommand help) alongside the existing
+  top-level `specflow --help`; tier-aware notices on declined/missing pieces (Tier 1 → can't work
+  properly; Tier 3 → that agent isn't auto-wired, works once its file points at `AGENTS.md`).
 
 ### Files this batch creates/edits
 - `cmd/specflow/` + `internal/kit/` (two-phase flow, injection, consent, self-tracking) ·
