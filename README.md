@@ -15,21 +15,28 @@ to parallelize:
 It's plain markdown + git. Every agent (Claude Code, Cursor, Copilot, IBM Bob, Google
 Antigravity, and any tool that reads `AGENTS.md`) honors the same protocol.
 
+## Install
+
+specflow is a single binary — **no runtime (Node, Python, …) required**.
+
+```bash
+# With Go installed (works today):
+go install github.com/MatanKoby/specflow/cmd/specflow@latest
+```
+
+Prebuilt binaries with **no Go required** — a `curl … | sh` script and **Homebrew** — land with the
+release pipeline (see [Roadmap](#roadmap)).
+
 ## Quick start
 
 ```bash
 # In the repo you want to set up:
-npx github:MatanKoby/specflow init        # interactive — pick your agents
-# (once published to npm:)
-npx specflow init
+specflow init                          # interactive — pick your agents
+specflow init --agents=claude,cursor   # non-interactive
+specflow init --all
 ```
 
-`init` asks which agents will work in the repo and scaffolds the protocol files. Non-interactive:
-
-```bash
-npx github:MatanKoby/specflow init --agents=claude,cursor
-npx github:MatanKoby/specflow init --all
-```
+`init` asks which agents will work in the repo and scaffolds the protocol files.
 
 ## What it installs
 
@@ -64,7 +71,7 @@ without a dedicated stub.
 ## Upgrade
 
 ```bash
-npx github:MatanKoby/specflow upgrade
+specflow upgrade
 ```
 
 Refreshes only the managed files (`AGENTS.md` + `specflow/procedures/`) and bumps the version
@@ -75,15 +82,17 @@ stay rare.
 ## Setting it up via your agent
 
 You don't have to run the CLI yourself — point your agent at this repo and say:
-*"Set up specflow in this project — run `npx github:MatanKoby/specflow init` and pick Claude
-Code + Cursor."* Then ask it to read `AGENTS.md` and claim a batch.
+*"Set up specflow in this project — install it (`go install
+github.com/MatanKoby/specflow/cmd/specflow@latest`), run `specflow init`, and pick Claude Code +
+Cursor."* Then ask it to read `AGENTS.md` and claim a batch.
 
 ## Roadmap
 
 - **Now:** the authoring loop (spec → queue → claim → build), cross-agent.
-- **Next:** publish to npm for `npx specflow`.
-- **Later (opt-in):** `protocol-check` — an executable that enforces the invariants (claim-before-work,
-  commit grammar, no-state-in-queue) at git-hook / CI chokepoints.
+- **Next:** prebuilt binaries — `curl | sh` + Homebrew — published to GitHub Releases, so no Go is
+  needed to install.
+- **Later (opt-in):** `specflow verify` — an executable that enforces the invariants
+  (claim-before-work, commit grammar, no-state-in-queue) at git-hook / CI chokepoints.
 - **Later:** a hosted tier that authors/syncs spec + queue into the repo (the file-contract is
   the API; the git tier never depends on it).
 
