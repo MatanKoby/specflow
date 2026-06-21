@@ -19,6 +19,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch G1 — Port the CLI to Go (full replace)
+- Owner: claude
+- Started: 2026-06-21 05:02
+
 ## Completed
 
 <!-- Recent finishes, newest first. Older entries archived to CLAIMS_DONE.md. -->
