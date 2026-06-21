@@ -16,10 +16,72 @@ Completed history: [`BUILD_QUEUE_DONE.md`](BUILD_QUEUE_DONE.md) — one-paragrap
 
 ## Un-done batches
 
-> **Pick-order pointer.** Claimable now: **Batch 1** (add-agent) · **Batch 2** (status) ·
-> **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch 5** (`--dry-run`).
-> Blocked on design: **Batch W** (workflow config) · **Batch NB** (`--new-batch` quick flow).
-> Later: **Batch E** (enforcement — research-first), **Batch P** (npm publish).
+> **Pick-order pointer.** **Now: Batch G1** (port the CLI to Go — full replace) → **Batch G2**
+> (Go release + install pipeline). G1 changes the implementation language, so the CLI batches below
+> (**1** add-agent, **2** status, **5** `--dry-run`) then target the **Go** CLI, not `bin/specflow.js`.
+> After G1/G2: **Batch 1** · **Batch 2** · **Batch 3** (broaden tests) · **Batch 4** (badges +
+> file-map) · **Batch 5**. Blocked on design: **Batch W** (workflow config) · **Batch NB**
+> (`--new-batch` quick flow). Later: **Batch E** (enforcement — research-first), **Batch P**
+> (now reduced to the optional npm-wrapper front-end — GitHub Releases is the primary host via G2).
+
+---
+
+## Batch G1 — Port the CLI to Go (full replace)
+
+**Goal.** Replace the Node CLI (`bin/specflow.js`) with a single statically-compiled Go binary at
+functional parity — same observable behavior for `init` / `upgrade` / `--version` / `--help`
+(see `architecture.md` → init / upgrade and Distribution). Decided 2026-06-21.
+
+### Deliverables
+- Go module (`go.mod`, `main.go` + internal packages) implementing: `init` (agent picker, `--agents=`,
+  `--all`, skip-existing, stamp fill with version/date/agents, managed-region baseline record);
+  `upgrade` (marker-**token** regions, SHA-256 drift, clean / drift→`.specflow-new` / migrate→
+  `.specflow-bak` / add paths); `--version` / `-v`; `--help` / `-h`; unknown-command exit ≠ 0;
+  non-git warning.
+- Templates embedded with `//go:embed all:templates` — the `all:` prefix is **mandatory** so dotfiles
+  and dot-dirs (`.claude/`, `.cursor/`, `.github/`, `.agents/`, `.bob/`, `.spec-batch.json`) are
+  included (the Go analogue of the npm dropped-dotfile footgun).
+- Version stamped at build time (ldflags), surfaced by `--version` and written into the install stamp.
+- Behavioral tests ported to Go (`go test` builds + runs the binary against temp dirs), covering the
+  current 19 smoke checks.
+- Remove the Node CLI: delete `bin/specflow.js`, `package.json`, `test/smoke.js`; update `.gitignore`
+  and CI to build + test Go (`go build` / `go test` / `go vet`) in place of the Node matrix.
+
+### Files this batch creates/edits
+- `go.mod`, `main.go`, `internal/**` (new) · delete `bin/`, `package.json`, `test/smoke.js` ·
+  `.github/workflows/**` (Go CI) · `README.md` (install/usage).
+
+### Verification
+- `go build` + `go test` green; `go vet` clean. Manual: `init` into a temp repo (templates land
+  byte-for-byte identical to the Node output), `upgrade` exercises clean/drift/migrate, `--version`.
+- Self-host: re-run against this repo root — managed regions refresh, nothing outside markers moves.
+
+---
+
+## Batch G2 — Go release + install pipeline
+
+**Goal.** Ship the binary with zero runtime: GitHub Releases as the artifact host, plus the v1
+install front-ends (curl|sh + Homebrew). See `architecture.md` → Distribution. Depends on G1.
+
+### Deliverables
+- **GoReleaser** config: cross-compile matrix (macOS arm64/x64, Linux x64/arm64, Windows x64),
+  archives + SHA-256 checksums.
+- **GitHub Action** on a `v*` tag → runs GoReleaser → publishes the GitHub Release with all artifacts.
+- **`curl … | sh` installer** that detects OS/arch and fetches the matching binary from the latest
+  release.
+- **Homebrew tap** formula (GoReleaser-generated) → `brew install`.
+- README install section rewritten to the binary flow.
+
+### Deferred (post-v1 — see `open-questions.md` → Distribution)
+- npm wrapper (`npx specflow` via prebuilt binary, esbuild-style) · Scoop/Winget (Windows).
+
+### Files this batch creates/edits
+- `.goreleaser.yaml` · `.github/workflows/release.yml` · `install.sh` · Homebrew tap (separate repo
+  or `homebrew/` dir) · `README.md`.
+
+### Verification
+- A test tag produces a draft release with every platform archive + a checksums file.
+- `curl … | sh` installs a working binary on Linux; `brew install` from the tap works on macOS.
 
 ---
 
@@ -173,7 +235,9 @@ then drafts the sub-batches.
 
 ---
 
-## Batch P `[NOT READY]` — npm publish + automated release
+## Batch P `[NOT READY]` — optional npm-wrapper front-end
 
-**Goal.** Publish to npm (enables `npx specflow`); GitHub Action publishes on `v*` tag. Claim only
-when the user decides to publish.
+**Superseded 2026-06-21.** Primary distribution is now a Go binary on **GitHub Releases** via Batch
+G2 (GoReleaser) — not npm. This batch is reduced to the **optional npm wrapper**: an npm package that
+fetches the prebuilt binary so `npx specflow` still works for the JS ecosystem (esbuild pattern).
+Claim only if we decide to also serve `npx`. See `open-questions.md` → Distribution.
