@@ -34,6 +34,18 @@ in-scope-vs-new-scope test). The **one open piece** is the *mechanism*:
 - **upgrade changelog** — print "vX → vY changed …" on upgrade.
 - **stamp validation** — fail friendly on a corrupt/hand-edited `.spec-batch.json`.
 
+## init UX (brownfield)
+- **Consent flow for `init` injection.** The two-phase inject-with-consent flow is decided (see
+  `architecture.md` → init / upgrade); three details remain:
+  - **Granularity** — per-file consent (one allow/deny per existing file we'd modify), or a single
+    batched "here's everything we'd inject; allow?" *(lean: per-file — most transparent.)*
+  - **Declining the mandatory `AGENTS.md` region** — if the user refuses the universal `AGENTS.md`
+    injection (the base every agent reads), does `init` abort, or proceed without it (specflow won't
+    actually function)? *(lean: abort, with an explanation.)*
+  - **Non-interactive consent** — `--agents=` / `--all` / CI have no human to prompt; add a `--yes`
+    (grant-all) flag? What is the default when there is neither a TTY nor `--yes`? *(lean: require
+    `--yes` to inject into existing files non-interactively; refuse otherwise.)*
+
 ## Quality / enforcement (later)
 - **ESLint + Prettier in CI** — adopt as the code grows.
 - **Enforcement → Batch E (research-first).** Today enforcement is honor-system, exactly as in
