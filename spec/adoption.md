@@ -7,7 +7,10 @@ existing, unspecced code without violating the work-admission gates (`workflow.m
 ## Model: incremental by default, assisted backfill optional
 
 specflow does **not** require reverse-documenting a whole codebase before use. `init` scaffolds an
-empty `spec/` as usual; the spec grows to cover only what you actually touch.
+empty `spec/` as usual; the spec grows to cover only what you actually touch. Even installation is
+brownfield-aware: `init` **injects** specflow's marker-wrapped region into existing agent files (with
+per-file consent) instead of skipping them, and never commits — see `architecture.md` → init /
+upgrade.
 
 - **Just-in-time spec (default).** Before working an area, spec *that area* first (the gate in
   `spec-edit.md` already requires this), then batch + build. Existing code stays as-is until a batch
