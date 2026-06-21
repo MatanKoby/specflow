@@ -16,45 +16,12 @@ Completed history: [`BUILD_QUEUE_DONE.md`](BUILD_QUEUE_DONE.md) — one-paragrap
 
 ## Un-done batches
 
-> **Pick-order pointer.** **Now: Batch G1** (port the CLI to Go — full replace) → **Batch G2**
-> (Go release + install pipeline). G1 changes the implementation language, so the CLI batches below
-> (**1** add-agent, **2** status, **5** `--dry-run`) then target the **Go** CLI, not `bin/specflow.js`.
-> After G1/G2: **Batch 1** · **Batch 2** · **Batch 3** (broaden tests) · **Batch 4** (badges +
-> file-map) · **Batch 5**. Blocked on design: **Batch W** (workflow config) · **Batch NB**
-> (`--new-batch` quick flow). Later: **Batch E** (enforcement — research-first), **Batch P**
-> (now reduced to the optional npm-wrapper front-end — GitHub Releases is the primary host via G2).
-
----
-
-## Batch G1 — Port the CLI to Go (full replace)
-
-**Goal.** Replace the Node CLI (`bin/specflow.js`) with a single statically-compiled Go binary at
-functional parity — same observable behavior for `init` / `upgrade` / `--version` / `--help`
-(see `architecture.md` → init / upgrade and Distribution). Decided 2026-06-21.
-
-### Deliverables
-- Go module (`go.mod`, `main.go` + internal packages) implementing: `init` (agent picker, `--agents=`,
-  `--all`, skip-existing, stamp fill with version/date/agents, managed-region baseline record);
-  `upgrade` (marker-**token** regions, SHA-256 drift, clean / drift→`.specflow-new` / migrate→
-  `.specflow-bak` / add paths); `--version` / `-v`; `--help` / `-h`; unknown-command exit ≠ 0;
-  non-git warning.
-- Templates embedded with `//go:embed all:templates` — the `all:` prefix is **mandatory** so dotfiles
-  and dot-dirs (`.claude/`, `.cursor/`, `.github/`, `.agents/`, `.bob/`, `.spec-batch.json`) are
-  included (the Go analogue of the npm dropped-dotfile footgun).
-- Version stamped at build time (ldflags), surfaced by `--version` and written into the install stamp.
-- Behavioral tests ported to Go (`go test` builds + runs the binary against temp dirs), covering the
-  current 19 smoke checks.
-- Remove the Node CLI: delete `bin/specflow.js`, `package.json`, `test/smoke.js`; update `.gitignore`
-  and CI to build + test Go (`go build` / `go test` / `go vet`) in place of the Node matrix.
-
-### Files this batch creates/edits
-- `go.mod`, `main.go`, `internal/**` (new) · delete `bin/`, `package.json`, `test/smoke.js` ·
-  `.github/workflows/**` (Go CI) · `README.md` (install/usage).
-
-### Verification
-- `go build` + `go test` green; `go vet` clean. Manual: `init` into a temp repo (templates land
-  byte-for-byte identical to the Node output), `upgrade` exercises clean/drift/migrate, `--version`.
-- Self-host: re-run against this repo root — managed regions refresh, nothing outside markers moves.
+> **Pick-order pointer.** **Now: Batch G2** (Go release + install pipeline — GoReleaser → GitHub
+> Releases + `curl|sh` + Homebrew). The CLI is Go (Batch G1, done), so every batch below targets the
+> **Go** CLI (`cmd/specflow` + `internal/kit`). After G2: **Batch 1** (add-agent) · **Batch 2**
+> (status) · **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch 5** (`--dry-run`).
+> Blocked on design: **Batch W** (workflow config) · **Batch NB** (`--new-batch` quick flow). Later:
+> **Batch E** (enforcement — research-first), **Batch P** (optional npm-wrapper front-end).
 
 ---
 

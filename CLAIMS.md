@@ -19,11 +19,27 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch G1 — Port the CLI to Go (full replace)
 - Owner: claude
 - Started: 2026-06-21 05:02
+- Finished: 2026-06-21 06:16
+- Commit: ac82cec
 
-## Completed
+**What shipped.** The CLI is now a single statically-compiled **Go binary** (`cmd/specflow` +
+`internal/kit`), replacing the Node `bin/specflow.js` at functional parity (`init`, `upgrade`,
+`--version`, `--help`, unknown-command exit, non-git warning). Templates are embedded via
+`//go:embed all:templates` (the `all:` prefix keeps the dotfiles — `.claude/`, `.cursor/`, etc.).
+The smoke suite was ported to `go test`, which builds and drives the real binary against temp repos.
+Verified parity three ways: `init` output is **byte-identical** to the Node CLI, the stamp is
+semantically identical (managed SHA-256 hashes match), and `upgrade` is a clean idempotent no-op;
+self-hosted by running the Go `upgrade` on this repo (regions untouched, only the stamp bumped).
+Node files removed (`bin/specflow.js`, `package.json`, `test/smoke.js`); CI switched to
+`go vet`/`build`/`test` on ubuntu + macos; `.gitignore` drops node_modules, adds `/dist/`; README +
+`architecture.md` file-map updated to the Go layout; pending batches (1/2/3/5/W/NB) retargeted from
+Node to Go; the obsolete Node-version-guard open question dropped. **Follow-up:** Batch G2 — the
+GoReleaser → GitHub Releases pipeline with `curl|sh` + Homebrew front-ends — ships the binary.
 
 <!-- Recent finishes, newest first. Older entries archived to CLAIMS_DONE.md. -->
 
