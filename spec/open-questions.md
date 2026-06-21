@@ -43,11 +43,9 @@ in-scope-vs-new-scope test). The **one open piece** is the *mechanism*:
 - **npm-pack-manifest test** — assert every template file ships (guards the dropped-dotfile footgun).
 
 ## Distribution
-- **Go binary rollout specifics.** *(Decided 2026-06-21: distribution is a single statically-compiled
-  Go binary on GitHub Releases via GoReleaser — see `architecture.md` → Distribution.)* Still to
-  settle: **(a) replace vs. dual** — does the Go binary fully replace the Node CLI, or run alongside
-  it (lean: full replace — one implementation to maintain); **(b) v1 install front-ends** — which of
-  `curl|sh` / Homebrew / Scoop·Winget / npm-wrapper ship in v1 vs. later; **(c) sequencing** —
-  rewrite now, or keep using the current Node CLI on real projects and port to Go in parallel.
+- **Additional install front-ends (post-v1).** *(Decided 2026-06-21: the Go binary fully replaces
+  the Node CLI; v1 ships `curl|sh` + Homebrew; the rewrite proceeds now — see `architecture.md` →
+  Distribution and `BUILD_QUEUE.md` → Batches G1/G2.)* Open: whether to add an **npm wrapper**
+  (`npx specflow` via prebuilt binary, esbuild-style) and **Scoop/Winget** (Windows) after v1.
 - **Automated npm release on tag** — when we decide to publish.
 - **Optional Claude plugin** — ship the skills globally for Claude users, in addition to `init`.

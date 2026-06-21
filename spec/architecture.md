@@ -85,11 +85,11 @@ ported to Go — see `BUILD_QUEUE.md`. Decided 2026-06-21.)
   cross-compiles per OS/arch (macOS arm64/x64, Linux x64/arm64, Windows x64), attaches archives +
   checksums to the release, and can update a Homebrew tap / Scoop manifest in the same run. GitHub
   Releases *is* the registry — no npm/PyPI account needed to host the binary.
-- **Install front-ends** (all resolve to the same release binary; the v1 set is being finalized —
-  see `open-questions.md` → Distribution): a `curl … | sh` script that detects OS/arch; **Homebrew**
-  for macOS/Linux; **Scoop/Winget** for Windows; and optionally an **npm wrapper** that fetches the
-  prebuilt binary so `npx specflow` still works for the JS ecosystem (the esbuild pattern).
-  `go install …@latest` works as a bonus for users who have Go.
+- **Install front-ends.** v1 ships two, both resolving to the same release binary: a `curl … | sh`
+  script that detects OS/arch, and **Homebrew** (`brew install`) for macOS/Linux. Deferred post-v1
+  (see `open-questions.md` → Distribution): an **npm wrapper** so `npx specflow` still works for the
+  JS ecosystem (esbuild pattern), and **Scoop/Winget** for Windows. `go install …@latest` works as a
+  bonus for users who have Go.
 - **Templates travel inside the binary** (Go `embed`), so there is no separate `files` allowlist to
   curate and the repo self-hosting the protocol at its own root never leaks into the shipped artifact.
 - **Caveat:** a future Claude-plugin packaging must target `templates/agents/claude/.claude/`, never
