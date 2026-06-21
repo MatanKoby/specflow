@@ -33,7 +33,6 @@ in-scope-vs-new-scope test). The **one open piece** is the *mechanism*:
   *(not yet user-approved)*
 - **upgrade changelog** — print "vX → vY changed …" on upgrade.
 - **stamp validation** — fail friendly on a corrupt/hand-edited `.spec-batch.json`.
-- **runtime Node-version guard** — friendly "needs Node 18+" instead of a cryptic crash.
 
 ## Quality / enforcement (later)
 - **ESLint + Prettier in CI** — adopt as the code grows.
