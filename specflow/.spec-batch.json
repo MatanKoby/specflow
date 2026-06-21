@@ -1,14 +1,14 @@
 {
+  "agents": "claude",
+  "initializedAt": "2026-06-17",
   "kit": "specflow",
   "kitVersion": "0.1.0",
-  "schemaVersion": 1,
-  "initializedAt": "2026-06-17",
-  "agents": "claude",
-  "upgradedAt": "2026-06-17",
   "managed": {
     "AGENTS.md": "3ef8c46c2bb2baee6a695b6a0b99c9779d19a39e0aca3a0bfc6a781449921c29",
     "specflow/procedures/claim-batch.md": "4ac78475e1fca57a75079ebf90d0eee1c20bef89ec8648db41610595310280c5",
     "specflow/procedures/finish-batch.md": "87a3a27ab8b96ca51bfece345c94f41736a5b21b7284d41bb9e9445355420202",
     "specflow/procedures/spec-edit.md": "3af4e8f8f961d32e7a21f9a394277e820da05105d6664aa3217e129afc828148"
-  }
+  },
+  "schemaVersion": 1,
+  "upgradedAt": "2026-06-21"
 }
