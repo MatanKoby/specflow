@@ -96,10 +96,10 @@ one agent's adapter into an already-initialized repo and records it in the stamp
 - Errors cleanly if specflow isn't installed here, or the agent is unknown/already present.
 
 ### Files this batch creates/edits
-- `bin/specflow.js` (new command + shared copy helpers) · `test/smoke.js` (coverage).
+- `cmd/specflow/` + `internal/kit/` (new command + shared helpers) · `cmd/specflow/main_test.go` (coverage).
 
 ### Verification
-- `npm test`; manual: init with one agent, `add-agent` a second, confirm files + stamp.
+- `go test ./...`; manual: init with one agent, `add-agent` a second, confirm files + stamp.
 
 ---
 
@@ -112,10 +112,10 @@ one agent's adapter into an already-initialized repo and records it in the stamp
   `## In progress` claims, count of un-done batches, and a drift flag (managed file edited).
 
 ### Files this batch creates/edits
-- `bin/specflow.js` · `test/smoke.js`.
+- `cmd/specflow/` · `internal/kit/` · `cmd/specflow/main_test.go`.
 
 ### Verification
-- `npm test`; manual: run in a fresh install and in one with an active claim.
+- `go test ./...`; manual: run in a fresh install and in one with an active claim.
 
 ---
 
@@ -127,13 +127,14 @@ one agent's adapter into an already-initialized repo and records it in the stamp
 - Content assertions: generated `AGENTS.md` contains its key sections (work-queue, claims, commit
   grammar table); procedures reference `specflow/procedures/…`.
 - Interactive picker (piped stdin), `--all`, and copilot/bob/antigravity adapters covered.
-- An `npm pack` manifest test asserting every `templates/**` file ships (guards dropped dotfiles).
+- An embed-manifest test asserting every `templates/**` file is embedded in the binary (guards the
+  `go:embed all:` dotfile footgun).
 
 ### Files this batch creates/edits
-- `test/smoke.js` (or split into `test/`).
+- `cmd/specflow/main_test.go` (or split into `internal/kit/` tests).
 
 ### Verification
-- `npm test` green locally and in CI on Node 18/20/22/24.
+- `go test ./...` green locally and in CI (ubuntu + macos).
 
 ---
 
@@ -142,7 +143,7 @@ one agent's adapter into an already-initialized repo and records it in the stamp
 **Goal.** Make the repo legible at a glance and the file-contract obvious to a newcomer.
 
 ### Deliverables
-- CI + license badges (npm-version badge once published).
+- CI + license badges (a release/version badge once published).
 - A **pretty, simple file-map** in the README: each file specflow creates, what it does, and the
   flow the agent follows over them (spec → queue → claim → build). Directed by the user.
 - **Deferred:** an animated demo (GIF/asciinema) — design the visual first before producing it.
@@ -165,10 +166,10 @@ one agent's adapter into an already-initialized repo and records it in the stamp
   exit without touching disk.
 
 ### Files this batch creates/edits
-- `bin/specflow.js` · `test/smoke.js`.
+- `cmd/specflow/` · `internal/kit/` · `cmd/specflow/main_test.go`.
 
 ### Verification
-- `npm test`; manual: `--dry-run` in a fresh dir creates no files.
+- `go test ./...`; manual: `--dry-run` in a fresh dir creates no files.
 
 ---
 
@@ -183,8 +184,9 @@ default profile; `--profile` required non-interactively), the `workflow` stamp b
 `config.md` rendering; procedures reference `config.md`.
 
 ### Files this batch creates/edits
-- `bin/specflow.js` (setup flow + render) · `templates/base/specflow/procedures/*` (policy-dependent
-  steps reference `config.md`) · `templates/base/specflow/config.md` (template) · `test/smoke.js`.
+- `cmd/specflow/` + `internal/kit/` (setup flow + render) · `templates/base/specflow/procedures/*`
+  (policy-dependent steps reference `config.md`) · `templates/base/specflow/config.md` (template) ·
+  `cmd/specflow/main_test.go`.
 
 ### Verification
 - Init each profile into a temp repo; confirm stamp + `config.md` + procedures match.
@@ -206,7 +208,7 @@ approval discipline*. NB's planning phase is the natural home for the explicit c
 is broader than NB — it also bears on `claim-batch` for batches not created through NB.
 
 ### Files this batch creates/edits
-- `bin/specflow.js` · a `spec/` write + `BUILD_QUEUE.md` append · `test/smoke.js`.
+- `cmd/specflow/` + `internal/kit/` · a `spec/` write + `BUILD_QUEUE.md` append · `cmd/specflow/main_test.go`.
 
 ---
 
