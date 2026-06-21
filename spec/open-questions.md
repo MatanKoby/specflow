@@ -35,20 +35,23 @@ in-scope-vs-new-scope test). The **one open piece** is the *mechanism*:
 - **stamp validation** — fail friendly on a corrupt/hand-edited `.spec-batch.json`.
 
 ## init UX (brownfield)
-- **Consent flow for `init` injection.** Two-phase inject-with-consent is decided (see
-  `architecture.md` → init / upgrade). **Settled: batched consent** — `init` shows everything it
-  would inject + why and asks once; the user may allow, then review `git diff` and remove anything,
-  warned that specflow may be limited if required pieces go; `specflow verify` re-checks integrity.
-  Still open:
-  - **What counts as required vs. per-agent-optional** — being worked from the dependency list; the
-    chosen handling is **warn-not-abort** (confirm).
-  - **Non-interactive consent** — flag-driven `init` (`--agents=` / `--all`, used by agents/CI with
-    no human to prompt): grant via a `--yes` flag and refuse to modify existing files without it?
-    *(under discussion.)*
-- **`verify` scope** — `specflow verify` is referenced by the init review handoff to re-check
-  install integrity (required files present, managed blocks intact). Open: is that the **same**
+- **Consent flow for `init` injection — decided.** Interactive: **batched consent**; the review
+  handoff lets the user `git diff` and remove anything, warned specflow may be limited, and points at
+  `specflow verify`. **Non-interactive** (`--agents=` / `--all`): `init` **proceeds** with the
+  modifications and notifies the user to check `git status` to approve — safe because `init` never
+  commits (no `--yes` flag). **Required vs. optional follows the dependency tiers:** Tier 1
+  (`AGENTS.md` region, procedures, stamp) missing → hard error ("can't work properly"); Tier 3 (a
+  per-agent file) missing → warning (that agent isn't auto-wired; it works once its file points at
+  `AGENTS.md` — single source, so we do **not** inline the protocol into per-agent files).
+- **`verify` scope** — `specflow verify` re-checks install integrity, grading by tier (Tier 1 =
+  error, Tier 3 = warning; a required file or a managed block missing). Open: is that the **same**
   command as the Batch E enforcement validator (claim-before-work, commit grammar), or a separate
   integrity / `doctor` check? See `BUILD_QUEUE.md` → Batch E.
+- **Tier 2 file location** — should the working ledgers (`BUILD_QUEUE.md` / `CLAIMS.md` and their
+  `_DONE` archives) move under `specflow/` to declutter the repo root? Tradeoff: root tidiness vs.
+  visibility/editability of the active queue + claims, and the `specflow/`-is-mechanism ownership
+  boundary. *(under discussion; lean: move the `_DONE` archives under `specflow/`, keep the active
+  queue + claims at root.)*
 
 ## Quality / enforcement (later)
 - **ESLint + Prettier in CI** — adopt as the code grows.

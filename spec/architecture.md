@@ -59,7 +59,11 @@ consent and never commits** (see below).
      selected agent's instruction file as applicable), `init` shows *what* region it will inject and
      *why*, then asks **once** to allow the whole set (batched consent, not per-file). Existing
      content is preserved — the region is inserted between markers (the non-destructive model,
-     applied at init time).
+     applied at init time). If the user declines, `init` still writes everything else: a declined
+     **per-agent** file just means that agent isn't auto-wired — it works as soon as its instruction
+     file points at `AGENTS.md` (the single source), which is exactly what the injected region adds;
+     a declined **`AGENTS.md`** region (or a missing procedure / stamp) means specflow can't work
+     properly, which `specflow verify` reports.
   3. **Phase 2 — files to create.** `init` then explains the specflow-owned files it will create
      fresh (`BUILD_QUEUE.md`, `CLAIMS.md`, `spec/`, `specflow/**`, the skills) and why.
   4. **Write** the approved modifications + creations and fill the stamp, while tracking its **own**
@@ -71,6 +75,10 @@ consent and never commits** (see below).
      satisfied. Point them at **`specflow verify`**, which re-checks install integrity (a required
      file missing, or present but missing its managed block). Re-init is guarded (a stamp already
      present → bail).
+
+  **Non-interactive `init`** (`--agents=` / `--all`, for agents and CI) skips the prompts and
+  **proceeds** with the modifications, then notifies the user to check `git status` / `git diff` and
+  approve — safe because `init` never commits (no separate `--yes` flag needed).
 - **`upgrade`** — refreshes specflow's managed mechanism to the installed kit version and bumps the
   stamp. **Hard invariant: `upgrade` never removes or overwrites text authored by a user or another
   agent, in any file.** Each managed file wraps its generated content in marker-delimited regions
