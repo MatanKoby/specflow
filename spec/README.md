@@ -20,6 +20,8 @@ the procedure in `specflow/procedures/spec-edit.md`.
   ownership split, the host-repo file-contract, versioning/stamp, distribution, the SaaS frontier.
 - **`workflow.md`** — the git/autonomy policy model: four orthogonal config dimensions, the profile
   on-ramps, the `config.md` rendering, and the `init` setup flow.
+- **`adoption.md`** — bringing specflow onto existing, unspecced code (brownfield): incremental
+  spec, optional assisted backfill, and how the agent behaves around code it didn't spec.
 - **`open-questions.md`** — decisions still under discussion, kept here so they survive beyond any
   one conversation. Resolved items graduate into the file above whose concern they match.
 - **`roadmap.md`** — deferred-but-intended directions (standalone demo repo, the SaaS tier).

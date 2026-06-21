@@ -52,6 +52,10 @@ strictly they are *enforced* — written guidelines vs. an executable check — 
 open (see `open-questions.md` → *Speccing & approval discipline*); v1 is guidelines-only, consistent
 with enforcement generally (see Enforcement below / Batch E).
 
+**Brownfield repos** (existing code, no spec) adopt these gates incrementally rather than
+spec-everything-up-front; the contradiction/change-existing-code stop is part of the gates. See
+`adoption.md`.
+
 ## Model: five orthogonal dimensions (not presets)
 
 Workflow is configured as independent levers, stored in `specflow/.spec-batch.json` under
