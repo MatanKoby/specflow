@@ -38,7 +38,7 @@ requirement is that every agent honors the same protocol.
 |---|---|---|
 | `AGENTS.md`, `specflow/procedures/**` | **specflow** (mechanism) | managed region refreshed — **never user/agent text** |
 | `specflow/.spec-batch.json` | specflow (stamp) | version bumped |
-| `BUILD_QUEUE.md` / `BUILD_QUEUE_DONE.md`, `CLAIMS.md` / `CLAIMS_DONE.md` | user/agents (state) | untouched |
+| `BUILD_QUEUE.md`, `CLAIMS.md` (root) · `specflow/history/{BUILD_QUEUE_DONE,CLAIMS_DONE}.md` (archives) | user/agents (state) | untouched |
 | `spec/**` | user (content) | untouched |
 | per-agent instruction files (`CLAUDE.md`, `.github/copilot-instructions.md`, `.cursor/rules/…`, …) | **specflow** (a marker-wrapped region) + user (content outside) | region refreshed — **never user text** |
 
@@ -59,7 +59,11 @@ consent and never commits** (see below).
      selected agent's instruction file as applicable), `init` shows *what* region it will inject and
      *why*, then asks **once** to allow the whole set (batched consent, not per-file). Existing
      content is preserved — the region is inserted between markers (the non-destructive model,
-     applied at init time). If the user declines, `init` still writes everything else: a declined
+     applied at init time). `init` is **idempotent**: for a per-agent file it injects only when
+     needed — if the file already carries specflow's marker region it is refreshed, not duplicated,
+     and if it already references `AGENTS.md` (a markdown link, a mention, or an `@AGENTS.md` import)
+     `init` reports it as already wired and adds no second pointer. If the user declines, `init` still
+     writes everything else: a declined
      **per-agent** file just means that agent isn't auto-wired — it works as soon as its instruction
      file points at `AGENTS.md` (the single source), which is exactly what the injected region adds;
      a declined **`AGENTS.md`** region (or a missing procedure / stamp) means specflow can't work

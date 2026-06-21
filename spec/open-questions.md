@@ -43,15 +43,18 @@ in-scope-vs-new-scope test). The **one open piece** is the *mechanism*:
   (`AGENTS.md` region, procedures, stamp) missing → hard error ("can't work properly"); Tier 3 (a
   per-agent file) missing → warning (that agent isn't auto-wired; it works once its file points at
   `AGENTS.md` — single source, so we do **not** inline the protocol into per-agent files).
-- **`verify` scope** — `specflow verify` re-checks install integrity, grading by tier (Tier 1 =
-  error, Tier 3 = warning; a required file or a managed block missing). Open: is that the **same**
-  command as the Batch E enforcement validator (claim-before-work, commit grammar), or a separate
-  integrity / `doctor` check? See `BUILD_QUEUE.md` → Batch E.
-- **Tier 2 file location** — should the working ledgers (`BUILD_QUEUE.md` / `CLAIMS.md` and their
-  `_DONE` archives) move under `specflow/` to declutter the repo root? Tradeoff: root tidiness vs.
-  visibility/editability of the active queue + claims, and the `specflow/`-is-mechanism ownership
-  boundary. *(under discussion; lean: move the `_DONE` archives under `specflow/`, keep the active
-  queue + claims at root.)*
+- **`verify` scope.** Two possible facets:
+  - **Install integrity** (needed now, for BI's handoff): Tier 1 present & valid (`AGENTS.md` + its
+    block, the procedures + blocks, a valid stamp), managed blocks intact (markers found; drift
+    reported), Tier 3 agent files present & pointing at `AGENTS.md`. Errors on Tier 1, warns on Tier 3.
+  - **Protocol enforcement** (Batch E, research-first, later): changed files map to an owned claim;
+    no execution-state leaked into `BUILD_QUEUE.md`; commit grammar (`spec:` / `meta:` / `batch-N:`).
+  Open: **one `specflow verify` runs both**, or split (integrity / `doctor` vs. enforcement)?
+  *(lean: ship the integrity facet now as `specflow verify`; let Batch E decide whether to fold
+  enforcement in or add a sibling.)*
+- **Tier 2 file location — decided.** The `_DONE` archives move under `specflow/history/`
+  (`BUILD_QUEUE_DONE.md`, `CLAIMS_DONE.md`); the active `BUILD_QUEUE.md` + `CLAIMS.md` and `spec/`
+  stay at the repo root (visibility). Built as part of Batch BI.
 
 ## Quality / enforcement (later)
 - **ESLint + Prettier in CI** — adopt as the code grows.
