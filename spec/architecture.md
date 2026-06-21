@@ -2,17 +2,20 @@
 
 ## What specflow is
 
-A zero-dependency Node CLI (`bin/specflow.js`) plus a `templates/` tree. The CLI scaffolds the
-protocol files into a host repo and refreshes them over time. There is no runtime library the host
-imports — specflow's output is **plain markdown + git**, which is what makes it cross-agent.
+A single statically-compiled Go binary (`cmd/specflow`) plus a `templates/` tree, with no
+third-party dependencies. The CLI scaffolds the protocol files into a host repo and refreshes them
+over time. There is no runtime library the host imports — specflow's output is **plain markdown +
+git**, which is what makes it cross-agent and language-neutral.
 
 ```
-specflow/                  (this repo — the tool)
-  bin/specflow.js          the CLI: init, upgrade, --version  (+ planned: add-agent, status, --new-batch, verify)
+specflow/                   (this repo — the tool)
+  cmd/specflow/             the CLI entry: init, upgrade, --version  (+ planned: add-agent, status, --new-batch, verify)
+  internal/kit/             scaffold (init) + non-destructive refresh (upgrade): markers, region hashing, the stamp
+  templates.go              embeds templates/ into the binary (//go:embed all:templates)
   templates/
-    base/                  files every install gets (AGENTS.md, queue/claims skeletons, spec/, specflow/)
-    agents/<agent>/        per-agent adapter stubs, copied when that agent is selected
-  test/smoke.js            spawns the CLI against temp repos, asserts behavior
+    base/                   files every install gets (AGENTS.md, queue/claims skeletons, spec/, specflow/)
+    agents/<agent>/         per-agent adapter stubs, copied when that agent is selected
+  cmd/specflow/main_test.go builds + drives the binary against temp repos, asserts behavior
 ```
 
 ## Cross-agent model
