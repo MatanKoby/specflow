@@ -43,14 +43,11 @@ in-scope-vs-new-scope test). The **one open piece** is the *mechanism*:
 - **npm-pack-manifest test** — assert every template file ships (guards the dropped-dotfile footgun).
 
 ## Distribution
-- **Install runtime — Node vs. Python vs. compiled binary.** `init`/`upgrade` is a Node CLI, so a
-  non-Node machine needs Node just to scaffold (the *output* is already language-neutral). Neither
-  Node nor Python is universally pre-installed (Python ships on most Linux as a system dep, but not
-  macOS/Windows; Node ships on none by default). Options: keep Node (npx); rewrite to Python
-  (pipx/uvx — precedent: pre-commit); or a single compiled binary (Go/Rust — brew/curl/release,
-  needs nothing — precedent: ripgrep/fd/gh). Decision pending: is "needs Node to scaffold" acceptable
-  for v1, or is zero-runtime install a hard requirement? *(raised re: applying specflow to a Python
-  project; lean = keep Node for v1, schedule a single-binary rewrite as the real "any language, no
-  friction" answer — not yet decided.)*
+- **Go binary rollout specifics.** *(Decided 2026-06-21: distribution is a single statically-compiled
+  Go binary on GitHub Releases via GoReleaser — see `architecture.md` → Distribution.)* Still to
+  settle: **(a) replace vs. dual** — does the Go binary fully replace the Node CLI, or run alongside
+  it (lean: full replace — one implementation to maintain); **(b) v1 install front-ends** — which of
+  `curl|sh` / Homebrew / Scoop·Winget / npm-wrapper ship in v1 vs. later; **(c) sequencing** —
+  rewrite now, or keep using the current Node CLI on real projects and port to Go in parallel.
 - **Automated npm release on tag** — when we decide to publish.
 - **Optional Claude plugin** — ship the skills globally for Claude users, in addition to `init`.

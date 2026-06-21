@@ -75,10 +75,23 @@ purpose to keep that rare).
 
 ## Distribution
 
-- **Now:** runnable from GitHub — `npx github:MatanKoby/specflow init`. No registry needed.
-- **Later:** publish to npm for `npx specflow init`. The package ships **only the `files`
-  allowlist** (`bin/` + `templates/` + auto LICENSE/README/package.json). Because it's an allowlist,
-  this repo self-hosting the protocol at its own root does not leak those files into the package.
+specflow ships as a **single, statically-compiled Go binary** — **no runtime (Node, Python, …)
+required** on the user's machine. This is what makes "install into any repo, any language, no
+friction" literally true: the binary scaffolds and upgrades the markdown + git protocol, and the
+*output* is already language-neutral. (The CLI was a zero-dep Node script through v0.x; it is being
+ported to Go — see `BUILD_QUEUE.md`. Decided 2026-06-21.)
+
+- **Artifact host: GitHub Releases.** A `v*` tag triggers **GoReleaser** in a GitHub Action that
+  cross-compiles per OS/arch (macOS arm64/x64, Linux x64/arm64, Windows x64), attaches archives +
+  checksums to the release, and can update a Homebrew tap / Scoop manifest in the same run. GitHub
+  Releases *is* the registry — no npm/PyPI account needed to host the binary.
+- **Install front-ends** (all resolve to the same release binary; the v1 set is being finalized —
+  see `open-questions.md` → Distribution): a `curl … | sh` script that detects OS/arch; **Homebrew**
+  for macOS/Linux; **Scoop/Winget** for Windows; and optionally an **npm wrapper** that fetches the
+  prebuilt binary so `npx specflow` still works for the JS ecosystem (the esbuild pattern).
+  `go install …@latest` works as a bonus for users who have Go.
+- **Templates travel inside the binary** (Go `embed`), so there is no separate `files` allowlist to
+  curate and the repo self-hosting the protocol at its own root never leaks into the shipped artifact.
 - **Caveat:** a future Claude-plugin packaging must target `templates/agents/claude/.claude/`, never
   a self-hosted `.claude/` at the repo root.
 
