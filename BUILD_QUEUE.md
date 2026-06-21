@@ -16,12 +16,14 @@ Completed history: [`BUILD_QUEUE_DONE.md`](BUILD_QUEUE_DONE.md) — one-paragrap
 
 ## Un-done batches
 
-> **Pick-order pointer.** **Now: Batch G2** (Go release + install pipeline — GoReleaser → GitHub
-> Releases + `curl|sh` + Homebrew). The CLI is Go (Batch G1, done), so every batch below targets the
-> **Go** CLI (`cmd/specflow` + `internal/kit`). After G2: **Batch 1** (add-agent) · **Batch 2**
-> (status) · **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch 5** (`--dry-run`).
-> Blocked on design: **Batch W** (workflow config) · **Batch NB** (`--new-batch` quick flow). Later:
-> **Batch E** (enforcement — research-first), **Batch P** (optional npm-wrapper front-end).
+> **Pick-order pointer.** **Release-gating (both must land before the first `v*` tag):** **Batch G2**
+> (Go release + install pipeline — GoReleaser → GitHub Releases + `curl|sh` + Homebrew) · **Batch BI**
+> (brownfield-aware `init` — `[NOT READY]`, pending the consent-flow decisions in `open-questions.md`).
+> The CLI is Go (Batch G1, done), so every batch targets the **Go** CLI (`cmd/specflow` +
+> `internal/kit`). After those: **Batch 1** (add-agent) · **Batch 2** (status) · **Batch 3** (broaden
+> tests) · **Batch 4** (badges + file-map) · **Batch 5** (`--dry-run`). Blocked on design: **Batch W**
+> (workflow config) · **Batch NB** (`--new-batch` quick flow). Later: **Batch E** (enforcement —
+> research-first), **Batch P** (optional npm-wrapper front-end).
 
 ---
 
@@ -49,6 +51,36 @@ install front-ends (curl|sh + Homebrew). See `architecture.md` → Distribution.
 ### Verification
 - A test tag produces a draft release with every platform archive + a checksums file.
 - `curl … | sh` installs a working binary on Linux; `brew install` from the tap works on macOS.
+
+---
+
+## Batch BI `[NOT READY]` — Brownfield-aware `init` (inject-with-consent, review handoff)
+
+**Goal.** Replace `init`'s skip-if-exists behavior with the two-phase, consent-gated, non-destructive
+flow specced in `architecture.md` → init / upgrade. **Gates the first public release** — no `v*` tag
+until this lands.
+
+**Why `[NOT READY]`:** three consent-flow details are still open — see `open-questions.md` → *init
+UX (brownfield)* (granularity, declining the mandatory `AGENTS.md` region, non-interactive consent).
+Resolve them, then build.
+
+### Deliverables (decided core)
+- Marker-wrap every per-agent instruction template (`CLAUDE.md`, `.github/copilot-instructions.md`,
+  `.cursor/rules/specflow.mdc`, `.bob/rules/specflow.md`, `.agents/rules/specflow.md`) like
+  `AGENTS.md`, and add them to the managed set so `upgrade` refreshes their region too.
+- Two-phase `init`: (1) for each target file that **already exists**, show the region + why and
+  inject it between markers (existing content preserved); (2) explain the specflow-owned files
+  before creating them.
+- `init` tracks its **own** created/modified list and prints it with a "review `git diff`, verify
+  nothing was damaged, then commit" handoff. `init` never commits.
+
+### Files this batch creates/edits
+- `cmd/specflow/` + `internal/kit/` (two-phase flow, injection, consent, self-tracking) ·
+  `templates/agents/**` (marker-wrap the instruction files) · `cmd/specflow/main_test.go`.
+
+### Verification
+- `go test ./...`. Manual: init into a repo with a pre-existing `AGENTS.md` + `CLAUDE.md` → region
+  injected, existing content intact, consent + explanation shown, no commit made, review list printed.
 
 ---
 
