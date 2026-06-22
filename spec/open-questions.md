@@ -43,15 +43,17 @@ in-scope-vs-new-scope test). The **one open piece** is the *mechanism*:
   (`AGENTS.md` region, procedures, stamp) missing → hard error ("can't work properly"); Tier 3 (a
   per-agent file) missing → warning (that agent isn't auto-wired; it works once its file points at
   `AGENTS.md` — single source, so we do **not** inline the protocol into per-agent files).
-- **`verify` scope.** Two possible facets:
-  - **Install integrity** (needed now, for BI's handoff): Tier 1 present & valid (`AGENTS.md` + its
-    block, the procedures + blocks, a valid stamp), managed blocks intact (markers found; drift
-    reported), Tier 3 agent files present & pointing at `AGENTS.md`. Errors on Tier 1, warns on Tier 3.
-  - **Protocol enforcement** (Batch E, research-first, later): changed files map to an owned claim;
-    no execution-state leaked into `BUILD_QUEUE.md`; commit grammar (`spec:` / `meta:` / `batch-N:`).
-  Open: **one `specflow verify` runs both**, or split (integrity / `doctor` vs. enforcement)?
-  *(lean: ship the integrity facet now as `specflow verify`; let Batch E decide whether to fold
-  enforcement in or add a sibling.)*
+- **`verify` is split — decided.** Two separate checks, because they answer different questions at
+  different moments:
+  - **`specflow verify` — installation integrity.** Tier 1 present & valid (`AGENTS.md` + its block,
+    the procedures + blocks, a valid stamp), managed blocks intact (markers found; drift reported),
+    Tier 3 agent files present & pointing at `AGENTS.md`. Reads the **working tree**, so it passes on
+    a fresh, *uncommitted* `init`. Built in Batch BI.
+  - **batching / enforcement check** — Batch E (research-first, later): changed files map to an owned
+    claim; no execution-state leaked into `BUILD_QUEUE.md`; commit grammar. Inspects git/diff state,
+    so it **must carve out the install bootstrap** (see Batch E).
+  Exact CLI surface (two commands, or `verify` subcommands like `verify install` / `verify batch`)
+  finalized at build.
 - **Tier 2 file location — decided.** The `_DONE` archives move under `specflow/history/`
   (`BUILD_QUEUE_DONE.md`, `CLAIMS_DONE.md`); the active `BUILD_QUEUE.md` + `CLAIMS.md` and `spec/`
   stay at the repo root (visibility). Built as part of Batch BI.

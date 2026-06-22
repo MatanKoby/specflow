@@ -76,7 +76,9 @@ consent and never commits** (see below).
   5. **Hand off for review.** Print the tracked created/modified list and tell the user they can
      review `git diff` and remove anything unwanted — with the caveat that **specflow may be limited
      or not work properly in some contexts** if required pieces are removed — then commit when
-     satisfied. Point them at **`specflow verify`**, which re-checks install integrity (a required
+     satisfied, ideally as the install's **own commit** (e.g. `meta: install specflow`) before any
+     batch work, so a later batch-enforcement check sees a clean tree. Point them at **`specflow
+     verify`**, which re-checks install integrity (a required
      file missing, or present but missing its managed block). Re-init is guarded (a stamp already
      present → bail).
 
