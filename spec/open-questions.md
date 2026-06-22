@@ -21,6 +21,12 @@ in-scope-vs-new-scope test). The **one open piece** is the *mechanism*:
   *(Decided: names are those three; `init` requires an explicit choice — no pre-selected default;
   `commitCadence` is the fifth lever; v1 enforces strict profiles by agent guidelines only, with
   `init` honest about the advisory gap — see `workflow.md` → Enforcement.)*
+- **Commit authority — the user decides when to commit.** Decided in principle: the agent marks
+  commit points, suggests committing, and proposes a short commit message rather than auto-committing
+  (see `workflow.md` → Commit authority). Open: is *suggest-don't-commit* the **v0.1 default**
+  (rewording the current "agent commits + pushes" in `claim-batch.md` / `finish-batch.md`), or a
+  **configurable lever** deferred to Batch W? And how does it sit with the **Autonomous** profile
+  (which currently commits + pushes)?
 
 ## CLI / upgrade behavior
 - **`--force`** (overwrite existing files on init instead of skipping — conflicts with the
@@ -59,11 +65,12 @@ in-scope-vs-new-scope test). The **one open piece** is the *mechanism*:
   stay at the repo root (visibility). Built as part of Batch BI.
 
 ## Quality / enforcement (later)
-- **ESLint + Prettier in CI** — adopt as the code grows.
+- **Linters** — `gofmt` + `go vet` already run in CI; add `golangci-lint` as the code grows.
 - **Enforcement → Batch E (research-first).** Today enforcement is honor-system, exactly as in
   Upside. Batch E researches/discusses how to add it incrementally (validator → hooks → CI → branch
   protection) before building. (`verify` / `install-hooks` / host-CI become sub-batches there.)
-- **npm-pack-manifest test** — assert every template file ships (guards the dropped-dotfile footgun).
+- **Embed-manifest test** — assert every `templates/**` file is embedded in the binary (guards the
+  `go:embed all:` dotfile footgun) — folded into Batch 3.
 
 ## Distribution
 - **Additional install front-ends (post-v1).** *(Decided 2026-06-21: the Go binary fully replaces

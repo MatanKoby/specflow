@@ -86,6 +86,22 @@ plain-English "what the agent may do" sentence:
 - **Supervised** — agent commits but never pushes; the user pushes.
 - **Reviewed** — agent works a branch per batch and opens a PR; never touches trunk. (team)
 
+## Commit authority — the user decides when to commit
+
+Beyond *who pushes* (the `push` lever above), specflow lets the user control **when code is
+committed**. The conservative stance: the agent **does not auto-commit** — during a batch it marks
+sensible **commit points**, **suggests** that the user commit, and proposes a **short commit
+message** (in the `spec:` / `meta:` / `batch-N:` grammar). The user decides whether and when to
+commit. This mirrors the CLI's own rule that `init` / `upgrade` never commit (see `architecture.md`).
+
+It extends the commit/push-authority spectrum, controlled → autonomous:
+- **agent suggests commit points + message, the user commits** (most controlled),
+- **agent commits, the user pushes**,
+- **agent commits and pushes** (most autonomous).
+
+Whether *suggest-don't-commit* is v1's fixed default or a configurable lever (a sixth dimension,
+formalized in Batch W) is open — see `open-questions.md` → Workflow / config flow.
+
 ## The `init` setup flow
 
 **The user must choose — there is no pre-selected default to blind-accept.** `init` runs an
