@@ -234,17 +234,21 @@ to implementation. It **starts with research + discussion** of how to add enforc
 then drafts the sub-batches.
 
 ### Phase 1 — research & discuss (the deliverable)
-- Survey the layers, cheapest → most authoritative: a read-only validator (`specflow verify` —
-  changed files map to an owned claim, no state leaked into `BUILD_QUEUE.md`, commit grammar), local
-  git hooks (`commit-msg` / `pre-push` via `core.hooksPath`), CI running the validator, and GitHub
-  branch protection.
+- Survey the layers, cheapest → most authoritative: a read-only **batching/enforcement** validator
+  (distinct from the installation `specflow verify` shipped in Batch BI — changed files map to an
+  owned claim, no state leaked into `BUILD_QUEUE.md`, commit grammar), local git hooks
+  (`commit-msg` / `pre-push` via `core.hooksPath`), CI running the validator, and GitHub branch
+  protection.
 - For each: what it binds, prevents-vs-detects, bypassability, and the carve-outs needed
-  (`meta:` / `spec:` / doc-only) so it never fights legitimate work.
+  (`meta:` / `spec:` / doc-only) so it never fights legitimate work — **including the install
+  bootstrap**: a fresh `specflow init` creates many specflow-owned files with no claim, so the check
+  must exempt the specflow-owned scaffold (and `init` commits the install as its own `meta:` commit);
+  otherwise running `init` then the check before committing false-positives.
 - Output a short `spec/enforcement.md` design doc + a proposed **incremental** sub-batch sequence.
   Generalizes Upside's `docs/process/agent-discipline.md`.
 
 ### Then — sub-batches (only after Phase 1 is agreed with the user)
-- `verify` validator → opt-in `install-hooks` → optional host-repo CI template → branch-protection guidance.
+- the batching validator → opt-in `install-hooks` → optional host-repo CI template → branch-protection guidance.
 
 ### Files this batch creates/edits (Phase 1)
 - `spec/enforcement.md` · queue updates for the agreed sub-batches.
