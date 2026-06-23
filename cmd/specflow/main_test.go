@@ -69,8 +69,20 @@ func read(t *testing.T, p string) string {
 	return string(b)
 }
 
+// newRepo makes a temp dir that is a git work tree — `init` requires one.
+func newRepo(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	cmd := exec.Command("git", "init")
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	return dir
+}
+
 func TestInitWritesFilesAndStamp(t *testing.T) {
-	tmp := t.TempDir()
+	tmp := newRepo(t)
 	r := run(t, tmp, "init", "--agents=claude,cursor")
 	if r.code != 0 {
 		t.Fatalf("init exit %d: %s", r.code, r.stderr)
@@ -89,10 +101,6 @@ func TestInitWritesFilesAndStamp(t *testing.T) {
 
 	if exists(filepath.Join(tmp, ".github/copilot-instructions.md")) {
 		t.Error("unselected copilot adapter leaked in")
-	}
-
-	if !regexp.MustCompile(`(?i)not a git repository`).MatchString(r.stdout) {
-		t.Error("no git warning on init outside a repo")
 	}
 
 	raw := read(t, filepath.Join(tmp, "specflow/.spec-batch.json"))
@@ -126,8 +134,19 @@ func TestInitWritesFilesAndStamp(t *testing.T) {
 	}
 }
 
+func TestInitRefusesOutsideGit(t *testing.T) {
+	tmp := t.TempDir() // deliberately NOT a git repo
+	r := run(t, tmp, "init", "--agents=claude")
+	if !regexp.MustCompile(`(?i)git`).MatchString(r.stdout) {
+		t.Error("no git-required message")
+	}
+	if exists(filepath.Join(tmp, "AGENTS.md")) {
+		t.Error("init wrote files outside a git repo — it should write nothing")
+	}
+}
+
 func TestReinitGuarded(t *testing.T) {
-	tmp := t.TempDir()
+	tmp := newRepo(t)
 	run(t, tmp, "init", "--agents=claude")
 	r := run(t, tmp, "init", "--agents=claude")
 	if r.code != 0 {
@@ -139,7 +158,7 @@ func TestReinitGuarded(t *testing.T) {
 }
 
 func TestUpgradePreservesStateAndStamps(t *testing.T) {
-	tmp := t.TempDir()
+	tmp := newRepo(t)
 	run(t, tmp, "init", "--agents=claude")
 	claimsBefore := read(t, filepath.Join(tmp, "CLAIMS.md"))
 
@@ -160,7 +179,7 @@ func TestUpgradePreservesStateAndStamps(t *testing.T) {
 var startMarker = regexp.MustCompile(`(?s)<!--\s*specflow:start\b.*?-->`)
 
 func TestUpgradePreservesTextOutsideMarkers(t *testing.T) {
-	tmp := t.TempDir()
+	tmp := newRepo(t)
 	run(t, tmp, "init", "--agents=claude")
 	ag := filepath.Join(tmp, "AGENTS.md")
 
@@ -178,7 +197,7 @@ func TestUpgradePreservesTextOutsideMarkers(t *testing.T) {
 }
 
 func TestUpgradeDoesNotClobberDriftedRegion(t *testing.T) {
-	tmp := t.TempDir()
+	tmp := newRepo(t)
 	run(t, tmp, "init", "--agents=claude")
 	ag := filepath.Join(tmp, "AGENTS.md")
 
@@ -202,8 +221,36 @@ func TestUpgradeDoesNotClobberDriftedRegion(t *testing.T) {
 	}
 }
 
+// A lost/corrupt baseline (no recorded hash for a file) must be treated as drift, never overwritten.
+func TestUpgradeNoBaselineTreatedAsDrift(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude")
+	ag := filepath.Join(tmp, "AGENTS.md")
+	stampPath := filepath.Join(tmp, "specflow/.spec-batch.json")
+
+	// Simulate a lost baseline: drop the managed map from the stamp.
+	var stamp map[string]any
+	json.Unmarshal([]byte(read(t, stampPath)), &stamp)
+	delete(stamp, "managed")
+	b, _ := json.MarshalIndent(stamp, "", "  ")
+	os.WriteFile(stampPath, b, 0o644)
+
+	// Edit inside the region; with no baseline, upgrade must NOT overwrite it.
+	c := read(t, ag)
+	edited := startMarker.ReplaceAllStringFunc(c, func(m string) string { return m + "\nNO-BASELINE-SENTINEL" })
+	os.WriteFile(ag, []byte(edited), 0o644)
+
+	run(t, tmp, "upgrade")
+	if !strings.Contains(read(t, ag), "NO-BASELINE-SENTINEL") {
+		t.Error("upgrade overwrote a region with no baseline — should treat as drift")
+	}
+	if !exists(ag + ".specflow-new") {
+		t.Error("no .specflow-new sidecar for the no-baseline case")
+	}
+}
+
 func TestUpgradeMigratesPreMarkerFile(t *testing.T) {
-	tmp := t.TempDir()
+	tmp := newRepo(t)
 	run(t, tmp, "init", "--agents=claude")
 	ag := filepath.Join(tmp, "AGENTS.md")
 
@@ -223,7 +270,7 @@ func TestUpgradeMigratesPreMarkerFile(t *testing.T) {
 }
 
 func TestUpgradeCanonicalizesBareMarkers(t *testing.T) {
-	tmp := t.TempDir()
+	tmp := newRepo(t)
 	run(t, tmp, "init", "--agents=claude")
 	ag := filepath.Join(tmp, "AGENTS.md")
 

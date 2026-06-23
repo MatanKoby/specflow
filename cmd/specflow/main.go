@@ -16,12 +16,33 @@ import (
 // version is overridden at build time via -ldflags "-X main.version=x.y.z".
 var version = "0.1.0"
 
-// ANSI helpers (parity with the Node CLI; NO_COLOR/non-TTY handling is a separate open item).
-func bold(s string) string   { return "\x1b[1m" + s + "\x1b[0m" }
-func green(s string) string  { return "\x1b[32m" + s + "\x1b[0m" }
-func yellow(s string) string { return "\x1b[33m" + s + "\x1b[0m" }
-func dim(s string) string    { return "\x1b[2m" + s + "\x1b[0m" }
-func cyan(s string) string   { return "\x1b[36m" + s + "\x1b[0m" }
+// useColor gates ANSI output — set once in main(): on only for an interactive terminal with
+// NO_COLOR unset, so piped/redirected output (and CI / agent capture) stays clean plain text.
+var useColor bool
+
+func colorEnabled() bool {
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+	fi, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
+}
+
+func paint(code, s string) string {
+	if !useColor {
+		return s
+	}
+	return "\x1b[" + code + "m" + s + "\x1b[0m"
+}
+
+func bold(s string) string   { return paint("1", s) }
+func green(s string) string  { return paint("32", s) }
+func yellow(s string) string { return paint("33", s) }
+func dim(s string) string    { return paint("2", s) }
+func cyan(s string) string   { return paint("36", s) }
 
 type agentChoice struct{ key, label, detail string }
 
@@ -131,7 +152,8 @@ func cmdInit(args []string) error {
 		return nil
 	}
 	if !kit.IsGitRepo(target) {
-		fmt.Println(yellow("\n⚠ Not a git repository.") + dim(" specflow's claim/commit workflow assumes git — run `git init` for the full flow."))
+		fmt.Println(yellow("\nspecflow only works in git repositories.") + " Run " + cyan("git init") + " first — nothing was written.")
+		return nil
 	}
 
 	agentKeys := pickAgents(preset)
@@ -242,6 +264,7 @@ func dispatch(command string, args []string) error {
 }
 
 func main() {
+	useColor = colorEnabled()
 	args := os.Args[1:]
 	command := ""
 	if len(args) > 0 {

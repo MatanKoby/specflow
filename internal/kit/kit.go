@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -282,7 +283,7 @@ func Upgrade(targetDir string, tpl fs.FS, version string) (UpgradeResult, error)
 	}
 	var stamp map[string]any
 	if err := json.Unmarshal(sb, &stamp); err != nil {
-		return res, err
+		return res, fmt.Errorf("%s is corrupted (invalid JSON) — fix or restore it before upgrading: %w", filepath.Base(sp), err)
 	}
 	res.From, _ = stamp["kitVersion"].(string)
 
@@ -345,9 +346,13 @@ func Upgrade(targetDir string, tpl fs.FS, version string) (UpgradeResult, error)
 			continue
 		}
 
-		// Region hand-edited since install → never overwrite. Leave it, drop the new version
-		// alongside for manual reconciliation, and keep flagging it (baseline hash unchanged).
-		if base := baseline[rel]; base != "" && hashRegion(destParts.region) != base {
+		// Never overwrite a region we can't prove is pristine. Two cases leave the on-disk region
+		// untouched, drop the fresh version to a sidecar, and keep flagging:
+		//   - hash mismatch → the region was hand-edited since install (drift);
+		//   - missing baseline → no recorded fingerprint to compare against (a lost/corrupt stamp,
+		//     or a file newly brought under management). Defaulting to "overwrite" here would
+		//     silently clobber a user's in-region edits, so we default to "don't touch".
+		if base := baseline[rel]; base == "" || hashRegion(destParts.region) != base {
 			if err := os.WriteFile(dest+".specflow-new", []byte(srcContent), 0o644); err != nil {
 				return res, err
 			}
