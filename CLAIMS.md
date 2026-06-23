@@ -19,6 +19,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch CFG — Config file, commit/push levers & safety fixes (v0.1 foundation)
+- Owner: claude
+- Started: 2026-06-23 14:51
+
 ## Completed
 
 ### Batch G1 — Port the CLI to Go (full replace)
