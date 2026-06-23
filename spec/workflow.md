@@ -86,21 +86,26 @@ plain-English "what the agent may do" sentence:
 - **Supervised** — agent commits but never pushes; the user pushes.
 - **Reviewed** — agent works a branch per batch and opens a PR; never touches trunk. (team)
 
-## Commit authority — the user decides when to commit
+## Commit & push authority — the user decides in advance
 
-Beyond *who pushes* (the `push` lever above), specflow lets the user control **when code is
-committed**. The conservative stance: the agent **does not auto-commit** — during a batch it marks
-sensible **commit points**, **suggests** that the user commit, and proposes a **short commit
-message** (in the `spec:` / `meta:` / `batch-N:` grammar). The user decides whether and when to
-commit. This mirrors the CLI's own rule that `init` / `upgrade` never commit (see `architecture.md`).
+Two **independent** levers the user sets **at init**, governing what the agent may do with code it
+has written:
 
-It extends the commit/push-authority spectrum, controlled → autonomous:
-- **agent suggests commit points + message, the user commits** (most controlled),
-- **agent commits, the user pushes**,
-- **agent commits and pushes** (most autonomous).
+- **`commit`: `agent` | `user`** — may the agent create commits? When **`user`**, the agent does
+  **not** commit: on reaching a sensible commit point it **alerts the user** and **supplies a short
+  suggested commit message** (in the `spec:` / `meta:` / `batch-N:` grammar), and the user creates
+  the commit.
+- **`push`: `agent` | `user`** — may the agent push? (Only meaningful when `commit: agent`.) When
+  **`user`**, the agent commits but never pushes; the user pushes on their own terms.
 
-Whether *suggest-don't-commit* is v1's fixed default or a configurable lever (a sixth dimension,
-formalized in Batch W) is open — see `open-questions.md` → Workflow / config flow.
+So **Autonomous** = `commit: agent, push: agent` (writes per batch, commits, pushes). A user who
+wants more control sets `commit: user` and/or `push: user`. This mirrors the CLI's own rule that
+`init` / `upgrade` never commit (see `architecture.md`).
+
+These two levers are part of the broader workflow config (Batch W); **v0.1 ships just these two
+choices at init** (stored in the stamp), with the full dimension/profile system deferred. The
+procedures (`claim-batch.md` / `finish-batch.md`) honor the levers instead of always committing +
+pushing.
 
 ## The `init` setup flow
 

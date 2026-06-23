@@ -21,12 +21,12 @@ in-scope-vs-new-scope test). The **one open piece** is the *mechanism*:
   *(Decided: names are those three; `init` requires an explicit choice — no pre-selected default;
   `commitCadence` is the fifth lever; v1 enforces strict profiles by agent guidelines only, with
   `init` honest about the advisory gap — see `workflow.md` → Enforcement.)*
-- **Commit authority — the user decides when to commit.** Decided in principle: the agent marks
-  commit points, suggests committing, and proposes a short commit message rather than auto-committing
-  (see `workflow.md` → Commit authority). Open: is *suggest-don't-commit* the **v0.1 default**
-  (rewording the current "agent commits + pushes" in `claim-batch.md` / `finish-batch.md`), or a
-  **configurable lever** deferred to Batch W? And how does it sit with the **Autonomous** profile
-  (which currently commits + pushes)?
+- **Commit & push authority — decided.** Two independent levers (`commit`, `push`) the user sets at
+  init; **v0.1 ships these two init-time choices** (stored in the stamp), the rest of the workflow
+  config (other dimensions + profiles) deferred to Batch W. When `commit: user`, the agent alerts at
+  commit points and supplies a suggested message. `claim-batch.md` / `finish-batch.md` get reworded
+  to honor the levers. See `workflow.md` → Commit & push authority. *(Open only: exact init prompt
+  wording.)*
 
 ## CLI / upgrade behavior
 - **`--force`** (overwrite existing files on init instead of skipping — conflicts with the

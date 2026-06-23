@@ -50,8 +50,11 @@ consent and never commits** (see below).
 
 ## init / upgrade
 
-- **`init`** — interactive (or `--agents=…` / `--all`). It **does not skip or silently overwrite**;
-  it plans, gets consent, writes, then hands off for review — and **never commits**:
+- **`init`** — interactive (or `--agents=…` / `--all`). It **requires a git repository** — specflow's
+  safety net is the no-commit + `git diff` review, so without git there is no undo; if the cwd is not
+  in a git work tree, `init` stops with *"specflow only works in git repositories — run `git init`
+  first"* and writes nothing. It **does not skip or silently overwrite**; it plans, gets consent,
+  writes, then hands off for review — and **never commits**:
   1. **Pick agents.** The universal `AGENTS.md` is always included; per-agent instruction files are
      added for the selected agents. Everything below happens only after this selection.
   2. **Phase 1 — files to modify (inject).** specflow's contribution to a shared agent file is a
