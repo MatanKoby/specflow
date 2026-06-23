@@ -513,6 +513,29 @@ func TestUpgradeDriftProtectsPerAgentRegion(t *testing.T) {
 	}
 }
 
+func TestSubcommandHelp(t *testing.T) {
+	tmp := newRepo(t)
+	ri := run(t, tmp, "init", "--help")
+	if ri.code != 0 {
+		t.Fatalf("init --help exit %d", ri.code)
+	}
+	if !strings.Contains(ri.stdout, "specflow init") || !regexp.MustCompile(`(?i)--agents`).MatchString(ri.stdout) {
+		t.Error("init --help did not describe the init command")
+	}
+	// Help must not install anything.
+	if exists(filepath.Join(tmp, "AGENTS.md")) || exists(filepath.Join(tmp, "specflow/config.json")) {
+		t.Error("init --help wrote files — help must not install")
+	}
+
+	ru := run(t, tmp, "upgrade", "-h")
+	if ru.code != 0 {
+		t.Fatalf("upgrade -h exit %d", ru.code)
+	}
+	if !strings.Contains(ru.stdout, "specflow upgrade") || !regexp.MustCompile(`(?i)non-destructive`).MatchString(ru.stdout) {
+		t.Error("upgrade -h did not describe the upgrade command")
+	}
+}
+
 func TestVersionAndUnknownCommand(t *testing.T) {
 	tmp := t.TempDir()
 	for _, flag := range []string{"--version", "-v"} {

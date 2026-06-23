@@ -90,6 +90,10 @@ func hasFlag(args []string, f string) bool {
 	return false
 }
 
+func helpRequested(args []string) bool {
+	return hasFlag(args, "-h") || hasFlag(args, "--help")
+}
+
 // stdin is a single shared reader so multiple prompts in one run (agent pick, then injection
 // consent) don't lose buffered input to a fresh per-call reader's read-ahead.
 var stdin = bufio.NewReader(os.Stdin)
@@ -148,7 +152,60 @@ func pickAgents(preset string) []string {
 	return out
 }
 
+func initUsage() {
+	fmt.Printf(`
+%s — scaffold specflow into the current repo
+
+%s
+  specflow init [--agents=claude,cursor,...] [--all]
+
+%s
+  --agents=<list>   comma-separated agents to wire, non-interactive (%s)
+  --all             wire every supported agent, non-interactive
+  -h, --help        show this help
+
+Run with no flags to pick agents interactively, then confirm before specflow
+injects its region into any file that already exists. Brownfield-safe: your
+content is preserved (specflow's block sits between markers) and user-owned files
+are never overwritten. %s and %s — review with %s, then commit (e.g. %s).
+
+%s %s
+`,
+		bold("specflow init"),
+		bold("Usage:"),
+		bold("Flags:"),
+		strings.Join(allAgentKeys(), ", "),
+		bold("Requires a git repo"), bold("never commits"),
+		cyan("git diff"), cyan("meta: install specflow"),
+		bold("Agents:"), strings.Join(allAgentKeys(), ", "))
+}
+
+func upgradeUsage() {
+	fmt.Printf(`
+%s — refresh specflow's managed files to the installed version
+
+%s
+  specflow upgrade
+
+Refreshes only specflow's marker-delimited regions in AGENTS.md, the procedures,
+and each installed agent's instruction file. %s: text outside the markers is
+preserved; a region you edited (drift) is left untouched and the fresh version is
+written alongside as %s. Your queue, claims, and spec are never
+touched, and upgrade never commits.
+
+  -h, --help   show this help
+`,
+		bold("specflow upgrade"),
+		bold("Usage:"),
+		bold("Non-destructive"),
+		cyan("<file>.specflow-new"))
+}
+
 func cmdInit(args []string) error {
+	if helpRequested(args) {
+		initUsage()
+		return nil
+	}
 	target, err := os.Getwd()
 	if err != nil {
 		return err
@@ -254,7 +311,11 @@ func cmdInit(args []string) error {
 	return nil
 }
 
-func cmdUpgrade() error {
+func cmdUpgrade(args []string) error {
+	if helpRequested(args) {
+		upgradeUsage()
+		return nil
+	}
 	target, err := os.Getwd()
 	if err != nil {
 		return err
@@ -304,6 +365,9 @@ func usage() {
   specflow --version                               %s
   specflow --help
 
+%s
+  specflow init --help · specflow upgrade --help
+
 %s %s
 `,
 		bold("specflow"), dim(version),
@@ -311,6 +375,7 @@ func usage() {
 		dim("scaffold into the current repo"),
 		dim("refresh the managed protocol files"),
 		dim("print the installed version"),
+		bold("Per-command help:"),
 		bold("Agents:"), strings.Join(allAgentKeys(), ", "))
 }
 
@@ -319,7 +384,7 @@ func dispatch(command string, args []string) error {
 	case "init":
 		return cmdInit(args)
 	case "upgrade":
-		return cmdUpgrade()
+		return cmdUpgrade(args)
 	case "--version", "-v", "version":
 		fmt.Println(version)
 	case "", "--help", "-h", "help":
