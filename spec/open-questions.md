@@ -35,10 +35,13 @@ in-scope-vs-new-scope test). The **one open piece** is the *mechanism*:
 - **`remove-agent`** — build it? Would delete only specflow-authored stub files for an agent
   (`.cursor/rules/specflow.mdc`, the Claude skills) and strip only specflow's marked region from
   shared files like `CLAUDE.md` (never user content). *(decision pending)*
-- **NO_COLOR / non-TTY** — real bug: the CLI always emits ANSI; piping embeds escape codes. Fix.
-  *(not yet user-approved)*
-- **upgrade changelog** — print "vX → vY changed …" on upgrade.
-- **stamp validation** — fail friendly on a corrupt/hand-edited `.spec-batch.json`.
+- **NO_COLOR / non-TTY — approved for v0.1.** Real bug: the CLI always emits ANSI, so piped/
+  redirected output embeds escape codes. Fix: plain text when stdout isn't a TTY (or `NO_COLOR` set).
+- **upgrade changelog** — print "vX → vY changed …" on upgrade. *(defer past v0.1.)*
+- **No-baseline safety fix + stamp validation — v0.1 (closes risk A).** When a managed file has no
+  recorded baseline (stamp missing/corrupt, or the file predates being managed), `upgrade` treats it
+  as **drift** — writes `.specflow-new`, does **not** overwrite — instead of refreshing. The
+  no-clobber default. Plus friendly failure on a corrupt/hand-edited `.spec-batch.json`.
 
 ## init UX (brownfield)
 - **Consent flow for `init` injection — decided.** Interactive: **batched consent**; the review
@@ -58,8 +61,8 @@ in-scope-vs-new-scope test). The **one open piece** is the *mechanism*:
   - **batching / enforcement check** — Batch E (research-first, later): changed files map to an owned
     claim; no execution-state leaked into `BUILD_QUEUE.md`; commit grammar. Inspects git/diff state,
     so it **must carve out the install bootstrap** (see Batch E).
-  Exact CLI surface (two commands, or `verify` subcommands like `verify install` / `verify batch`)
-  finalized at build.
+  **CLI surface — decided:** bare `specflow verify` runs the **installation** check; the batching
+  check is `specflow verify --batch` (stubbed "in a later release" until Batch E); `-h` for help.
 - **Tier 2 file location — decided.** The `_DONE` archives move under `specflow/history/`
   (`BUILD_QUEUE_DONE.md`, `CLAIMS_DONE.md`); the active `BUILD_QUEUE.md` + `CLAIMS.md` and `spec/`
   stay at the repo root (visibility). Built as part of Batch BI.
