@@ -24,7 +24,8 @@ the procedure in `specflow/procedures/spec-edit.md`.
   spec, optional assisted backfill, and how the agent behaves around code it didn't spec.
 - **`open-questions.md`** — decisions still under discussion, kept here so they survive beyond any
   one conversation. Resolved items graduate into the file above whose concern they match.
-- **`roadmap.md`** — deferred-but-intended directions (standalone demo repo, the SaaS tier).
+- **`roadmap.md`** — milestones (near-term release goals + their batch groupings, e.g. v0.1) and
+  deferred-but-intended directions (standalone demo repo, the SaaS tier).
 
 ## Reading order
 
