@@ -146,39 +146,63 @@ func installedAgents(stamp map[string]any) []string {
 	return out
 }
 
-// copyTree copies every file under srcRoot (within tpl) into destRoot, preserving structure. When
-// skipExisting is true (init), files that already exist are left untouched. Returns the relpaths
-// written and skipped.
-func copyTree(tpl fs.FS, srcRoot, destRoot string, skipExisting bool) (written, skipped []string, err error) {
-	err = fs.WalkDir(tpl, srcRoot, func(p string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if d.IsDir() {
-			return nil
-		}
-		rel := strings.TrimPrefix(p, srcRoot+"/")
-		dest := filepath.Join(destRoot, filepath.FromSlash(rel))
-		if skipExisting {
-			if _, statErr := os.Stat(dest); statErr == nil {
-				skipped = append(skipped, rel)
-				return nil
+// placedFile pairs a file init would place with its template source.
+type placedFile struct {
+	rel string // repo-relative dest (e.g. "AGENTS.md", "spec/README.md")
+	src string // template path within tpl (e.g. "base/AGENTS.md", "agents/claude/CLAUDE.md")
+}
+
+// initFiles enumerates every file `init` would place: the base set plus the selected agents'
+// adapters, as (dest, template-source) pairs.
+func initFiles(tpl fs.FS, agentKeys []string) ([]placedFile, error) {
+	var out []placedFile
+	add := func(root string) error {
+		return fs.WalkDir(tpl, root, func(p string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
 			}
+			if !d.IsDir() {
+				out = append(out, placedFile{rel: strings.TrimPrefix(p, root+"/"), src: p})
+			}
+			return nil
+		})
+	}
+	if err := add("base"); err != nil {
+		return nil, err
+	}
+	for _, key := range agentKeys {
+		root := "agents/" + key
+		if _, err := fs.Stat(tpl, root); err != nil {
+			continue
 		}
-		b, readErr := fs.ReadFile(tpl, p)
-		if readErr != nil {
-			return readErr
+		if err := add(root); err != nil {
+			return nil, err
 		}
-		if mkErr := os.MkdirAll(filepath.Dir(dest), 0o755); mkErr != nil {
-			return mkErr
-		}
-		if wErr := os.WriteFile(dest, b, 0o644); wErr != nil {
-			return wErr
-		}
-		written = append(written, rel)
-		return nil
-	})
-	return written, skipped, err
+	}
+	return out, nil
+}
+
+// injectRegion inserts specflow's marker-wrapped region (taken from templateContent) at the top of
+// an existing file, preserving the file's current content below it. It returns ok=false when the
+// file already carries a specflow region (already wired — caller leaves it for upgrade to refresh)
+// or the template has no region. This is the non-destructive model applied at init time.
+func injectRegion(existing, templateContent string) (string, bool) {
+	if _, ok := extractRegion(existing); ok {
+		return existing, false // already wired
+	}
+	src, ok := extractRegion(templateContent)
+	if !ok {
+		return existing, false
+	}
+	region := src.startMarker + src.region + src.endMarker
+	return region + "\n\n" + existing, true
+}
+
+func writeFile(dest string, content []byte) error {
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(dest, content, 0o644)
 }
 
 // fillStamp substitutes the version/date/agents placeholders in the freshly copied config template.
@@ -270,33 +294,162 @@ func IsInstalled(targetDir string) bool {
 // IsGitRepo reports whether targetDir is inside a git working tree.
 func IsGitRepo(targetDir string) bool { return isGitRepo(targetDir) }
 
-// Scaffold writes the base protocol + selected agent adapters into targetDir (skipping any file
-// that already exists), fills the stamp, and records the managed-region baseline. Returns the
-// relpaths left untouched because they already existed.
-func Scaffold(targetDir string, tpl fs.FS, version string, agentKeys []string) ([]string, error) {
-	_, baseSkipped, err := copyTree(tpl, "base", targetDir, true)
+// initAction is what init will do with one file, decided by its template source vs. the on-disk
+// state: create it fresh, inject specflow's region into an existing file, leave an
+// already-wired file, or skip a pre-existing user-owned working file.
+type initAction int
+
+const (
+	actionCreate       initAction = iota // file absent → write the template verbatim
+	actionInject                         // managed file exists without a region → insert specflow's region
+	actionAlreadyWired                   // managed file already carries a specflow region → leave for upgrade
+	actionSkipExisting                   // non-managed file exists → user-owned, never touch
+)
+
+type fileAction struct {
+	rel, src string
+	action   initAction
+}
+
+// classifyInit decides, for every file init would place, what to do with it given the current disk
+// state. Deterministic from (targetDir, tpl, agentKeys) — PlanInit shows it, ApplyInit acts on it.
+func classifyInit(targetDir string, tpl fs.FS, agentKeys []string) ([]fileAction, error) {
+	entries, err := managedEntries(tpl, agentKeys)
 	if err != nil {
 		return nil, err
 	}
-	skipped := append([]string{}, baseSkipped...)
-	for _, key := range agentKeys {
-		root := "agents/" + key
-		if _, err := fs.Stat(tpl, root); err != nil {
-			continue
+	managed := map[string]bool{}
+	for _, e := range entries {
+		managed[e.rel] = true
+	}
+	files, err := initFiles(tpl, agentKeys)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]fileAction, 0, len(files))
+	for _, f := range files {
+		a := fileAction{rel: f.rel, src: f.src}
+		switch {
+		case !pathExists(destPath(targetDir, f.rel)):
+			a.action = actionCreate
+		case managed[f.rel]:
+			b, _ := os.ReadFile(destPath(targetDir, f.rel))
+			if _, ok := extractRegion(string(b)); ok {
+				a.action = actionAlreadyWired
+			} else {
+				a.action = actionInject
+			}
+		default:
+			a.action = actionSkipExisting
 		}
-		_, s, err := copyTree(tpl, root, targetDir, true)
-		if err != nil {
-			return nil, err
+		out = append(out, a)
+	}
+	return out, nil
+}
+
+func pathExists(p string) bool {
+	_, err := os.Stat(p)
+	return err == nil
+}
+
+// InitPlan is what init will do, computed before any write so the CLI can show it and get consent.
+// All fields are repo-relative paths.
+type InitPlan struct {
+	Create       []string // files to create fresh (specflow-owned)
+	Inject       []string // existing files specflow will add its region to (content preserved)
+	AlreadyWired []string // existing files that already carry a specflow region — left as-is
+	SkipExisting []string // existing non-managed files — left untouched
+}
+
+// PlanInit classifies the work without touching disk.
+func PlanInit(targetDir string, tpl fs.FS, agentKeys []string) (InitPlan, error) {
+	acts, err := classifyInit(targetDir, tpl, agentKeys)
+	if err != nil {
+		return InitPlan{}, err
+	}
+	var p InitPlan
+	for _, a := range acts {
+		switch a.action {
+		case actionCreate:
+			p.Create = append(p.Create, a.rel)
+		case actionInject:
+			p.Inject = append(p.Inject, a.rel)
+		case actionAlreadyWired:
+			p.AlreadyWired = append(p.AlreadyWired, a.rel)
+		case actionSkipExisting:
+			p.SkipExisting = append(p.SkipExisting, a.rel)
 		}
-		skipped = append(skipped, s...)
+	}
+	return p, nil
+}
+
+// InitResult is what init actually did — its own tracked list of created/modified files (not derived
+// from git, since the tree may carry unrelated changes), for the review handoff.
+type InitResult struct {
+	Created      []string
+	Injected     []string
+	AlreadyWired []string
+	SkipExisting []string
+	Declined     []string // inject targets the user declined (allowInject=false)
+}
+
+// ApplyInit performs the init writes non-destructively and fills the stamp. allowInject gates the
+// injection of specflow's region into files that already exist (batched consent); when false those
+// files are left untouched and reported as Declined — everything else is still written. init never
+// commits.
+func ApplyInit(targetDir string, tpl fs.FS, version string, agentKeys []string, allowInject bool) (InitResult, error) {
+	var res InitResult
+	acts, err := classifyInit(targetDir, tpl, agentKeys)
+	if err != nil {
+		return res, err
+	}
+	for _, a := range acts {
+		dest := destPath(targetDir, a.rel)
+		switch a.action {
+		case actionCreate:
+			b, err := fs.ReadFile(tpl, a.src)
+			if err != nil {
+				return res, err
+			}
+			if err := writeFile(dest, b); err != nil {
+				return res, err
+			}
+			res.Created = append(res.Created, a.rel)
+		case actionInject:
+			if !allowInject {
+				res.Declined = append(res.Declined, a.rel)
+				continue
+			}
+			b, err := fs.ReadFile(tpl, a.src)
+			if err != nil {
+				return res, err
+			}
+			existing, err := os.ReadFile(dest)
+			if err != nil {
+				return res, err
+			}
+			injected, ok := injectRegion(string(existing), string(b))
+			if !ok {
+				res.AlreadyWired = append(res.AlreadyWired, a.rel)
+				continue
+			}
+			if err := os.WriteFile(dest, []byte(injected), 0o644); err != nil {
+				return res, err
+			}
+			res.Injected = append(res.Injected, a.rel)
+		case actionAlreadyWired:
+			res.AlreadyWired = append(res.AlreadyWired, a.rel)
+		case actionSkipExisting:
+			res.SkipExisting = append(res.SkipExisting, a.rel)
+		}
 	}
 	if err := fillStamp(targetDir, version, agentKeys); err != nil {
-		return nil, err
+		return res, err
 	}
 	if err := recordManaged(targetDir, tpl, agentKeys, nil); err != nil {
-		return nil, err
+		return res, err
 	}
-	return skipped, nil
+	return res, nil
 }
 
 // UpgradeResult is the outcome of an Upgrade, for the caller to report.

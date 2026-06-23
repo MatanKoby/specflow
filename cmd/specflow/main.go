@@ -90,9 +90,25 @@ func hasFlag(args []string, f string) bool {
 	return false
 }
 
+// stdin is a single shared reader so multiple prompts in one run (agent pick, then injection
+// consent) don't lose buffered input to a fresh per-call reader's read-ahead.
+var stdin = bufio.NewReader(os.Stdin)
+
 func readLine() string {
-	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	line, _ := stdin.ReadString('\n')
 	return line
+}
+
+// confirm asks a yes/no question, defaulting to yes (Enter = yes) — init's whole purpose is to
+// install, so the safe default is to proceed; the review-the-diff handoff is the real safety net.
+func confirm(prompt string) bool {
+	fmt.Print(prompt + " " + cyan("[Y/n]") + ": ")
+	switch strings.ToLower(strings.TrimSpace(readLine())) {
+	case "", "y", "yes":
+		return true
+	default:
+		return false
+	}
 }
 
 func pickAgents(preset string) []string {
@@ -146,6 +162,10 @@ func cmdInit(args []string) error {
 	if preset == "" && hasFlag(args, "--all") {
 		preset = strings.Join(allAgentKeys(), ",")
 	}
+	// Interactive only when the user gave no agent preset — then we prompt for agents and for
+	// injection consent. With --agents= / --all (agents, CI) we proceed and notify, since init
+	// never commits.
+	interactive := preset == ""
 
 	if kit.IsInstalled(target) {
 		fmt.Println(yellow("\nThis repo already has specflow installed.") + " Run " + cyan("specflow upgrade") + " to update it.\n")
@@ -162,26 +182,59 @@ func cmdInit(args []string) error {
 	}
 	fmt.Println(bold("\nspecflow "+version) + " → " + dim(target))
 
-	skipped, err := kit.Scaffold(target, specflow.Templates(), version, agentKeys)
+	plan, err := kit.PlanInit(target, specflow.Templates(), agentKeys)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(green("\n✓ specflow installed."))
-	fmt.Println("  Base protocol:   AGENTS.md, BUILD_QUEUE.md, CLAIMS.md, spec/, specflow/")
-	if len(agentKeys) > 0 {
-		fmt.Println("  Agent adapters:  " + strings.Join(agentKeys, ", "))
-	}
-	if len(skipped) > 0 {
-		fmt.Println(yellow(fmt.Sprintf("\n  Left %d existing file(s) untouched (review/merge manually):", len(skipped))))
-		for _, f := range skipped {
-			fmt.Println(dim("    · " + f))
+	// Phase 1 — files specflow will inject its region into (they already exist).
+	allowInject := true
+	if len(plan.Inject) > 0 {
+		fmt.Println(bold("\nPhase 1 — existing files specflow will add its region to") +
+			dim("  (your content is preserved; specflow's block is inserted between markers):"))
+		for _, f := range plan.Inject {
+			fmt.Println(dim("    · ") + cyan(f))
+		}
+		if interactive {
+			allowInject = confirm("\nInject specflow's marker region into the file(s) above?")
 		}
 	}
-	fmt.Println(bold("\nNext steps:"))
-	fmt.Println("  1. Fill in " + cyan("spec/README.md") + " with what this project is.")
-	fmt.Println("  2. Replace the example batch in " + cyan("BUILD_QUEUE.md") + " with real work.")
-	fmt.Println("  3. Point your agent at " + cyan("AGENTS.md") + " and let it claim a batch.\n")
+	if len(plan.AlreadyWired) > 0 {
+		fmt.Println(dim("\n  Already wired (specflow region present) — left as-is: " + strings.Join(plan.AlreadyWired, ", ")))
+	}
+
+	// Phase 2 — specflow-owned files to create.
+	if len(plan.Create) > 0 {
+		fmt.Println(bold(fmt.Sprintf("\nPhase 2 — %d specflow-owned file(s) to create", len(plan.Create))) +
+			dim("  (BUILD_QUEUE.md, CLAIMS.md, spec/, specflow/, agent adapters)."))
+	}
+
+	res, err := kit.ApplyInit(target, specflow.Templates(), version, agentKeys, allowInject)
+	if err != nil {
+		return err
+	}
+
+	// Hand off for review — init never commits.
+	fmt.Println(green("\n✓ specflow installed.") + dim("  Nothing was committed."))
+	if len(res.Injected) > 0 {
+		fmt.Println("  Modified " + dim("(region injected, your content kept)") + ": " + strings.Join(res.Injected, ", "))
+	}
+	if len(res.Created) > 0 {
+		fmt.Printf("  Created:  %d file(s).\n", len(res.Created))
+	}
+	if len(res.SkipExisting) > 0 {
+		fmt.Println(dim("  Left untouched (already present): " + strings.Join(res.SkipExisting, ", ")))
+	}
+	if len(res.Declined) > 0 {
+		fmt.Println(yellow("  Declined injection (left untouched): " + strings.Join(res.Declined, ", ")))
+		fmt.Println(dim("    → add specflow's region later by re-running init, or point the file at AGENTS.md yourself."))
+	}
+
+	fmt.Println(bold("\nReview, then commit:"))
+	fmt.Println("  1. Inspect the changes with " + cyan("git diff") + " / " + cyan("git status") + " — remove anything you don't want.")
+	fmt.Println(dim("     (specflow may be limited if required pieces are removed — run ") + cyan("specflow verify") + dim(" to check.)"))
+	fmt.Println("  2. Commit when satisfied — ideally its own commit, e.g. " + cyan("meta: install specflow") + ".")
+	fmt.Println("  3. Fill in " + cyan("spec/README.md") + ", seed " + cyan("BUILD_QUEUE.md") + ", and point your agent at " + cyan("AGENTS.md") + ".\n")
 	return nil
 }
 

@@ -55,6 +55,48 @@ func run(t *testing.T, cwd string, args ...string) result {
 	return result{out.String(), errb.String(), code}
 }
 
+// runStdin is like run but feeds the process stdin (for interactive prompts).
+func runStdin(t *testing.T, cwd, in string, args ...string) result {
+	t.Helper()
+	cmd := exec.Command(binPath, args...)
+	cmd.Dir = cwd
+	cmd.Stdin = strings.NewReader(in)
+	var out, errb strings.Builder
+	cmd.Stdout = &out
+	cmd.Stderr = &errb
+	err := cmd.Run()
+	code := 0
+	if err != nil {
+		ee, ok := err.(*exec.ExitError)
+		if !ok {
+			t.Fatalf("run %v: %v", args, err)
+		}
+		code = ee.ExitCode()
+	}
+	return result{out.String(), errb.String(), code}
+}
+
+func mustWrite(t *testing.T, p, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func gitOut(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git %v: %v", args, err)
+	}
+	return string(out)
+}
+
 func exists(p string) bool {
 	_, err := os.Stat(p)
 	return err == nil
@@ -138,6 +180,79 @@ func TestInitWritesFilesAndStamp(t *testing.T) {
 			!regexp.MustCompile(`(?s)<!--\s*specflow:end\b`).MatchString(c) {
 			t.Errorf("%s lacks region markers", f)
 		}
+	}
+}
+
+func TestInitBrownfieldInjectsAndPreserves(t *testing.T) {
+	tmp := newRepo(t)
+	// Pre-existing brownfield files: a managed AGENTS.md + CLAUDE.md with user content, and a
+	// user-owned spec file specflow must not touch.
+	mustWrite(t, filepath.Join(tmp, "AGENTS.md"), "# Our existing agent notes\nDeploy on Fridays.\n")
+	mustWrite(t, filepath.Join(tmp, "CLAUDE.md"), "# Existing CLAUDE\nuse pnpm.\n")
+	mustWrite(t, filepath.Join(tmp, "spec/README.md"), "OUR OWN SPEC — do not touch\n")
+
+	r := run(t, tmp, "init", "--agents=claude") // non-interactive → proceeds without prompts
+	if r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+
+	ag := read(t, filepath.Join(tmp, "AGENTS.md"))
+	if !startMarker.MatchString(ag) {
+		t.Error("AGENTS.md got no injected specflow region")
+	}
+	if !strings.Contains(ag, "Deploy on Fridays.") {
+		t.Error("existing AGENTS.md content was lost on injection")
+	}
+	if strings.Index(ag, "specflow:start") > strings.Index(ag, "Deploy on Fridays.") {
+		t.Error("specflow region not injected above the existing content")
+	}
+
+	cl := read(t, filepath.Join(tmp, "CLAUDE.md"))
+	if !startMarker.MatchString(cl) || !strings.Contains(cl, "use pnpm.") {
+		t.Error("CLAUDE.md injection lost content or skipped the region")
+	}
+
+	if read(t, filepath.Join(tmp, "spec/README.md")) != "OUR OWN SPEC — do not touch\n" {
+		t.Error("existing user-owned spec/README.md was modified")
+	}
+
+	if !strings.Contains(r.stdout, "git diff") || !strings.Contains(r.stdout, "meta: install specflow") {
+		t.Error("init did not print the review/commit handoff")
+	}
+	// init must never commit.
+	if c := strings.TrimSpace(gitOut(t, tmp, "rev-list", "--all", "--count")); c != "0" {
+		t.Errorf("init created commits (count %q) — it must never commit", c)
+	}
+	// The injected region is recorded so upgrade can refresh it.
+	var stamp map[string]any
+	json.Unmarshal([]byte(read(t, filepath.Join(tmp, "specflow/config.json"))), &stamp)
+	managed, _ := stamp["managed"].(map[string]any)
+	if h, _ := managed["AGENTS.md"].(string); h == "" {
+		t.Error("injected AGENTS.md not recorded in managed baseline")
+	}
+}
+
+func TestInitInteractiveDeclineInjection(t *testing.T) {
+	tmp := newRepo(t)
+	mustWrite(t, filepath.Join(tmp, "AGENTS.md"), "# mine\nkeep me\n")
+	// stdin: Enter (default Claude) for the agent pick, then "n" to decline injection.
+	r := runStdin(t, tmp, "\nn\n", "init")
+	if r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	ag := read(t, filepath.Join(tmp, "AGENTS.md"))
+	if startMarker.MatchString(ag) {
+		t.Error("declined injection still modified AGENTS.md")
+	}
+	if !strings.Contains(ag, "keep me") {
+		t.Error("declined path damaged the existing file")
+	}
+	if !strings.Contains(r.stdout, "Declined") {
+		t.Error("no declined notice printed")
+	}
+	// Everything else still installed.
+	if !exists(filepath.Join(tmp, "specflow/config.json")) || !exists(filepath.Join(tmp, "BUILD_QUEUE.md")) {
+		t.Error("declining injection should still install the rest")
 	}
 }
 
