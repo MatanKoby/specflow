@@ -142,6 +142,30 @@ func managedEntries(tpl fs.FS, agentKeys []string) ([]managedEntry, error) {
 	return out, nil
 }
 
+// baselineMap pulls the managed-region baseline hashes out of the stamp.
+func baselineMap(stamp map[string]any) map[string]string {
+	out := map[string]string{}
+	if raw, ok := stamp["managed"].(map[string]any); ok {
+		for k, v := range raw {
+			if s, ok := v.(string); ok {
+				out[k] = s
+			}
+		}
+	}
+	return out
+}
+
+// isPerAgentFile reports whether a managed rel is a per-agent instruction file (Tier 3) rather than
+// a base mechanism file (Tier 1).
+func isPerAgentFile(rel string) bool {
+	for _, v := range agentInstructionFile {
+		if v == rel {
+			return true
+		}
+	}
+	return false
+}
+
 // installedAgents reads the comma-separated agent list from the stamp's config block.
 func installedAgents(stamp map[string]any) []string {
 	cfg, ok := stamp["config"].(map[string]any)
@@ -502,14 +526,7 @@ func Upgrade(targetDir string, tpl fs.FS, version string) (UpgradeResult, error)
 	}
 	res.From, _ = stamp["kitVersion"].(string)
 
-	baseline := map[string]string{}
-	if raw, ok := stamp["managed"].(map[string]any); ok {
-		for k, v := range raw {
-			if s, ok := v.(string); ok {
-				baseline[k] = s
-			}
-		}
-	}
+	baseline := baselineMap(stamp)
 	next := map[string]string{}
 	for k, v := range baseline {
 		next[k] = v
@@ -606,4 +623,70 @@ func Upgrade(targetDir string, tpl fs.FS, version string) (UpgradeResult, error)
 		res.SchemaChanged = true
 	}
 	return res, nil
+}
+
+// VerifyReport is the outcome of an install-integrity check. Problems are Tier-1 failures (specflow
+// can't work properly); Warnings are Tier-3 / drift issues (degraded but functional); OK lists the
+// pieces that checked out.
+type VerifyReport struct {
+	Installed bool
+	OK        []string
+	Warnings  []string
+	Problems  []string
+}
+
+// Verify checks installation integrity against the working tree (so it passes on a fresh,
+// uncommitted init): a valid stamp, the Tier-1 managed files present with intact regions (drift
+// reported), and the installed agents' Tier-3 instruction files present and wired to AGENTS.md.
+func Verify(targetDir string, tpl fs.FS, version string) (VerifyReport, error) {
+	var rep VerifyReport
+	sb, err := os.ReadFile(configPath(targetDir))
+	if err != nil {
+		rep.Problems = append(rep.Problems, "specflow/config.json not found — run `specflow init`")
+		return rep, nil
+	}
+	var stamp map[string]any
+	if err := json.Unmarshal(sb, &stamp); err != nil {
+		rep.Problems = append(rep.Problems, "specflow/config.json is corrupt (invalid JSON) — fix or restore it")
+		return rep, nil
+	}
+	rep.Installed = true
+	rep.OK = append(rep.OK, "specflow/config.json valid")
+
+	baseline := baselineMap(stamp)
+	entries, err := managedEntries(tpl, installedAgents(stamp))
+	if err != nil {
+		return rep, err
+	}
+	for _, e := range entries {
+		tier3 := isPerAgentFile(e.rel)
+		b, err := os.ReadFile(destPath(targetDir, e.rel))
+		if err != nil {
+			if tier3 {
+				rep.Warnings = append(rep.Warnings, e.rel+" missing — that agent isn't auto-wired (point its file at AGENTS.md)")
+			} else {
+				rep.Problems = append(rep.Problems, e.rel+" missing — specflow can't work properly")
+			}
+			continue
+		}
+		content := string(b)
+		parts, ok := extractRegion(content)
+		if !ok {
+			switch {
+			case tier3 && referencesAgents(content):
+				rep.OK = append(rep.OK, e.rel+" (points at AGENTS.md)")
+			case tier3:
+				rep.Warnings = append(rep.Warnings, e.rel+" has no specflow region and doesn't reference AGENTS.md")
+			default:
+				rep.Problems = append(rep.Problems, e.rel+" has no specflow region (markers missing) — run `specflow upgrade`")
+			}
+			continue
+		}
+		if base := baseline[e.rel]; base != "" && hashRegion(parts.region) != base {
+			rep.Warnings = append(rep.Warnings, e.rel+" region edited since install (drift) — `upgrade` won't refresh it")
+		} else {
+			rep.OK = append(rep.OK, e.rel)
+		}
+	}
+	return rep, nil
 }

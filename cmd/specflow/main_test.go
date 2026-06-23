@@ -536,6 +536,69 @@ func TestSubcommandHelp(t *testing.T) {
 	}
 }
 
+func TestVerifyPassesOnFreshInit(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude")
+	r := run(t, tmp, "verify") // working tree, uncommitted — must pass
+	if r.code != 0 {
+		t.Fatalf("verify on a fresh install exit %d: %s", r.code, r.stdout)
+	}
+	if !regexp.MustCompile(`(?i)all good|installed`).MatchString(r.stdout) {
+		t.Errorf("verify did not report a clean install: %s", r.stdout)
+	}
+}
+
+func TestVerifyFailsOnMissingTier1(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude")
+	os.Remove(filepath.Join(tmp, "specflow/procedures/claim-batch.md"))
+	r := run(t, tmp, "verify")
+	if r.code == 0 {
+		t.Error("verify should exit non-zero when a Tier-1 file is missing")
+	}
+	if !strings.Contains(r.stdout, "claim-batch.md") {
+		t.Errorf("verify did not name the missing file: %s", r.stdout)
+	}
+}
+
+func TestVerifyWarnsOnDrift(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude")
+	ag := filepath.Join(tmp, "AGENTS.md")
+	edited := startMarker.ReplaceAllStringFunc(read(t, ag), func(m string) string { return m + "\nDRIFT" })
+	os.WriteFile(ag, []byte(edited), 0o644)
+	r := run(t, tmp, "verify")
+	if r.code != 0 {
+		t.Errorf("drift is a warning, not a hard failure; got exit %d", r.code)
+	}
+	if !regexp.MustCompile(`(?i)drift|edited`).MatchString(r.stdout) {
+		t.Errorf("verify did not warn about drift: %s", r.stdout)
+	}
+}
+
+func TestVerifyBatchStub(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude")
+	r := run(t, tmp, "verify", "--batch")
+	if r.code != 0 {
+		t.Fatalf("verify --batch exit %d", r.code)
+	}
+	if !regexp.MustCompile(`(?i)later release|Batch E`).MatchString(r.stdout) {
+		t.Errorf("verify --batch should be stubbed: %s", r.stdout)
+	}
+}
+
+func TestVerifyNotInstalled(t *testing.T) {
+	tmp := newRepo(t)
+	r := run(t, tmp, "verify")
+	if r.code == 0 {
+		t.Error("verify in an uninitialized repo should exit non-zero")
+	}
+	if !regexp.MustCompile(`(?i)not installed`).MatchString(r.stdout) {
+		t.Errorf("verify did not say 'not installed': %s", r.stdout)
+	}
+}
+
 func TestVersionAndUnknownCommand(t *testing.T) {
 	tmp := t.TempDir()
 	for _, flag := range []string{"--version", "-v"} {

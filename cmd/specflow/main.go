@@ -41,6 +41,7 @@ func paint(code, s string) string {
 func bold(s string) string   { return paint("1", s) }
 func green(s string) string  { return paint("32", s) }
 func yellow(s string) string { return paint("33", s) }
+func red(s string) string    { return paint("31", s) }
 func dim(s string) string    { return paint("2", s) }
 func cyan(s string) string   { return paint("36", s) }
 
@@ -355,6 +356,75 @@ func cmdUpgrade(args []string) error {
 	return nil
 }
 
+func verifyUsage() {
+	fmt.Printf(`
+%s — check specflow's installation integrity
+
+%s
+  specflow verify
+
+Reports whether the Tier-1 pieces (a valid config.json, AGENTS.md + its region,
+the procedures) are present and intact, flags any managed region edited since
+install (drift), and warns about agent files not wired to AGENTS.md. Reads the
+working tree, so it passes right after %s — before you commit. Exit code is
+non-zero when a Tier-1 problem is found (handy in CI).
+
+  --batch      (later) check batch/claim discipline — ships with Batch E
+  -h, --help   show this help
+`,
+		bold("specflow verify"),
+		bold("Usage:"),
+		cyan("init"))
+}
+
+func cmdVerify(args []string) error {
+	if helpRequested(args) {
+		verifyUsage()
+		return nil
+	}
+	if hasFlag(args, "--batch") {
+		fmt.Println(yellow("\nspecflow verify --batch") + " — the batch/claim discipline check ships in a later release (Batch E).\n")
+		return nil
+	}
+	target, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	rep, err := kit.Verify(target, specflow.Templates(), version)
+	if err != nil {
+		return err
+	}
+	if !rep.Installed {
+		fmt.Println(yellow("\nspecflow is not installed here.") + " Run " + cyan("specflow init") + " first.")
+		for _, p := range rep.Problems {
+			fmt.Println(red("  ✗ ") + p)
+		}
+		fmt.Println("")
+		os.Exit(1)
+	}
+	fmt.Println(bold("\nspecflow verify") + dim("  — installation integrity"))
+	for _, o := range rep.OK {
+		fmt.Println(green("  ✓ ") + dim(o))
+	}
+	for _, w := range rep.Warnings {
+		fmt.Println(yellow("  ⚠ ") + w)
+	}
+	for _, p := range rep.Problems {
+		fmt.Println(red("  ✗ ") + p)
+	}
+	fmt.Println("")
+	switch {
+	case len(rep.Problems) > 0:
+		fmt.Println(red("Install incomplete — specflow may not work properly.") + " Re-run " + cyan("specflow init") + " or restore the missing pieces.\n")
+		os.Exit(1)
+	case len(rep.Warnings) > 0:
+		fmt.Println(yellow("Installed, with warnings above.") + "\n")
+	default:
+		fmt.Println(green("All good — specflow is installed correctly.") + "\n")
+	}
+	return nil
+}
+
 func usage() {
 	fmt.Printf(`
 %s %s — spec-driven batch/claim protocol for AI coding agents
@@ -362,11 +432,12 @@ func usage() {
 %s
   specflow init [--agents=claude,cursor] [--all]   %s
   specflow upgrade                                 %s
+  specflow verify                                  %s
   specflow --version                               %s
   specflow --help
 
 %s
-  specflow init --help · specflow upgrade --help
+  specflow init --help · specflow upgrade --help · specflow verify --help
 
 %s %s
 `,
@@ -374,6 +445,7 @@ func usage() {
 		bold("Usage:"),
 		dim("scaffold into the current repo"),
 		dim("refresh the managed protocol files"),
+		dim("check installation integrity"),
 		dim("print the installed version"),
 		bold("Per-command help:"),
 		bold("Agents:"), strings.Join(allAgentKeys(), ", "))
@@ -385,6 +457,8 @@ func dispatch(command string, args []string) error {
 		return cmdInit(args)
 	case "upgrade":
 		return cmdUpgrade(args)
+	case "verify":
+		return cmdVerify(args)
 	case "--version", "-v", "version":
 		fmt.Println(version)
 	case "", "--help", "-h", "help":
