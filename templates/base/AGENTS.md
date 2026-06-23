@@ -25,11 +25,28 @@ the spec**, **finish a batch** — carry the discipline; their full steps live i
 ## Repo & branches
 
 - There is one **shared working branch** (default `main` — substitute your team's if different).
-  Agents commit directly to it. Always `git pull --ff-only` before claiming.
+  Agents commit directly to it, subject to the **commit/push levers** below. Always
+  `git pull --ff-only` before claiming.
 - No feature branches in the normal flow. (Teams that prefer PR-per-batch can layer that on;
   the default is direct-commit.)
 - **Never** force-push the shared branch. The only acceptable response to a rejected push is
   `git fetch + reset` (for a claim commit) or `git pull --rebase` (for a work commit), then re-push.
+
+## Commit & push authority
+
+Two independent levers in `specflow/config.json` (`config.commit` / `config.push`) govern what an
+agent may do with code it has written. **Read them before any commit or push step** in the
+procedures:
+
+- **`commit: agent`** — the agent creates commits itself. **`commit: user`** — the agent does
+  **not** commit; on reaching a sensible commit point it **alerts the user and supplies a short
+  suggested commit message** (in the convention below), and the user makes the commit.
+- **`push: agent`** — the agent pushes after committing. **`push: user`** — the agent commits but
+  **never pushes**; the user pushes on their own terms. (Only meaningful when `commit: agent`.)
+
+Where the procedures say "commit … and push," honor these levers: substitute an alert + suggested
+message when `commit: user`, and stop before pushing when `push: user`. The default is
+`agent` / `agent` — the agent commits and pushes.
 
 ## File ownership
 

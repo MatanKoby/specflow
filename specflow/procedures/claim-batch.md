@@ -3,6 +3,11 @@
 
 Run this before starting any new batch. `AGENTS.md` carries only the pointer to this file.
 
+> **Commit & push follow the configured levers** (`config.commit` / `config.push` in
+> `specflow/config.json`; see `AGENTS.md` → *Commit & push authority*). Wherever a step below says
+> "commit" or "push": if `commit: user`, don't commit — alert the user and hand them the suggested
+> message; if `push: user`, commit but don't push. Default is `agent` / `agent`.
+
 ## Pre-flight
 
 1. `git pull --ff-only` on the shared working branch — if it fails, resolve before claiming.

@@ -3,6 +3,11 @@
 
 Run this when wrapping up. `AGENTS.md` carries only the pointer to this file.
 
+> **Commit & push follow the configured levers** (`config.commit` / `config.push` in
+> `specflow/config.json`; see `AGENTS.md` → *Commit & push authority*). Wherever a step below says
+> "commit" or "push": if `commit: user`, don't commit — alert the user and hand them the suggested
+> message; if `push: user`, commit but don't push. Default is `agent` / `agent`.
+
 ## Wrap-up
 
 1. Make the final work commit and push. **Note its short SHA** — you'll record it in `CLAIMS.md`.
