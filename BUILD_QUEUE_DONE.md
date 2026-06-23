@@ -10,6 +10,19 @@ picking a new claim. The full implementation history is in `git log` + `CLAIMS_D
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch CFG — Config file, commit/push levers & safety fixes (v0.1 foundation)
+Renamed the stamp to `specflow/config.json` (out of the repo root) with a **`config` block**
+(`agents`/`mode`/`commit`/`push`) beside internal state (versions, schema, `managed` hashes). Taught
+the procedures the two commit/push levers: `AGENTS.md` defines `config.commit` / `config.push`
+(`agent|user`) authoritatively, and `claim-batch.md` / `finish-batch.md` carry a lever-note (when
+`commit: user`, alert + supply a suggested message instead of committing; when `push: user`, commit
+but don't push); default `agent`/`agent`. Safety: a managed file with **no baseline** is treated as
+drift (`.specflow-new` sidecar, never overwrite — risk A); a corrupt `config.json` fails friendly;
+`init` **requires git** (refuses otherwise). CLI: no ANSI when stdout isn't a TTY or `NO_COLOR` set.
+Key commits `48ac469` (safety/CLI), `ea3bffb` (config.json + block), `5204656` (lever wording).
+Follow-ups: the init-time lever prompt + brownfield two-phase flow → Batch BI; `_DONE` archives move
+to `specflow/history/` in BI.
+
 ## Batch G1 — Port the CLI to Go (full replace)
 Replaced the Node `bin/specflow.js` with a single statically-compiled **Go binary** (`cmd/specflow`
 + `internal/kit`), templates embedded via `//go:embed all:templates` (the `all:` prefix keeps the

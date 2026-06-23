@@ -17,40 +17,14 @@ Completed history: [`BUILD_QUEUE_DONE.md`](BUILD_QUEUE_DONE.md) — one-paragrap
 ## Un-done batches
 
 > **Pick-order pointer — Milestone v0.1** (first live-testable release; goal/DoD in `roadmap.md`).
-> Build order: **Batch CFG** (config file + commit/push levers + safety fixes — the foundation the
-> rest read) → then **Batch BI** (brownfield `init`) · **Batch SO** (spec-only mode) · **Batch G2**
+> Build order: **Batch BI** (brownfield `init`) → **Batch SO** (spec-only mode) · **Batch G2**
 > (release: GoReleaser → GitHub Releases + `curl|sh`; Homebrew deferred) · **Batch 1** (add-agent) ·
 > **Batch 2** (status) · **Batch 5** (`--dry-run`). All target the Go CLI (`cmd/specflow` +
-> `internal/kit`); CLI is Go (Batch G1, done).
+> `internal/kit`); CLI is Go (Batch G1, done). **Batch CFG** (config file + commit/push levers +
+> safety fixes — the foundation the rest read) is **done**.
 > **Post-v0.1:** **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch W**
 > (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · Homebrew tap.
-
----
-
-## Batch CFG — Config file, commit/push levers & safety fixes (v0.1 foundation)
-
-**Milestone:** v0.1. The load-bearing plumbing the other v0.1 batches read; **build first.** May
-split at claim time. See `architecture.md` (Config & state; Commit & push authority; init requires
-git) + `open-questions.md`.
-
-### Deliverables
-- **Rename** the stamp to `specflow/config.json` with a `config` block (`agents`, `mode`, `commit`,
-  `push`) + internal state (versions, schema, `managed` hashes); update all references + tests.
-- **Commit/push levers** chosen at `init`, stored in `config`; `claim-batch.md` / `finish-batch.md`
-  + `AGENTS.md` reworded to honor them (when `commit: user`, alert at commit points + supply a
-  suggested message; when `push: user`, commit but don't push).
-- **Safety:** missing baseline → treat as drift, never overwrite (risk A); friendly failure on a
-  corrupt `config.json` (stamp validation); `init` **requires a git repo** (refuse otherwise).
-- **NO_COLOR / non-TTY:** plain output when stdout isn't a TTY or `NO_COLOR` is set.
-
-### Files this batch creates/edits
-- `cmd/specflow/` + `internal/kit/` · `templates/base/specflow/.spec-batch.json` → `config.json` ·
-  `templates/base/AGENTS.md` + procedures (lever wording) · `cmd/specflow/main_test.go`.
-
-### Verification
-- `go test ./...`. Manual: init records the `config` block; `commit: user` → agent suggests, doesn't
-  commit; corrupt `config.json` → friendly error; non-git → refused; piped output has no escape codes.
 
 ---
 

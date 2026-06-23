@@ -19,11 +19,32 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch CFG — Config file, commit/push levers & safety fixes (v0.1 foundation)
 - Owner: claude
 - Started: 2026-06-23 14:51
+- Finished: 2026-06-23 17:02
+- Commit: 5204656
 
-## Completed
+**What shipped.** The v0.1 foundation the other batches read. The stamp is renamed to
+`specflow/config.json` (out of the repo root) and now carries a **`config` block** —
+`agents` / `mode` / `commit` / `push` — alongside internal state (versions, schema, `managed`
+hashes); all references + tests updated. The two **commit/push levers** are honored by the
+procedures: `AGENTS.md` gains an authoritative *Commit & push authority* section defining
+`config.commit` / `config.push` (`agent|user`), and `claim-batch.md` / `finish-batch.md` each carry
+a compact lever-note — when `commit: user` the agent alerts at commit points and supplies a suggested
+message rather than committing; when `push: user` it commits but never pushes; default stays
+`agent` / `agent`. (The *interactive* lever choice at `init` is deferred to Batch BI's init overhaul;
+CFG lands the field + the procedure behavior with agent/agent defaults.) **Safety fixes:** a managed
+file with no recorded baseline is now treated as **drift** — `upgrade` writes a `.specflow-new`
+sidecar and never overwrites (closes risk A); a corrupt/hand-edited `config.json` fails with a
+friendly "fix or restore it" message; `init` now **requires a git repo** and refuses otherwise
+(nothing written), closing the no-undo risk on brownfield repos. **CLI hygiene:** colour output is
+suppressed when stdout isn't a TTY or `NO_COLOR` is set (no escape codes in piped/redirected output).
+10 tests pass; `go vet` clean; self-host `upgrade` is a clean idempotent no-op. **Follow-ups:** the
+init-time lever prompt + brownfield two-phase flow land in Batch BI; the `_DONE` archives move under
+`specflow/history/` in BI.
 
 ### Batch G1 — Port the CLI to Go (full replace)
 - Owner: claude
