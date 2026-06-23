@@ -99,6 +99,31 @@ Resolve them, then build.
 
 ---
 
+## Batch SO — Spec-only install mode (`--spec-only`)
+
+**Goal.** A lighter install that keeps only the spec discipline (no queue/claim/batch). See
+`architecture.md` → Install modes. **v0.1.** Coordinate with BI (shared template/marker work).
+
+### Deliverables
+- `specflow init --spec-only` installs the subset: `AGENTS.md` (spec sections), `spec/`, `spec-edit`,
+  the stamp (mode recorded), selected agent stubs; omits `BUILD_QUEUE.md` / `CLAIMS.md` /
+  `claim-batch` / `finish-batch` + their skills.
+- **Section-composition:** `AGENTS.md` + `spec-edit.md` templates carry tagged sub-sections; render
+  strips the batch/claim sub-sections in spec-only. One source, no forked variants. Baseline hash
+  over the rendered region.
+- Mode recorded in the stamp; `upgrade` re-renders for the recorded mode. Graduation path
+  (spec-only → full) via re-run / `enable-batching` — can be a follow-up.
+
+### Files this batch creates/edits
+- `cmd/specflow/` + `internal/kit/` (mode + section render) · `templates/base/AGENTS.md` +
+  `templates/base/specflow/procedures/spec-edit.md` (section tags) · `cmd/specflow/main_test.go`.
+
+### Verification
+- `go test ./...`. Manual: `init --spec-only` → no queue/claims/claim-batch/finish-batch; `AGENTS.md`
+  + `spec-edit` carry no batch/claim references; full mode still complete.
+
+---
+
 ## Batch 1 — `specflow add-agent <name>`
 
 **Goal.** `init` is one-shot; adding an agent later means manual copying. Add a command that copies

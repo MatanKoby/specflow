@@ -48,6 +48,31 @@ overwrite text authored by a user or another agent**, in any file. They write on
 marker-delimited region; everything outside is preserved. `init` additionally **never writes without
 consent and never commits** (see below).
 
+## Install modes — full vs spec-only
+
+`init` installs one of two modes (the user picks at init; recorded in the stamp):
+
+- **Full** (default) — the whole protocol: spec → queue → claim → build.
+- **Spec-only** (`--spec-only`) — just the **spec discipline**: agents create / update / organize
+  `spec/` (concern-per-file hierarchy, splitting large files, archiving stale content) under gate 1
+  (propose → user approves), with **no** queue / claim / batch machinery. A lighter on-ramp; can
+  graduate to full later.
+
+Spec-only writes `AGENTS.md` (spec sections only), `spec/`, the **spec-edit** procedure, the stamp,
+and the selected agent stubs; it omits `BUILD_QUEUE.md` / `CLAIMS.md` / `claim-batch` / `finish-batch`
+and their skills.
+
+**One source, composed — not two forks.** `AGENTS.md` and `spec-edit.md` are **section-composed**:
+their managed region is built from tagged sub-sections, and spec-only **omits the batch/claim
+sections** at render time. There is a single template (organic, no drifting variants); the mode
+decides which sub-sections are emitted, and the baseline hash is taken over the *rendered* region.
+- `AGENTS.md` sub-sections: **spec discipline** (always) · **commit/push authority** (always) ·
+  **batch & claim** (full only).
+- `spec-edit.md` sub-sections: the spec-organization core (always) · the *"a decision also goes to
+  the queue"* persistence step (full only).
+The spec sub-sections are **self-contained** — they never reference the queue/claims, so spec-only
+reads cleanly.
+
 ## init / upgrade
 
 - **`init`** — interactive (or `--agents=…` / `--all`). It **requires a git repository** — specflow's
