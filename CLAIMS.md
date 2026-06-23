@@ -19,6 +19,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch BI — Brownfield-aware `init` (inject-with-consent, review handoff)
+- Owner: claude
+- Started: 2026-06-23 17:08
+
 ## Completed
 
 ### Batch CFG — Config file, commit/push levers & safety fixes (v0.1 foundation)
