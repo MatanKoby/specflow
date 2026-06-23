@@ -72,6 +72,18 @@ func hashRegion(region string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// hasRegionMarkers reports whether content already carries a specflow region.
+func hasRegionMarkers(content string) bool {
+	_, ok := extractRegion(content)
+	return ok
+}
+
+// referencesAgents reports whether a file already points at AGENTS.md (a markdown link, a plain
+// mention, or an `@AGENTS.md` import) — the cheap heuristic for "already wired to the single source".
+func referencesAgents(content string) bool {
+	return strings.Contains(content, "AGENTS.md")
+}
+
 func today() string { return time.Now().UTC().Format("2006-01-02") }
 
 func configPath(targetDir string) string {
@@ -334,9 +346,17 @@ func classifyInit(targetDir string, tpl fs.FS, agentKeys []string) ([]fileAction
 			a.action = actionCreate
 		case managed[f.rel]:
 			b, _ := os.ReadFile(destPath(targetDir, f.rel))
-			if _, ok := extractRegion(string(b)); ok {
+			content := string(b)
+			switch {
+			case hasRegionMarkers(content):
+				// already carries a specflow region → leave it; upgrade refreshes it.
 				a.action = actionAlreadyWired
-			} else {
+			case f.rel != "AGENTS.md" && referencesAgents(content):
+				// a per-agent file that already points at AGENTS.md (a link, mention, or @import) —
+				// it's wired to the single source already; adding a second pointer would be noise.
+				// (AGENTS.md itself is excluded: it must *carry* the protocol, not reference it.)
+				a.action = actionAlreadyWired
+			default:
 				a.action = actionInject
 			}
 		default:
@@ -531,6 +551,13 @@ func Upgrade(targetDir string, tpl fs.FS, version string) (UpgradeResult, error)
 		destContent := string(db)
 		destParts, ok := extractRegion(destContent)
 		if !ok {
+			// No region on disk. Only migrate a file specflow actually owned before (a recorded
+			// baseline ⇒ markers were stripped since install). A managed file with no region AND no
+			// baseline is a brownfield file init deliberately left untouched (e.g. a CLAUDE.md that
+			// already pointed at AGENTS.md) — never adopt/overwrite it.
+			if baseline[rel] == "" {
+				continue
+			}
 			// Pre-marker install: back up verbatim, then write the marked template.
 			if err := os.WriteFile(dest+".specflow-bak", db, 0o644); err != nil {
 				return res, err

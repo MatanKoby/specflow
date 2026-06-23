@@ -200,7 +200,7 @@ func cmdInit(args []string) error {
 		}
 	}
 	if len(plan.AlreadyWired) > 0 {
-		fmt.Println(dim("\n  Already wired (specflow region present) — left as-is: " + strings.Join(plan.AlreadyWired, ", ")))
+		fmt.Println(dim("\n  Already wired (specflow region or an AGENTS.md pointer present) — left as-is: " + strings.Join(plan.AlreadyWired, ", ")))
 	}
 
 	// Phase 2 — specflow-owned files to create.
@@ -225,9 +225,25 @@ func cmdInit(args []string) error {
 	if len(res.SkipExisting) > 0 {
 		fmt.Println(dim("  Left untouched (already present): " + strings.Join(res.SkipExisting, ", ")))
 	}
+	// Tier-aware notices on declined injections: AGENTS.md (Tier 1) is load-bearing; per-agent
+	// instruction files (Tier 3) just auto-wire one agent and degrade gracefully.
 	if len(res.Declined) > 0 {
-		fmt.Println(yellow("  Declined injection (left untouched): " + strings.Join(res.Declined, ", ")))
-		fmt.Println(dim("    → add specflow's region later by re-running init, or point the file at AGENTS.md yourself."))
+		var tier1, tier3 []string
+		for _, f := range res.Declined {
+			if f == "AGENTS.md" {
+				tier1 = append(tier1, f)
+			} else {
+				tier3 = append(tier3, f)
+			}
+		}
+		if len(tier1) > 0 {
+			fmt.Println(yellow("\n  ⚠ Declined the AGENTS.md region — specflow can't work properly without it."))
+			fmt.Println(dim("    Re-run ") + cyan("specflow init") + dim(" to add it, then ") + cyan("specflow verify") + dim(" to confirm."))
+		}
+		if len(tier3) > 0 {
+			fmt.Println(yellow("  Declined injection (left untouched): " + strings.Join(tier3, ", ")))
+			fmt.Println(dim("    → those agents aren't auto-wired; each works once its file points at ") + cyan("AGENTS.md") + dim(" (re-run init to add it)."))
+		}
 	}
 
 	fmt.Println(bold("\nReview, then commit:"))

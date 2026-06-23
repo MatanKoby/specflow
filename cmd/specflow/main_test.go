@@ -247,12 +247,45 @@ func TestInitInteractiveDeclineInjection(t *testing.T) {
 	if !strings.Contains(ag, "keep me") {
 		t.Error("declined path damaged the existing file")
 	}
-	if !strings.Contains(r.stdout, "Declined") {
-		t.Error("no declined notice printed")
+	// Declining AGENTS.md is a Tier-1 problem — the notice must say specflow can't work properly.
+	if !strings.Contains(r.stdout, "can't work properly") {
+		t.Error("no Tier-1 warning printed for a declined AGENTS.md region")
 	}
 	// Everything else still installed.
 	if !exists(filepath.Join(tmp, "specflow/config.json")) || !exists(filepath.Join(tmp, "BUILD_QUEUE.md")) {
 		t.Error("declining injection should still install the rest")
+	}
+}
+
+func TestInitIdempotentWhenFileReferencesAgents(t *testing.T) {
+	tmp := newRepo(t)
+	// A brownfield CLAUDE.md that already points at AGENTS.md — init must not add a second pointer.
+	mustWrite(t, filepath.Join(tmp, "CLAUDE.md"), "# My Claude notes\nSee AGENTS.md for the protocol.\nuse pnpm.\n")
+
+	r := run(t, tmp, "init", "--agents=claude")
+	if r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	cl := read(t, filepath.Join(tmp, "CLAUDE.md"))
+	if startMarker.MatchString(cl) {
+		t.Error("init injected a region into a CLAUDE.md that already references AGENTS.md")
+	}
+	if !strings.Contains(cl, "use pnpm.") {
+		t.Error("existing CLAUDE.md content changed")
+	}
+	if !strings.Contains(r.stdout, "Already wired") {
+		t.Error("no 'already wired' notice for the referenced file")
+	}
+
+	// A later upgrade must leave that un-injected brownfield file alone (no migrate/clobber).
+	if ru := run(t, tmp, "upgrade"); ru.code != 0 {
+		t.Fatalf("upgrade exit %d: %s", ru.code, ru.stderr)
+	}
+	if startMarker.MatchString(read(t, filepath.Join(tmp, "CLAUDE.md"))) {
+		t.Error("upgrade adopted/migrated an un-injected brownfield CLAUDE.md")
+	}
+	if exists(filepath.Join(tmp, "CLAUDE.md.specflow-bak")) {
+		t.Error("upgrade backed up + migrated a file specflow never owned")
 	}
 }
 
