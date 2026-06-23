@@ -129,15 +129,23 @@ reads cleanly.
   - **Pre-marker file** (an install predating markers) → migrated: backed up to `<file>.specflow-bak`,
     then rewritten with markers.
 
-## Versioning & the stamp
+## Config & state — one file
 
-One file: `specflow/.spec-batch.json` carrying `kitVersion` + `schemaVersion`, plus a `managed` map
-(per managed file → SHA-256 of its region) that powers the drift detection above. Procedure prose is
-*instructions, not data*, so a refresh replaces specflow's managed region (never user/agent text —
-see the `upgrade` invariant above) — no migration. `schemaVersion` gates the
-rare case where the **format** of the state files changes; only then is a migration needed. No
-migration runner is built until a format actually breaks (the file-contract is kept stable on
-purpose to keep that rare).
+**One** machine file, in specflow's own folder (**not** the repo root): `specflow/config.json`
+(renamed from the legacy `.spec-batch.json`). It holds both **user config** and **internal state** —
+written by `init`, updated by later calls (`add-agent`, lever/mode changes):
+
+- **`config`** — the user's choices: `agents`, `mode` (`full` | `spec-only`), `commit`
+  (`agent` | `user`), `push` (`agent` | `user`).
+- **internal** — `kitVersion`, `schemaVersion`, `initializedAt`, `upgradedAt`, and the `managed`
+  map (per managed file → SHA-256 of its rendered region) that powers the drift detection above.
+
+Living under `specflow/` keeps the repo root clean — the convention good tools follow (a dedicated
+folder, not yet another root dotfile). A human-readable mirror (`specflow/config.md`) is planned with
+Batch W. Procedure prose is *instructions, not data*, so a refresh replaces specflow's managed region
+(never user/agent text) with no migration; `schemaVersion` gates the rare case where the **format**
+changes — no migration runner until a format actually breaks. *(The rename + `config` block is a
+scheduled code change, folded into the v0.1 work.)*
 
 ## Distribution
 
