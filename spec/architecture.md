@@ -37,7 +37,7 @@ requirement is that every agent honors the same protocol.
 | Path | Owner | On `upgrade` |
 |---|---|---|
 | `AGENTS.md`, `specflow/procedures/**` | **specflow** (mechanism) | managed region refreshed — **never user/agent text** |
-| `specflow/.spec-batch.json` | specflow (stamp) | version bumped |
+| `specflow/config.json` | specflow (config + state) | version bumped |
 | `BUILD_QUEUE.md`, `CLAIMS.md` (root) · `specflow/history/{BUILD_QUEUE_DONE,CLAIMS_DONE}.md` (archives) | user/agents (state) | untouched |
 | `spec/**` | user (content) | untouched |
 | per-agent instruction files (`CLAUDE.md`, `.github/copilot-instructions.md`, `.cursor/rules/…`, …) | **specflow** (a marker-wrapped region) + user (content outside) | region refreshed — **never user text** |

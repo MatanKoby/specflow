@@ -41,7 +41,7 @@ in-scope-vs-new-scope test). The **one open piece** is the *mechanism*:
 - **No-baseline safety fix + stamp validation — v0.1 (closes risk A).** When a managed file has no
   recorded baseline (stamp missing/corrupt, or the file predates being managed), `upgrade` treats it
   as **drift** — writes `.specflow-new`, does **not** overwrite — instead of refreshing. The
-  no-clobber default. Plus friendly failure on a corrupt/hand-edited `.spec-batch.json`.
+  no-clobber default. Plus friendly failure on a corrupt/hand-edited `config.json`.
 
 ## init UX (brownfield)
 - **Consent flow for `init` injection — decided.** Interactive: **batched consent**; the review

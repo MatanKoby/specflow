@@ -61,8 +61,8 @@ func hashRegion(region string) string {
 
 func today() string { return time.Now().UTC().Format("2006-01-02") }
 
-func stampPath(targetDir string) string {
-	return filepath.Join(targetDir, "specflow", ".spec-batch.json")
+func configPath(targetDir string) string {
+	return filepath.Join(targetDir, "specflow", "config.json")
 }
 
 func destPath(targetDir, rel string) string {
@@ -139,9 +139,9 @@ func copyTree(tpl fs.FS, srcRoot, destRoot string, skipExisting bool) (written, 
 	return written, skipped, err
 }
 
-// fillStamp substitutes the version/date/agents placeholders in the freshly copied stamp template.
+// fillStamp substitutes the version/date/agents placeholders in the freshly copied config template.
 func fillStamp(targetDir, version string, agentKeys []string) error {
-	p := stampPath(targetDir)
+	p := configPath(targetDir)
 	b, err := os.ReadFile(p)
 	if err != nil {
 		return nil // no stamp present (e.g. skipped) — nothing to fill
@@ -177,7 +177,7 @@ func computeManaged(targetDir string, tpl fs.FS) (map[string]string, error) {
 // recordManaged reads the stamp, attaches/refreshes the managed-region baseline map (and any extra
 // fields), and writes it back.
 func recordManaged(targetDir string, tpl fs.FS, extra map[string]any) error {
-	p := stampPath(targetDir)
+	p := configPath(targetDir)
 	b, err := os.ReadFile(p)
 	if err != nil {
 		return nil
@@ -219,9 +219,9 @@ func isGitRepo(dir string) bool {
 	}
 }
 
-// IsInstalled reports whether a specflow stamp already exists in targetDir.
+// IsInstalled reports whether a specflow config already exists in targetDir.
 func IsInstalled(targetDir string) bool {
-	_, err := os.Stat(stampPath(targetDir))
+	_, err := os.Stat(configPath(targetDir))
 	return err == nil
 }
 
@@ -275,7 +275,7 @@ type UpgradeResult struct {
 // migrated (backed up to .specflow-bak, then rewritten). Text outside the markers is never touched.
 func Upgrade(targetDir string, tpl fs.FS, version string) (UpgradeResult, error) {
 	res := UpgradeResult{To: version}
-	sp := stampPath(targetDir)
+	sp := configPath(targetDir)
 	sb, err := os.ReadFile(sp)
 	if err != nil {
 		res.NotInstalled = true

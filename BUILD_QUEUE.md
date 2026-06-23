@@ -157,7 +157,7 @@ one agent's adapter into an already-initialized repo and records it in the stamp
 
 ### Deliverables
 - `specflow add-agent claude|cursor|copilot|bob|antigravity` copies that adapter (skip-existing),
-  updates `.spec-batch.json` `agents`, prints what was written.
+  updates `config.json` `config.agents`, prints what was written.
 - Errors cleanly if specflow isn't installed here, or the agent is unknown/already present.
 
 ### Files this batch creates/edits

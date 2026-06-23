@@ -1,5 +1,10 @@
 {
-  "agents": "claude",
+  "config": {
+    "agents": "claude",
+    "commit": "agent",
+    "mode": "full",
+    "push": "agent"
+  },
   "initializedAt": "2026-06-17",
   "kit": "specflow",
   "kitVersion": "0.1.0",
@@ -10,5 +15,5 @@
     "specflow/procedures/spec-edit.md": "3af4e8f8f961d32e7a21f9a394277e820da05105d6664aa3217e129afc828148"
   },
   "schemaVersion": 1,
-  "upgradedAt": "2026-06-21"
+  "upgradedAt": "2026-06-23"
 }

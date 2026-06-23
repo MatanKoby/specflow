@@ -3,5 +3,10 @@
   "kitVersion": "{{VERSION}}",
   "schemaVersion": 1,
   "initializedAt": "{{INIT_DATE}}",
-  "agents": "{{AGENTS}}"
+  "config": {
+    "agents": "{{AGENTS}}",
+    "mode": "full",
+    "commit": "agent",
+    "push": "agent"
+  }
 }

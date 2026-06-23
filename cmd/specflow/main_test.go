@@ -90,7 +90,7 @@ func TestInitWritesFilesAndStamp(t *testing.T) {
 
 	for _, f := range []string{
 		"AGENTS.md", "BUILD_QUEUE.md", "BUILD_QUEUE_DONE.md", "CLAIMS.md", "CLAIMS_DONE.md",
-		"spec/README.md", "specflow/.spec-batch.json",
+		"spec/README.md", "specflow/config.json",
 		"specflow/procedures/claim-batch.md", "specflow/procedures/finish-batch.md", "specflow/procedures/spec-edit.md",
 		"CLAUDE.md", ".claude/skills/claim-batch/SKILL.md", ".cursor/rules/specflow.mdc",
 	} {
@@ -103,19 +103,26 @@ func TestInitWritesFilesAndStamp(t *testing.T) {
 		t.Error("unselected copilot adapter leaked in")
 	}
 
-	raw := read(t, filepath.Join(tmp, "specflow/.spec-batch.json"))
+	raw := read(t, filepath.Join(tmp, "specflow/config.json"))
 	if strings.Contains(raw, "{{") {
-		t.Error("unfilled placeholder remains in stamp")
+		t.Error("unfilled placeholder remains in config")
 	}
 	var stamp map[string]any
 	if err := json.Unmarshal([]byte(raw), &stamp); err != nil {
-		t.Fatalf("stamp not valid JSON: %v", err)
+		t.Fatalf("config not valid JSON: %v", err)
 	}
 	if v, _ := stamp["kitVersion"].(string); !regexp.MustCompile(`^\d+\.\d+\.\d+`).MatchString(v) {
 		t.Errorf("kitVersion not a version: %q", v)
 	}
-	if v, _ := stamp["agents"].(string); v != "claude,cursor" {
-		t.Errorf("agents = %q, want claude,cursor", v)
+	cfg, ok := stamp["config"].(map[string]any)
+	if !ok {
+		t.Fatal("config block missing")
+	}
+	if v, _ := cfg["agents"].(string); v != "claude,cursor" {
+		t.Errorf("config.agents = %q, want claude,cursor", v)
+	}
+	if v, _ := cfg["mode"].(string); v != "full" {
+		t.Errorf("config.mode = %q, want full", v)
 	}
 	managed, ok := stamp["managed"].(map[string]any)
 	if !ok {
@@ -170,7 +177,7 @@ func TestUpgradePreservesStateAndStamps(t *testing.T) {
 		t.Error("upgrade modified CLAIMS.md (a state file)")
 	}
 	var stamp map[string]any
-	json.Unmarshal([]byte(read(t, filepath.Join(tmp, "specflow/.spec-batch.json"))), &stamp)
+	json.Unmarshal([]byte(read(t, filepath.Join(tmp, "specflow/config.json"))), &stamp)
 	if _, ok := stamp["upgradedAt"]; !ok {
 		t.Error("upgrade did not record upgradedAt")
 	}
@@ -226,7 +233,7 @@ func TestUpgradeNoBaselineTreatedAsDrift(t *testing.T) {
 	tmp := newRepo(t)
 	run(t, tmp, "init", "--agents=claude")
 	ag := filepath.Join(tmp, "AGENTS.md")
-	stampPath := filepath.Join(tmp, "specflow/.spec-batch.json")
+	stampPath := filepath.Join(tmp, "specflow/config.json")
 
 	// Simulate a lost baseline: drop the managed map from the stamp.
 	var stamp map[string]any

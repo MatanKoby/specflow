@@ -58,8 +58,9 @@ spec-everything-up-front; the contradiction/change-existing-code stop is part of
 
 ## Model: five orthogonal dimensions (not presets)
 
-Workflow is configured as independent levers, stored in `specflow/.spec-batch.json` under
-`workflow`, and rendered into a per-repo **`specflow/config.md`** that both humans and agents read.
+Workflow is configured as independent levers, stored in `specflow/config.json` under `config`
+(`commit` / `push` ship in v0.1; the rest land with Batch W), and rendered into a per-repo
+**`specflow/config.md`** that both humans and agents read.
 The **single, universal** procedures reference `config.md` for the policy-dependent steps
 (push / branch / merge / commit cadence) — there are no per-mode procedure variants.
 
