@@ -16,14 +16,41 @@ Completed history: [`BUILD_QUEUE_DONE.md`](BUILD_QUEUE_DONE.md) — one-paragrap
 
 ## Un-done batches
 
-> **Pick-order pointer.** **Release-gating (both must land before the first `v*` tag):** **Batch G2**
-> (Go release + install pipeline — GoReleaser → GitHub Releases + `curl|sh` + Homebrew) · **Batch BI**
-> (brownfield-aware `init` — `[NOT READY]`, pending the consent-flow decisions in `open-questions.md`).
-> The CLI is Go (Batch G1, done), so every batch targets the **Go** CLI (`cmd/specflow` +
-> `internal/kit`). After those: **Batch 1** (add-agent) · **Batch 2** (status) · **Batch 3** (broaden
-> tests) · **Batch 4** (badges + file-map) · **Batch 5** (`--dry-run`). Blocked on design: **Batch W**
-> (workflow config) · **Batch NB** (`--new-batch` quick flow). Later: **Batch E** (enforcement —
-> research-first), **Batch P** (optional npm-wrapper front-end).
+> **Pick-order pointer — Milestone v0.1** (first live-testable release; goal/DoD in `roadmap.md`).
+> Build order: **Batch CFG** (config file + commit/push levers + safety fixes — the foundation the
+> rest read) → then **Batch BI** (brownfield `init`) · **Batch SO** (spec-only mode) · **Batch G2**
+> (release: GoReleaser → GitHub Releases + `curl|sh`; Homebrew deferred) · **Batch 1** (add-agent) ·
+> **Batch 2** (status) · **Batch 5** (`--dry-run`). All target the Go CLI (`cmd/specflow` +
+> `internal/kit`); CLI is Go (Batch G1, done).
+> **Post-v0.1:** **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch W**
+> (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
+> **Batch P** (npm-wrapper front-end) · Homebrew tap.
+
+---
+
+## Batch CFG — Config file, commit/push levers & safety fixes (v0.1 foundation)
+
+**Milestone:** v0.1. The load-bearing plumbing the other v0.1 batches read; **build first.** May
+split at claim time. See `architecture.md` (Config & state; Commit & push authority; init requires
+git) + `open-questions.md`.
+
+### Deliverables
+- **Rename** the stamp to `specflow/config.json` with a `config` block (`agents`, `mode`, `commit`,
+  `push`) + internal state (versions, schema, `managed` hashes); update all references + tests.
+- **Commit/push levers** chosen at `init`, stored in `config`; `claim-batch.md` / `finish-batch.md`
+  + `AGENTS.md` reworded to honor them (when `commit: user`, alert at commit points + supply a
+  suggested message; when `push: user`, commit but don't push).
+- **Safety:** missing baseline → treat as drift, never overwrite (risk A); friendly failure on a
+  corrupt `config.json` (stamp validation); `init` **requires a git repo** (refuse otherwise).
+- **NO_COLOR / non-TTY:** plain output when stdout isn't a TTY or `NO_COLOR` is set.
+
+### Files this batch creates/edits
+- `cmd/specflow/` + `internal/kit/` · `templates/base/specflow/.spec-batch.json` → `config.json` ·
+  `templates/base/AGENTS.md` + procedures (lever wording) · `cmd/specflow/main_test.go`.
+
+### Verification
+- `go test ./...`. Manual: init records the `config` block; `commit: user` → agent suggests, doesn't
+  commit; corrupt `config.json` → friendly error; non-git → refused; piped output has no escape codes.
 
 ---
 
@@ -54,15 +81,14 @@ install front-ends (curl|sh + Homebrew). See `architecture.md` → Distribution.
 
 ---
 
-## Batch BI `[NOT READY]` — Brownfield-aware `init` (inject-with-consent, review handoff)
+## Batch BI — Brownfield-aware `init` (inject-with-consent, review handoff)
+
+**Milestone:** v0.1. **Depends on:** Batch CFG (reads the config/levers + git-required + verify).
 
 **Goal.** Replace `init`'s skip-if-exists behavior with the two-phase, consent-gated, non-destructive
-flow specced in `architecture.md` → init / upgrade. **Gates the first public release** — no `v*` tag
-until this lands.
-
-**Why `[NOT READY]`:** three consent-flow details are still open — see `open-questions.md` → *init
-UX (brownfield)* (granularity, declining the mandatory `AGENTS.md` region, non-interactive consent).
-Resolve them, then build.
+flow specced in `architecture.md` → init / upgrade. The consent-flow design is settled
+(`open-questions.md` → *init UX (brownfield)*): batched consent, dependency tiers, idempotent
+injection, non-interactive proceed-and-notify.
 
 ### Deliverables (decided core)
 - Marker-wrap every per-agent instruction template (`CLAUDE.md`, `.github/copilot-instructions.md`,
