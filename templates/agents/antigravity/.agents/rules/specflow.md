@@ -1,3 +1,4 @@
+<!-- specflow:start - managed by specflow; do not edit inside these markers (your edits block specflow upgrade). Add your own notes outside them. -->
 # specflow
 
 This repo uses **specflow**, a shared protocol for AI coding agents. Google Antigravity reads
@@ -14,3 +15,4 @@ three procedures live in `specflow/procedures/` — read the relevant one before
 
 Commit grammar: `batch-N:`, `meta:`, `spec:`. Never force-push the shared branch. Never write
 claim state into `BUILD_QUEUE.md`.
+<!-- specflow:end -->

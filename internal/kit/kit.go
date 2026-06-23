@@ -16,11 +16,24 @@ import (
 	"time"
 )
 
-// MANAGED lists the files/dirs whose specflow-managed *region* upgrade refreshes. Each managed file
-// wraps its generated content in START…END markers; upgrade replaces only what's between them and
-// preserves everything outside. Everything else (queue, claims, spec, agent stubs) is written once
-// at init and never touched.
+// MANAGED lists the base files/dirs whose specflow-managed *region* upgrade refreshes. Each managed
+// file wraps its generated content in START…END markers; upgrade replaces only what's between them
+// and preserves everything outside. The per-agent instruction files (see agentInstructionFile) are
+// also managed, but only for the agents actually installed. Everything else (queue, claims, spec)
+// is written once at init and never touched.
 var MANAGED = []string{"AGENTS.md", "specflow/procedures"}
+
+// agentInstructionFile maps an agent key to the repo-relative instruction file specflow manages for
+// that agent. Each carries a marker-wrapped region that `upgrade` refreshes — but only for installed
+// agents, so an uninstalled agent's file is never created or touched. The template source lives at
+// agents/<key>/<path>.
+var agentInstructionFile = map[string]string{
+	"claude":      "CLAUDE.md",
+	"cursor":      ".cursor/rules/specflow.mdc",
+	"copilot":     ".github/copilot-instructions.md",
+	"bob":         ".bob/rules/specflow.md",
+	"antigravity": ".agents/rules/specflow.md",
+}
 
 // Markers are matched by their specflow:start / specflow:end token, not an exact string, so the
 // human-readable note inside a marker can evolve without breaking parsing or forcing a migration.
@@ -69,10 +82,17 @@ func destPath(targetDir, rel string) string {
 	return filepath.Join(targetDir, filepath.FromSlash(rel))
 }
 
-// managedFileList expands MANAGED into concrete repo-relative (forward-slash) paths by walking the
-// template base — the authoritative set.
-func managedFileList(tpl fs.FS) ([]string, error) {
-	var out []string
+// managedEntry pairs a managed file's repo-relative dest path with its template source path.
+type managedEntry struct {
+	rel string // repo-relative dest (e.g. "AGENTS.md", "CLAUDE.md")
+	src string // template path within tpl (e.g. "base/AGENTS.md", "agents/claude/CLAUDE.md")
+}
+
+// managedEntries expands the base-managed set plus the per-agent instruction files for the given
+// installed agents into concrete (dest, template-source) pairs — the authoritative managed set for
+// a repo with those agents.
+func managedEntries(tpl fs.FS, agentKeys []string) ([]managedEntry, error) {
+	var out []managedEntry
 	for _, rel := range MANAGED {
 		src := "base/" + rel
 		info, err := fs.Stat(tpl, src)
@@ -85,7 +105,7 @@ func managedFileList(tpl fs.FS) ([]string, error) {
 					return err
 				}
 				if !d.IsDir() {
-					out = append(out, strings.TrimPrefix(p, "base/"))
+					out = append(out, managedEntry{rel: strings.TrimPrefix(p, "base/"), src: p})
 				}
 				return nil
 			})
@@ -93,15 +113,37 @@ func managedFileList(tpl fs.FS) ([]string, error) {
 				return nil, err
 			}
 		} else {
-			out = append(out, rel)
+			out = append(out, managedEntry{rel: rel, src: src})
 		}
+	}
+	for _, key := range agentKeys {
+		rel, ok := agentInstructionFile[key]
+		if !ok {
+			continue
+		}
+		src := "agents/" + key + "/" + rel
+		if _, err := fs.Stat(tpl, src); err != nil {
+			continue
+		}
+		out = append(out, managedEntry{rel: rel, src: src})
 	}
 	return out, nil
 }
 
-func readTemplate(tpl fs.FS, rel string) (string, error) {
-	b, err := fs.ReadFile(tpl, "base/"+rel)
-	return string(b), err
+// installedAgents reads the comma-separated agent list from the stamp's config block.
+func installedAgents(stamp map[string]any) []string {
+	cfg, ok := stamp["config"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	s, _ := cfg["agents"].(string)
+	var out []string
+	for _, k := range strings.Split(s, ",") {
+		if k = strings.TrimSpace(k); k != "" {
+			out = append(out, k)
+		}
+	}
+	return out
 }
 
 // copyTree copies every file under srcRoot (within tpl) into destRoot, preserving structure. When
@@ -153,22 +195,22 @@ func fillStamp(targetDir, version string, agentKeys []string) error {
 	return os.WriteFile(p, []byte(s), 0o644)
 }
 
-// computeManaged returns the baseline hash of each managed file's region as currently on disk.
-// Stored in the stamp so a later upgrade can tell a pristine region (safe to refresh) from a
-// hand-edited one (drift).
-func computeManaged(targetDir string, tpl fs.FS) (map[string]string, error) {
-	list, err := managedFileList(tpl)
+// computeManaged returns the baseline hash of each managed file's region as currently on disk (the
+// base set plus the installed agents' instruction files). Stored in the stamp so a later upgrade can
+// tell a pristine region (safe to refresh) from a hand-edited one (drift).
+func computeManaged(targetDir string, tpl fs.FS, agentKeys []string) (map[string]string, error) {
+	entries, err := managedEntries(tpl, agentKeys)
 	if err != nil {
 		return nil, err
 	}
 	m := map[string]string{}
-	for _, rel := range list {
-		b, err := os.ReadFile(destPath(targetDir, rel))
+	for _, e := range entries {
+		b, err := os.ReadFile(destPath(targetDir, e.rel))
 		if err != nil {
 			continue
 		}
 		if parts, ok := extractRegion(string(b)); ok {
-			m[rel] = hashRegion(parts.region)
+			m[e.rel] = hashRegion(parts.region)
 		}
 	}
 	return m, nil
@@ -176,7 +218,7 @@ func computeManaged(targetDir string, tpl fs.FS) (map[string]string, error) {
 
 // recordManaged reads the stamp, attaches/refreshes the managed-region baseline map (and any extra
 // fields), and writes it back.
-func recordManaged(targetDir string, tpl fs.FS, extra map[string]any) error {
+func recordManaged(targetDir string, tpl fs.FS, agentKeys []string, extra map[string]any) error {
 	p := configPath(targetDir)
 	b, err := os.ReadFile(p)
 	if err != nil {
@@ -186,7 +228,7 @@ func recordManaged(targetDir string, tpl fs.FS, extra map[string]any) error {
 	if err := json.Unmarshal(b, &stamp); err != nil {
 		return err
 	}
-	managed, err := computeManaged(targetDir, tpl)
+	managed, err := computeManaged(targetDir, tpl, agentKeys)
 	if err != nil {
 		return err
 	}
@@ -251,7 +293,7 @@ func Scaffold(targetDir string, tpl fs.FS, version string, agentKeys []string) (
 	if err := fillStamp(targetDir, version, agentKeys); err != nil {
 		return nil, err
 	}
-	if err := recordManaged(targetDir, tpl, nil); err != nil {
+	if err := recordManaged(targetDir, tpl, agentKeys, nil); err != nil {
 		return nil, err
 	}
 	return skipped, nil
@@ -300,15 +342,17 @@ func Upgrade(targetDir string, tpl fs.FS, version string) (UpgradeResult, error)
 		next[k] = v
 	}
 
-	list, err := managedFileList(tpl)
+	entries, err := managedEntries(tpl, installedAgents(stamp))
 	if err != nil {
 		return res, err
 	}
-	for _, rel := range list {
-		srcContent, err := readTemplate(tpl, rel)
+	for _, e := range entries {
+		rel := e.rel
+		srcb, err := fs.ReadFile(tpl, e.src)
 		if err != nil {
 			return res, err
 		}
+		srcContent := string(srcb)
 		srcParts, ok := extractRegion(srcContent)
 		if !ok {
 			continue // template lacks markers — nothing to manage (shouldn't happen)

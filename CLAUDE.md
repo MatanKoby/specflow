@@ -1,3 +1,4 @@
+<!-- specflow:start - managed by specflow; do not edit inside these markers (your edits block specflow upgrade). Add your own notes outside them. -->
 # CLAUDE.md
 
 This repo uses **[specflow](https://github.com/MatanKoby/specflow)** — a spec-driven, batch,
@@ -14,5 +15,6 @@ The three procedures live in `specflow/procedures/` and are also installed as th
 Project-specific guidance (what this codebase is, conventions, tooling) goes **below this line**
 or in your own sections — `AGENTS.md` and `specflow/**` are specflow-managed and get overwritten
 on `specflow upgrade`.
+<!-- specflow:end -->
 
-<!-- Add project-specific Claude guidance here. -->
+<!-- Add project-specific Claude guidance here, outside the markers above. -->

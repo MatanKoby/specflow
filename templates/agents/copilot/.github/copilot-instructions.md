@@ -1,3 +1,4 @@
+<!-- specflow:start - managed by specflow; do not edit inside these markers (your edits block specflow upgrade). Add your own notes outside them. -->
 # Copilot instructions
 
 This repo uses **specflow**, a shared protocol for AI coding agents.
@@ -14,3 +15,4 @@ The three procedures live in `specflow/procedures/` — read the relevant one be
 
 Commit grammar: `batch-N:` for batch work, `meta:` for claims/queue/tooling, `spec:` for spec
 edits. Never force-push the shared branch. Never write claim state into `BUILD_QUEUE.md`.
+<!-- specflow:end -->

@@ -300,6 +300,71 @@ func TestUpgradeCanonicalizesBareMarkers(t *testing.T) {
 	}
 }
 
+func TestPerAgentFilesAreManaged(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude,cursor")
+
+	// Installed agents' instruction files carry markers and a recorded baseline.
+	for _, f := range []string{"CLAUDE.md", ".cursor/rules/specflow.mdc"} {
+		if !startMarker.MatchString(read(t, filepath.Join(tmp, f))) {
+			t.Errorf("%s lacks region markers", f)
+		}
+	}
+	var stamp map[string]any
+	json.Unmarshal([]byte(read(t, filepath.Join(tmp, "specflow/config.json"))), &stamp)
+	managed, _ := stamp["managed"].(map[string]any)
+	for _, rel := range []string{"CLAUDE.md", ".cursor/rules/specflow.mdc"} {
+		if h, _ := managed[rel].(string); h == "" {
+			t.Errorf("no managed baseline for %s", rel)
+		}
+	}
+	// An uninstalled agent's file is not in the managed set.
+	if _, ok := managed[".github/copilot-instructions.md"]; ok {
+		t.Error("uninstalled copilot file recorded as managed")
+	}
+}
+
+func TestUpgradeRefreshesPerAgentRegion(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude")
+	cl := filepath.Join(tmp, "CLAUDE.md")
+
+	// Downgrade the marker wording + add outside text; the region content (and so its baseline hash)
+	// is unchanged, so a clean upgrade must re-canonicalize the CLAUDE.md region — proving per-agent
+	// files go through the managed refresh path — while keeping the outside text.
+	downgraded := startMarker.ReplaceAllString(read(t, cl), "<!-- specflow:start -->") + "\n## my notes\nkeep me\n"
+	os.WriteFile(cl, []byte(downgraded), 0o644)
+
+	r := run(t, tmp, "upgrade")
+	if r.code != 0 {
+		t.Fatalf("upgrade exit %d: %s", r.code, r.stderr)
+	}
+	out := read(t, cl)
+	if !strings.Contains(out, "do not edit inside these markers") {
+		t.Error("CLAUDE.md marker note not re-applied — per-agent region not refreshed")
+	}
+	if !strings.Contains(out, "keep me") {
+		t.Error("outside text in CLAUDE.md lost on upgrade")
+	}
+}
+
+func TestUpgradeDriftProtectsPerAgentRegion(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude")
+	cl := filepath.Join(tmp, "CLAUDE.md")
+
+	edited := startMarker.ReplaceAllStringFunc(read(t, cl), func(m string) string { return m + "\nDRIFT-IN-CLAUDE" })
+	os.WriteFile(cl, []byte(edited), 0o644)
+
+	run(t, tmp, "upgrade")
+	if !strings.Contains(read(t, cl), "DRIFT-IN-CLAUDE") {
+		t.Error("hand-edited CLAUDE.md region was clobbered")
+	}
+	if !exists(cl + ".specflow-new") {
+		t.Error("no .specflow-new sidecar for drifted CLAUDE.md")
+	}
+}
+
 func TestVersionAndUnknownCommand(t *testing.T) {
 	tmp := t.TempDir()
 	for _, flag := range []string{"--version", "-v"} {
