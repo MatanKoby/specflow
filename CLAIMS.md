@@ -19,6 +19,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch SO — Spec-only install mode (`--spec-only`)
+- Owner: claude
+- Started: 2026-06-24 06:33
+
 ## Completed
 
 ### Batch BI — Brownfield-aware `init` (inject-with-consent, review handoff)
