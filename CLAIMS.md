@@ -19,11 +19,39 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch SO — Spec-only install mode (`--spec-only`)
 - Owner: claude
 - Started: 2026-06-24 06:33
+- Finished: 2026-06-24 07:05
+- Commit: 93519b0
 
-## Completed
+**What shipped.** `specflow init --spec-only` — a lighter install that keeps only the **spec
+discipline** and omits the batch/claim machinery. It installs `AGENTS.md` (spec sections), `spec/`,
+the **spec-edit** procedure + skill, the stamp (mode recorded), and the selected agent stubs; it
+omits `BUILD_QUEUE.md`, `CLAIMS.md`, the `claim-batch`/`finish-batch` procedures, those two skills,
+and the `specflow/history/` archives. **Section composition (one source, no forks):** `AGENTS.md`
+and `spec-edit.md` now carry `specflow:full-only` / `specflow:spec-only` marker pairs *inside* their
+managed region; `renderBody` keeps the pair matching the install mode (stripping its markers) and
+drops the other pair whole. Own-line markers (paragraphs, list items, table rows) and inline clause
+markers are handled separately so a drop never splits a markdown table or leaves a stray blank line;
+runs of 3+ newlines collapse back to one blank line. The baseline hash is taken over the **rendered**
+region, so drift detection works per-mode. The tag token (`specflow:full-only:…`) never collides with
+the region token (`specflow:start`/`end`). **Mode plumbing:** `{{MODE}}` placeholder in the config
+template → `config.mode`; `mode` threaded through `PlanInit`/`ApplyInit`/`classifyInit`/`initFiles`/
+`managedEntries`/`computeManaged`/`recordManaged`/`fillStamp`; `upgrade` and `verify` read the mode
+from the stamp, re-render the managed region for it, and filter the managed/placed-file sets via
+`specOnlyOmits`. CLI: `--spec-only` flag, mode-aware Phase-2 / review-handoff text, and updated
+`init --help` + top-level usage. **Verification:** `go test ./...` green (six new spec-only tests:
+omissions + mode stamp, batch-free managed files with no leftover tags, full-mode completeness, clean
+spec-only `upgrade`, spec-only `verify`); `gofmt`/`go vet` clean. Self-hosted: ran `upgrade` on this
+(full-mode) repo — root `AGENTS.md` refreshed to the composed wording, `spec-edit.md` byte-identical,
+`verify` clean, second `upgrade` a no-op. **Follow-ups deferred (per architecture, in scope for later):**
+the graduation path spec-only → full (`enable-batching` / re-run); and the per-agent stubs + the
+`spec-edit` skill description are **not** section-composed yet, so a spec-only Claude install still
+ships a `CLAUDE.md` whose pointer mentions queue/claim + the two uninstalled skills (cosmetic — the
+authoritative composed `AGENTS.md` is correct).
 
 ### Batch BI — Brownfield-aware `init` (inject-with-consent, review handoff)
 - Owner: claude

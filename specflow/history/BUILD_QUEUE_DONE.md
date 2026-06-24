@@ -10,6 +10,18 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch SO — Spec-only install mode (`--spec-only`)
+Shipped `specflow init --spec-only`: a lighter install that keeps only the spec discipline
+(`AGENTS.md` spec sections + `spec/` + the `spec-edit` procedure/skill + stamp + agent stubs) and
+omits `BUILD_QUEUE.md`, `CLAIMS.md`, the `claim-batch`/`finish-batch` procedures + skills, and the
+`specflow/history/` archives. Implemented as **section composition** (one source, no forks):
+`AGENTS.md` and `spec-edit.md` carry `specflow:full-only`/`spec-only` marker pairs and `renderBody`
+keeps/drops them per mode (own-line vs inline markers handled separately so tables/spacing stay
+intact); the baseline hash is taken over the *rendered* region. Mode is recorded in `config.mode`
+and threaded through `init`/`upgrade`/`verify`. Key commit `93519b0`. Follow-ups deferred: the
+spec-only→full graduation path, and section-composing the per-agent stubs (a spec-only Claude install
+still ships a `CLAUDE.md` pointer that mentions queue/claim — cosmetic).
+
 ## Batch BI — Brownfield-aware `init` (inject-with-consent) + `specflow verify`
 Rebuilt `init` into a non-destructive, two-phase, consent-gated flow: Phase 1 injects specflow's
 marker-wrapped region into target files that already exist (content preserved), Phase 2 creates the

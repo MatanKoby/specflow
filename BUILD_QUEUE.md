@@ -17,12 +17,12 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 ## Un-done batches
 
 > **Pick-order pointer — Milestone v0.1** (first live-testable release; goal/DoD in `roadmap.md`).
-> Build order: **Batch SO** (spec-only mode) · **Batch G2**
+> Build order: **Batch G2**
 > (release: GoReleaser → GitHub Releases + `curl|sh`; Homebrew deferred) · **Batch 1** (add-agent) ·
 > **Batch 2** (status) · **Batch 5** (`--dry-run`). All target the Go CLI (`cmd/specflow` +
 > `internal/kit`); CLI is Go (Batch G1, done). **Batch CFG** (config file + commit/push levers +
-> safety fixes — the foundation the rest read) and **Batch BI** (brownfield `init` overhaul +
-> `specflow verify` + the `_DONE` relocation) are **done**.
+> safety fixes — the foundation the rest read), **Batch BI** (brownfield `init` overhaul +
+> `specflow verify` + the `_DONE` relocation), and **Batch SO** (spec-only install mode) are **done**.
 > **Post-v0.1:** **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch W**
 > (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · Homebrew tap.
@@ -53,31 +53,6 @@ install front-ends (curl|sh + Homebrew). See `architecture.md` → Distribution.
 ### Verification
 - A test tag produces a draft release with every platform archive + a checksums file.
 - `curl … | sh` installs a working binary on Linux; `brew install` from the tap works on macOS.
-
----
-
-## Batch SO — Spec-only install mode (`--spec-only`)
-
-**Goal.** A lighter install that keeps only the spec discipline (no queue/claim/batch). See
-`architecture.md` → Install modes. **v0.1.** Coordinate with BI (shared template/marker work).
-
-### Deliverables
-- `specflow init --spec-only` installs the subset: `AGENTS.md` (spec sections), `spec/`, `spec-edit`,
-  the stamp (mode recorded), selected agent stubs; omits `BUILD_QUEUE.md` / `CLAIMS.md` /
-  `claim-batch` / `finish-batch` + their skills.
-- **Section-composition:** `AGENTS.md` + `spec-edit.md` templates carry tagged sub-sections; render
-  strips the batch/claim sub-sections in spec-only. One source, no forked variants. Baseline hash
-  over the rendered region.
-- Mode recorded in the stamp; `upgrade` re-renders for the recorded mode. Graduation path
-  (spec-only → full) via re-run / `enable-batching` — can be a follow-up.
-
-### Files this batch creates/edits
-- `cmd/specflow/` + `internal/kit/` (mode + section render) · `templates/base/AGENTS.md` +
-  `templates/base/specflow/procedures/spec-edit.md` (section tags) · `cmd/specflow/main_test.go`.
-
-### Verification
-- `go test ./...`. Manual: `init --spec-only` → no queue/claims/claim-batch/finish-batch; `AGENTS.md`
-  + `spec-edit` carry no batch/claim references; full mode still complete.
 
 ---
 
