@@ -21,4 +21,4 @@ Entry format:
 
 ## Completed
 
-<!-- Recent finishes, newest first. Older entries archived to CLAIMS_DONE.md. -->
+<!-- Recent finishes, newest first. Older entries archived to specflow/history/CLAIMS_DONE.md. -->

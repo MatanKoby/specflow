@@ -9,12 +9,12 @@
   "kit": "specflow",
   "kitVersion": "0.1.0",
   "managed": {
-    "AGENTS.md": "0e57976dd9f6827ea38e1078eaec24a7461aa4e4e7f7e660487ba8bfe4258850",
+    "AGENTS.md": "2ea9503ef75f96b1e8165967c0374dc17bdd2ef98dc1601afafb9ab2a3f7f29a",
     "CLAUDE.md": "8f326570de8ff4bc3dbdb6b113bf11bf8e5060065cc6f874de26c3577559f58a",
-    "specflow/procedures/claim-batch.md": "a29cb6adefa3bb38c32cce2786de0c8501df340aaffe664626fa921421845470",
-    "specflow/procedures/finish-batch.md": "63d6aae73fe112b1e0b532ad8630177ecf9a499ac6770539207208103bd8be17",
+    "specflow/procedures/claim-batch.md": "7b2972b38d3de5f8acb1189cdfc74737b99605536ea89c1bb05e46b3447e3bf7",
+    "specflow/procedures/finish-batch.md": "275f1b427c2de57b7cfbcfaf38059d4256a52a0bde2efe4f2a116365b4b2faf2",
     "specflow/procedures/spec-edit.md": "3af4e8f8f961d32e7a21f9a394277e820da05105d6664aa3217e129afc828148"
   },
   "schemaVersion": 1,
-  "upgradedAt": "2026-06-23"
+  "upgradedAt": "2026-06-24"
 }

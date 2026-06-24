@@ -131,7 +131,7 @@ func TestInitWritesFilesAndStamp(t *testing.T) {
 	}
 
 	for _, f := range []string{
-		"AGENTS.md", "BUILD_QUEUE.md", "BUILD_QUEUE_DONE.md", "CLAIMS.md", "CLAIMS_DONE.md",
+		"AGENTS.md", "BUILD_QUEUE.md", "specflow/history/BUILD_QUEUE_DONE.md", "CLAIMS.md", "specflow/history/CLAIMS_DONE.md",
 		"spec/README.md", "specflow/config.json",
 		"specflow/procedures/claim-batch.md", "specflow/procedures/finish-batch.md", "specflow/procedures/spec-edit.md",
 		"CLAUDE.md", ".claude/skills/claim-batch/SKILL.md", ".cursor/rules/specflow.mdc",

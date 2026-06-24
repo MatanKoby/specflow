@@ -19,7 +19,7 @@ Run this before starting any new batch. `AGENTS.md` carries only the pointer to 
    - **Skip** if it's already listed in `CLAIMS.md` `## In progress` or `## Completed`.
 
 3. **Dependency check.** If the batch lists `Depends on: Batch X[, Batch Y]`, verify each
-   listed batch appears in `CLAIMS.md` `## Completed` (or `CLAIMS_DONE.md`). If any are
+   listed batch appears in `CLAIMS.md` `## Completed` (or `specflow/history/CLAIMS_DONE.md`). If any are
    missing, pick a different candidate.
 
 4. **Parallelism check.** If any batch is currently `## In progress`, compare your candidate's

@@ -54,9 +54,9 @@ message when `commit: user`, and stop before pushing when `push: user`. The defa
 |---|---|---|
 | `spec/**` | user | The design. Agents propose `spec:` edits via the `spec-edit` procedure; don't freelance. |
 | `BUILD_QUEUE.md` | user | Declares the work (un-done batches, in full). Agents **never** write claim state here. |
-| `BUILD_QUEUE_DONE.md` | shared archive | One-paragraph summaries of completed batches. Append on finish. |
+| `specflow/history/BUILD_QUEUE_DONE.md` | shared archive | One-paragraph summaries of completed batches. Append on finish. |
 | `CLAIMS.md` | agents | Active claims + recent completions. The execution-state ledger. |
-| `CLAIMS_DONE.md` | agents | Older completed entries archived from `CLAIMS.md`. Reference-only. |
+| `specflow/history/CLAIMS_DONE.md` | agents | Older completed entries archived from `CLAIMS.md`. Reference-only. |
 | `AGENTS.md`, `specflow/**` | specflow | Generated mechanism. Overwritten on `specflow upgrade`; don't hand-edit. |
 | source code, assets | shared | Use `batch-N:` commits when working a claimed batch. |
 
@@ -67,7 +67,7 @@ because no Owner / Started / Finished / Status ever lives in it.
 ## The work queue — `BUILD_QUEUE.md`
 
 Lists only **un-done** batches, in full (completed ones collapse to summaries in
-`BUILD_QUEUE_DONE.md`). Eligibility is read from the tag in each batch heading:
+`specflow/history/BUILD_QUEUE_DONE.md`). Eligibility is read from the tag in each batch heading:
 
 - **No tag** — claimable, subject to the dependency check below.
 - `[MANUAL]` — the user executes this (e.g. infra provisioning). Agents skip entirely.
@@ -75,7 +75,7 @@ Lists only **un-done** batches, in full (completed ones collapse to summaries in
 - Any tag you don't recognize — treat as exclusionary and ask the user.
 
 A batch may list `Depends on: Batch X[, Batch Y]`. It's only eligible once **every** listed
-dependency appears in `CLAIMS.md` `## Completed` (or `CLAIMS_DONE.md`).
+dependency appears in `CLAIMS.md` `## Completed` (or `specflow/history/CLAIMS_DONE.md`).
 
 Multiple batches run in parallel only when their declared "Files this batch creates/edits"
 don't overlap. When they touch the same files, run them sequentially.
@@ -83,7 +83,7 @@ don't overlap. When they touch the same files, run them sequentially.
 ## The claims file — `CLAIMS.md`
 
 Two sections: `## In progress` (one entry per active claim) and `## Completed` (recent
-finishes, newest first; older history archived to `CLAIMS_DONE.md`). Entry format:
+finishes, newest first; older history archived to `specflow/history/CLAIMS_DONE.md`). Entry format:
 
 ```
 ### Batch N — <short title>
@@ -106,7 +106,7 @@ don't reconstruct it from memory.
   design decision: concern-matching, cross-reference-don't-restate, archive rule, propagation
   to `BUILD_QUEUE.md`. **Run before any spec change.**
 - **`specflow/procedures/finish-batch.md`** — final commit + SHA, move the entry to
-  `## Completed`, summarize, move the batch out of `BUILD_QUEUE.md` into `BUILD_QUEUE_DONE.md`,
+  `## Completed`, summarize, move the batch out of `BUILD_QUEUE.md` into `specflow/history/BUILD_QUEUE_DONE.md`,
   `meta: complete` commit. **Run when wrapping up.**
 
 > Claude Code users: these are also installed as the skills `claim-batch`, `spec-edit`, and

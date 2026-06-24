@@ -35,12 +35,12 @@ Run this when wrapping up. `AGENTS.md` carries only the pointer to this file.
 4. **Move the batch out of `BUILD_QUEUE.md`.** That file lists only *un-done* batches — a
    completed batch must not linger there or the next agent re-reads it as open work. Three edits:
    - Delete the batch's full section from `BUILD_QUEUE.md`.
-   - Add a one-paragraph summary to `BUILD_QUEUE_DONE.md` (match the existing compact style —
+   - Add a one-paragraph summary to `specflow/history/BUILD_QUEUE_DONE.md` (match the existing compact style —
      what shipped + key commit).
    - Drop the batch from any **pick-order pointer** line at the top of `BUILD_QUEUE.md`.
 
 5. Commit `meta: complete batch-N` — covering `CLAIMS.md` **+ `BUILD_QUEUE.md` +
-   `BUILD_QUEUE_DONE.md`** — and push.
+   `specflow/history/BUILD_QUEUE_DONE.md`** — and push.
 
 ## Hand the context back (if your agent supports context compaction)
 

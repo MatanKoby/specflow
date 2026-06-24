@@ -45,8 +45,8 @@ specflow init --all
 | `AGENTS.md` | The full protocol every agent reads first | specflow (overwritten on upgrade) |
 | `specflow/procedures/*.md` | The three procedures (claim / spec-edit / finish) | specflow (overwritten on upgrade) |
 | `specflow/config.json` | Config + state (versions, schema, region hashes) | specflow |
-| `BUILD_QUEUE.md` / `BUILD_QUEUE_DONE.md` | Work declaration + completed history | you |
-| `CLAIMS.md` / `CLAIMS_DONE.md` | Execution-state ledger | agents |
+| `BUILD_QUEUE.md` / `specflow/history/BUILD_QUEUE_DONE.md` | Work declaration + completed history | you |
+| `CLAIMS.md` / `specflow/history/CLAIMS_DONE.md` | Execution-state ledger | agents |
 | `spec/README.md` | Spec skeleton | you |
 | per-agent stubs (e.g. `CLAUDE.md`, `.cursor/rules/…`) | Point each agent at `AGENTS.md` | you |
 

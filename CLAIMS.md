@@ -70,7 +70,7 @@ Node files removed (`bin/specflow.js`, `package.json`, `test/smoke.js`); CI swit
 Node to Go; the obsolete Node-version-guard open question dropped. **Follow-up:** Batch G2 — the
 GoReleaser → GitHub Releases pipeline with `curl|sh` + Homebrew front-ends — ships the binary.
 
-<!-- Recent finishes, newest first. Older entries archived to CLAIMS_DONE.md. -->
+<!-- Recent finishes, newest first. Older entries archived to specflow/history/CLAIMS_DONE.md. -->
 
 ### Batch U2 — Self-documenting, edit-resistant region markers
 - Owner: claude
