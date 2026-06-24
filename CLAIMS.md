@@ -19,11 +19,39 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch BI — Brownfield-aware `init` (inject-with-consent, review handoff)
 - Owner: claude
 - Started: 2026-06-23 17:08
+- Finished: 2026-06-24 06:12
+- Commit: 6d14a90
 
-## Completed
+**What shipped.** `init` is now brownfield-aware and non-destructive, in two consent-gated phases:
+Phase 1, for each target file that **already exists**, injects specflow's marker-wrapped region at
+the top (existing content preserved); Phase 2 explains, then creates, the specflow-owned files.
+`init` tracks its **own** created/modified/declined list and ends with a "review `git diff`, verify
+nothing was damaged, then commit" handoff — it **never commits**; non-interactive runs proceed and
+point at `git status` (no `--yes` flag). All five per-agent instruction files (`CLAUDE.md`, copilot,
+cursor, bob, antigravity) are now **marker-wrapped and managed**, so `upgrade` refreshes their region
+— but only for installed agents. **Idempotent injection:** refresh an existing region, and skip with
+an "already wired" note when a per-agent file already references `AGENTS.md` (`AGENTS.md` itself
+excepted — it must *carry* the protocol). **Tier-aware notices** on declined/missing pieces (Tier 1
+`AGENTS.md`/procedures → can't work properly; Tier 3 per-agent → that agent isn't auto-wired, works
+once its file points at `AGENTS.md`). Added **per-subcommand help** (`init`/`upgrade`/`verify --help`)
+and a basic **`specflow verify`** install-integrity check (config valid, Tier-1 present with intact
+regions + drift warnings, Tier-3 present/wired; exits non-zero on a Tier-1 problem; `verify --batch`
+stubbed until Batch E). **Relocated the `_DONE` archives** to `specflow/history/` and updated every
+path reference (`AGENTS.md`, procedures, queue/claims headers, the finish-batch skill, README,
+tests); templates moved in lockstep so fresh installs place them there. Two bugs fixed along the way:
+a shared package-level stdin reader (the per-prompt `bufio.NewReader` dropped buffered input across
+prompts), and a guard so `upgrade` never adopts/overwrites an untouched brownfield file (region
+absent **and** no recorded baseline). Executed as internal `batch-BI:` chunks — key commits
+`ce60443` (per-agent files managed), `b766da2` (two-phase init), `b57bd50` (idempotent injection +
+tier-aware decline), `ec31a2d` (per-subcommand help), `f583f39` (`verify`), `6d14a90` (`_DONE`
+relocation). ~22 tests pass; `gofmt`/`go vet` clean; self-host `upgrade` idempotent; brownfield-init
+/ verify / fresh-init smokes pass. **Follow-up:** Batch SO (spec-only mode) is next and shares the
+template/section + marker work.
 
 ### Batch CFG — Config file, commit/push levers & safety fixes (v0.1 foundation)
 - Owner: claude

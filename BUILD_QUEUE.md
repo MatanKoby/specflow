@@ -17,11 +17,12 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 ## Un-done batches
 
 > **Pick-order pointer — Milestone v0.1** (first live-testable release; goal/DoD in `roadmap.md`).
-> Build order: **Batch BI** (brownfield `init`) → **Batch SO** (spec-only mode) · **Batch G2**
+> Build order: **Batch SO** (spec-only mode) · **Batch G2**
 > (release: GoReleaser → GitHub Releases + `curl|sh`; Homebrew deferred) · **Batch 1** (add-agent) ·
 > **Batch 2** (status) · **Batch 5** (`--dry-run`). All target the Go CLI (`cmd/specflow` +
 > `internal/kit`); CLI is Go (Batch G1, done). **Batch CFG** (config file + commit/push levers +
-> safety fixes — the foundation the rest read) is **done**.
+> safety fixes — the foundation the rest read) and **Batch BI** (brownfield `init` overhaul +
+> `specflow verify` + the `_DONE` relocation) are **done**.
 > **Post-v0.1:** **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch W**
 > (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · Homebrew tap.
@@ -52,50 +53,6 @@ install front-ends (curl|sh + Homebrew). See `architecture.md` → Distribution.
 ### Verification
 - A test tag produces a draft release with every platform archive + a checksums file.
 - `curl … | sh` installs a working binary on Linux; `brew install` from the tap works on macOS.
-
----
-
-## Batch BI — Brownfield-aware `init` (inject-with-consent, review handoff)
-
-**Milestone:** v0.1. **Depends on:** Batch CFG (reads the config/levers + git-required + verify).
-
-**Goal.** Replace `init`'s skip-if-exists behavior with the two-phase, consent-gated, non-destructive
-flow specced in `architecture.md` → init / upgrade. The consent-flow design is settled
-(`open-questions.md` → *init UX (brownfield)*): batched consent, dependency tiers, idempotent
-injection, non-interactive proceed-and-notify.
-
-### Deliverables (decided core)
-- Marker-wrap every per-agent instruction template (`CLAUDE.md`, `.github/copilot-instructions.md`,
-  `.cursor/rules/specflow.mdc`, `.bob/rules/specflow.md`, `.agents/rules/specflow.md`) like
-  `AGENTS.md`, and add them to the managed set so `upgrade` refreshes their region too.
-- Two-phase `init`: (1) for each target file that **already exists**, show the region + why and
-  inject it between markers (existing content preserved); (2) explain the specflow-owned files
-  before creating them.
-- `init` tracks its **own** created/modified list and prints it with a "review `git diff`, verify
-  nothing was damaged, then commit" handoff. `init` never commits. Non-interactive `init` proceeds
-  with the modifications and tells the user to check `git status` (no `--yes` flag).
-- `specflow init --help` and `specflow upgrade --help` (per-subcommand help) alongside the existing
-  top-level `specflow --help`; tier-aware notices on declined/missing pieces (Tier 1 → can't work
-  properly; Tier 3 → that agent isn't auto-wired, works once its file points at `AGENTS.md`).
-- **Idempotent injection:** for a per-agent file, inject only when needed — refresh an existing
-  specflow region (markers), and skip with an "already wired" note when the file already references
-  `AGENTS.md`.
-- **Relocate the `_DONE` archives** to `specflow/history/` (`BUILD_QUEUE_DONE.md`, `CLAIMS_DONE.md`)
-  and update every path reference (`AGENTS.md`, procedures, templates); active queue + claims stay at
-  root.
-- A basic **`specflow verify`** (install-integrity facet) for the review handoff to point at:
-  Tier 1 present & valid, managed blocks intact, Tier 3 agent files present / pointing at `AGENTS.md`.
-
-> **Note:** BI has grown into the pre-release file-contract + init-UX overhaul. Propose a split into
-> sub-batches at claim time if it's too big for one pass.
-
-### Files this batch creates/edits
-- `cmd/specflow/` + `internal/kit/` (two-phase flow, injection, consent, self-tracking) ·
-  `templates/agents/**` (marker-wrap the instruction files) · `cmd/specflow/main_test.go`.
-
-### Verification
-- `go test ./...`. Manual: init into a repo with a pre-existing `AGENTS.md` + `CLAUDE.md` → region
-  injected, existing content intact, consent + explanation shown, no commit made, review list printed.
 
 ---
 

@@ -10,6 +10,20 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch BI — Brownfield-aware `init` (inject-with-consent) + `specflow verify`
+Rebuilt `init` into a non-destructive, two-phase, consent-gated flow: Phase 1 injects specflow's
+marker-wrapped region into target files that already exist (content preserved), Phase 2 creates the
+owned files; `init` tracks its own created/modified/declined list, ends with a "review `git diff`,
+then commit" handoff, and **never commits** (non-interactive proceeds and points at `git status`).
+Brought all five per-agent instruction files under management (marker-wrapped, refreshed by `upgrade`
+for installed agents only) with **idempotent injection** (refresh a region; skip "already wired" when
+a file already references `AGENTS.md`) and **tier-aware** decline/missing notices. Added
+per-subcommand `--help` and a basic **`specflow verify`** install-integrity check (`verify --batch`
+stubbed until Batch E). Relocated the `_DONE` archives to `specflow/history/` and updated every path
+reference. Key commits `b766da2` (two-phase init), `b57bd50` (idempotent injection + tier-aware
+decline), `f583f39` (`verify`), `6d14a90` (`_DONE` relocation). Follow-up: Batch SO (spec-only)
+shares the template/section + marker work.
+
 ## Batch CFG — Config file, commit/push levers & safety fixes (v0.1 foundation)
 Renamed the stamp to `specflow/config.json` (out of the repo root) with a **`config` block**
 (`agents`/`mode`/`commit`/`push`) beside internal state (versions, schema, `managed` hashes). Taught
