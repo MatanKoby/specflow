@@ -37,6 +37,7 @@ enough to warrant a file, add it and update the README in the same commit.
 
 ## Persisting a design decision the user just made
 
+<!-- specflow:full-only:start -->
 A decision lives in two places: the **spec** (durable design) and the **queue** (work that
 flows from it). The transcript is not durable — if you don't write it down, a future agent will
 re-litigate it or silently contradict it.
@@ -49,6 +50,16 @@ re-litigate it or silently contradict it.
    Finished) into `BUILD_QUEUE.md` — that lives in `CLAIMS.md` only. The queue holds *design
    intent*; the claims file holds *execution state*.
 3. Then proceed to implementation.
+<!-- specflow:full-only:end -->
+<!-- specflow:spec-only:start -->
+A decision belongs in the **spec** (durable design), not just the transcript — if you don't
+write it down, a future agent will re-litigate it or silently contradict it.
+
+**Decision made *with* the user (working session):**
+
+1. Update the relevant `spec/` file(s) to reflect the new design, with a `spec:` commit.
+2. Then proceed to implementation.
+<!-- specflow:spec-only:end -->
 
 **Decision encountered mid-execution (no user input yet):**
 
@@ -58,8 +69,8 @@ Do **not** quietly make and persist the decision. Instead:
 2. Wait for their call.
 3. Once decided, follow the working-session flow above.
 
-Scope: this applies to **design/spec** — architecture, data model, public behavior, batch
-scope. Day-to-day implementation forks (library choice, internal file naming, refactor shape)
+Scope: this applies to **design/spec** — architecture, data model, public behavior<!-- specflow:full-only:start -->, batch
+scope<!-- specflow:full-only:end -->. Day-to-day implementation forks (library choice, internal file naming, refactor shape)
 stay agent discretion.
 
 ## Commit convention
@@ -67,9 +78,16 @@ stay agent discretion.
 | Prefix | When |
 |---|---|
 | `spec: <change>` | Edits to any `spec/**` file |
+<!-- specflow:full-only:start -->
 | `meta: <change>` | Edits to `BUILD_QUEUE.md`, `CLAIMS.md` structure, tooling |
 | `batch-N: <change>` | Code/asset changes toward batch N |
+<!-- specflow:full-only:end -->
+<!-- specflow:spec-only:start -->
+| `meta: <change>` | Tooling / structural changes |
+<!-- specflow:spec-only:end -->
 
+<!-- specflow:full-only:start -->
 A spec edit + a queue revision from the same decision are normally two commits (`spec:` then
 `meta:`), but one combined commit is fine when small and unambiguous.
+<!-- specflow:full-only:end -->
 <!-- specflow:end -->

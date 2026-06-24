@@ -158,11 +158,12 @@ func initUsage() {
 %s — scaffold specflow into the current repo
 
 %s
-  specflow init [--agents=claude,cursor,...] [--all]
+  specflow init [--agents=claude,cursor,...] [--all] [--spec-only]
 
 %s
   --agents=<list>   comma-separated agents to wire, non-interactive (%s)
   --all             wire every supported agent, non-interactive
+  --spec-only       install the spec discipline only — no queue/claim/batch machinery
   -h, --help        show this help
 
 Run with no flags to pick agents interactively, then confirm before specflow
@@ -220,6 +221,11 @@ func cmdInit(args []string) error {
 	if preset == "" && hasFlag(args, "--all") {
 		preset = strings.Join(allAgentKeys(), ",")
 	}
+	// --spec-only installs the lighter subset: the spec discipline, no queue/claim/batch machinery.
+	mode := "full"
+	if hasFlag(args, "--spec-only") {
+		mode = "spec-only"
+	}
 	// Interactive only when the user gave no agent preset — then we prompt for agents and for
 	// injection consent. With --agents= / --all (agents, CI) we proceed and notify, since init
 	// never commits.
@@ -238,9 +244,13 @@ func cmdInit(args []string) error {
 	if len(agentKeys) == 0 {
 		fmt.Println(yellow("\nNo agents selected. Writing the universal AGENTS.md base only.\n"))
 	}
-	fmt.Println(bold("\nspecflow "+version) + " → " + dim(target))
+	modeLabel := ""
+	if mode == "spec-only" {
+		modeLabel = dim("  (spec-only — spec discipline, no queue/claim/batch)")
+	}
+	fmt.Println(bold("\nspecflow "+version) + " → " + dim(target) + modeLabel)
 
-	plan, err := kit.PlanInit(target, specflow.Templates(), agentKeys)
+	plan, err := kit.PlanInit(target, specflow.Templates(), agentKeys, mode)
 	if err != nil {
 		return err
 	}
@@ -263,11 +273,15 @@ func cmdInit(args []string) error {
 
 	// Phase 2 — specflow-owned files to create.
 	if len(plan.Create) > 0 {
+		contents := "BUILD_QUEUE.md, CLAIMS.md, spec/, specflow/, agent adapters"
+		if mode == "spec-only" {
+			contents = "spec/, specflow/ (spec-edit procedure), agent adapters"
+		}
 		fmt.Println(bold(fmt.Sprintf("\nPhase 2 — %d specflow-owned file(s) to create", len(plan.Create))) +
-			dim("  (BUILD_QUEUE.md, CLAIMS.md, spec/, specflow/, agent adapters)."))
+			dim("  ("+contents+")."))
 	}
 
-	res, err := kit.ApplyInit(target, specflow.Templates(), version, agentKeys, allowInject)
+	res, err := kit.ApplyInit(target, specflow.Templates(), version, agentKeys, mode, allowInject)
 	if err != nil {
 		return err
 	}
@@ -308,7 +322,11 @@ func cmdInit(args []string) error {
 	fmt.Println("  1. Inspect the changes with " + cyan("git diff") + " / " + cyan("git status") + " — remove anything you don't want.")
 	fmt.Println(dim("     (specflow may be limited if required pieces are removed — run ") + cyan("specflow verify") + dim(" to check.)"))
 	fmt.Println("  2. Commit when satisfied — ideally its own commit, e.g. " + cyan("meta: install specflow") + ".")
-	fmt.Println("  3. Fill in " + cyan("spec/README.md") + ", seed " + cyan("BUILD_QUEUE.md") + ", and point your agent at " + cyan("AGENTS.md") + ".\n")
+	if mode == "spec-only" {
+		fmt.Println("  3. Fill in " + cyan("spec/README.md") + " and point your agent at " + cyan("AGENTS.md") + ".\n")
+	} else {
+		fmt.Println("  3. Fill in " + cyan("spec/README.md") + ", seed " + cyan("BUILD_QUEUE.md") + ", and point your agent at " + cyan("AGENTS.md") + ".\n")
+	}
 	return nil
 }
 
@@ -431,6 +449,7 @@ func usage() {
 
 %s
   specflow init [--agents=claude,cursor] [--all]   %s
+  specflow init --spec-only                        %s
   specflow upgrade                                 %s
   specflow verify                                  %s
   specflow --version                               %s
@@ -444,6 +463,7 @@ func usage() {
 		bold("specflow"), dim(version),
 		bold("Usage:"),
 		dim("scaffold into the current repo"),
+		dim("spec discipline only — no queue/claim"),
 		dim("refresh the managed protocol files"),
 		dim("check installation integrity"),
 		dim("print the installed version"),

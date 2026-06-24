@@ -599,6 +599,134 @@ func TestVerifyNotInstalled(t *testing.T) {
 	}
 }
 
+// specOnlyOmitted / specOnlyKept are the files the two install modes differ on.
+var (
+	specOnlyOmitted = []string{
+		"BUILD_QUEUE.md", "CLAIMS.md",
+		"specflow/procedures/claim-batch.md", "specflow/procedures/finish-batch.md",
+		".claude/skills/claim-batch/SKILL.md", ".claude/skills/finish-batch/SKILL.md",
+		"specflow/history/BUILD_QUEUE_DONE.md", "specflow/history/CLAIMS_DONE.md",
+	}
+	specOnlyKept = []string{
+		"AGENTS.md", "spec/README.md", "specflow/config.json",
+		"specflow/procedures/spec-edit.md", ".claude/skills/spec-edit/SKILL.md", "CLAUDE.md",
+	}
+	// composeTag finds any leftover section-composition scaffolding in a rendered file.
+	composeTag = regexp.MustCompile(`specflow:(full-only|spec-only)`)
+)
+
+func TestInitSpecOnlyOmitsBatchMachinery(t *testing.T) {
+	tmp := newRepo(t)
+	r := run(t, tmp, "init", "--agents=claude", "--spec-only")
+	if r.code != 0 {
+		t.Fatalf("init --spec-only exit %d: %s", r.code, r.stderr)
+	}
+	for _, f := range specOnlyOmitted {
+		if exists(filepath.Join(tmp, f)) {
+			t.Errorf("spec-only install wrote %s — should omit the batch/claim machinery", f)
+		}
+	}
+	for _, f := range specOnlyKept {
+		if !exists(filepath.Join(tmp, f)) {
+			t.Errorf("spec-only install missing %s", f)
+		}
+	}
+	var stamp map[string]any
+	json.Unmarshal([]byte(read(t, filepath.Join(tmp, "specflow/config.json"))), &stamp)
+	cfg, _ := stamp["config"].(map[string]any)
+	if m, _ := cfg["mode"].(string); m != "spec-only" {
+		t.Errorf("config.mode = %q, want spec-only", m)
+	}
+	// The managed baseline must cover the rendered AGENTS.md / spec-edit.md but not the omitted procedures.
+	managed, _ := stamp["managed"].(map[string]any)
+	if h, _ := managed["AGENTS.md"].(string); h == "" {
+		t.Error("no managed baseline for AGENTS.md in spec-only")
+	}
+	if _, ok := managed["specflow/procedures/claim-batch.md"]; ok {
+		t.Error("omitted claim-batch.md recorded as managed in spec-only")
+	}
+}
+
+func TestSpecOnlyManagedFilesCarryNoBatchReferences(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude", "--spec-only"); r.code != 0 {
+		t.Fatalf("init --spec-only exit %d: %s", r.code, r.stderr)
+	}
+	ag := read(t, filepath.Join(tmp, "AGENTS.md"))
+	se := read(t, filepath.Join(tmp, "specflow/procedures/spec-edit.md"))
+	for _, f := range []struct{ name, body string }{{"AGENTS.md", ag}, {"spec-edit.md", se}} {
+		for _, banned := range []string{"BUILD_QUEUE", "CLAIMS.md", "claim-batch", "finish-batch", "## The work queue"} {
+			if strings.Contains(f.body, banned) {
+				t.Errorf("spec-only %s references batch/claim machinery (%q)", f.name, banned)
+			}
+		}
+		if composeTag.MatchString(f.body) {
+			t.Errorf("spec-only %s carries leftover section-composition tags", f.name)
+		}
+	}
+	// The spec discipline must survive: AGENTS.md still wires the spec-edit procedure.
+	if !strings.Contains(ag, "spec-edit") || !strings.Contains(ag, "## File ownership") {
+		t.Error("spec-only AGENTS.md lost the spec discipline content")
+	}
+}
+
+func TestFullModeManagedFilesAreComplete(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	ag := read(t, filepath.Join(tmp, "AGENTS.md"))
+	// Full mode keeps the batch/claim sections...
+	for _, want := range []string{"## The work queue", "BUILD_QUEUE.md", "CLAIMS.md", "batch-N", "claim-batch.md"} {
+		if !strings.Contains(ag, want) {
+			t.Errorf("full-mode AGENTS.md missing %q", want)
+		}
+	}
+	// ...with the scaffolding tags fully rendered away.
+	if composeTag.MatchString(ag) {
+		t.Error("full-mode AGENTS.md carries leftover section-composition tags")
+	}
+	if composeTag.MatchString(read(t, filepath.Join(tmp, "specflow/procedures/spec-edit.md"))) {
+		t.Error("full-mode spec-edit.md carries leftover section-composition tags")
+	}
+}
+
+func TestSpecOnlyUpgradeStaysClean(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--spec-only")
+	r := run(t, tmp, "upgrade")
+	if r.code != 0 {
+		t.Fatalf("spec-only upgrade exit %d: %s", r.code, r.stderr)
+	}
+	if regexp.MustCompile(`(?i)drift|edited`).MatchString(r.stdout) {
+		t.Errorf("spec-only upgrade reported drift on a pristine install: %s", r.stdout)
+	}
+	// Upgrade must not introduce the omitted machinery, and AGENTS.md stays batch-free.
+	if exists(filepath.Join(tmp, "specflow/procedures/claim-batch.md")) {
+		t.Error("upgrade added claim-batch.md to a spec-only install")
+	}
+	if strings.Contains(read(t, filepath.Join(tmp, "AGENTS.md")), "## The work queue") {
+		t.Error("upgrade re-rendered spec-only AGENTS.md with batch sections")
+	}
+	for _, f := range []string{"AGENTS.md", "specflow/procedures/spec-edit.md"} {
+		if exists(filepath.Join(tmp, f+".specflow-new")) {
+			t.Errorf("spec-only upgrade wrote a drift sidecar for %s", f)
+		}
+	}
+}
+
+func TestSpecOnlyVerifyPasses(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--spec-only")
+	r := run(t, tmp, "verify")
+	if r.code != 0 {
+		t.Fatalf("verify on a spec-only install exit %d: %s", r.code, r.stdout)
+	}
+	if strings.Contains(r.stdout, "claim-batch") || strings.Contains(r.stdout, "finish-batch") {
+		t.Errorf("verify flagged the (intentionally absent) batch procedures in spec-only: %s", r.stdout)
+	}
+}
+
 func TestVersionAndUnknownCommand(t *testing.T) {
 	tmp := t.TempDir()
 	for _, flag := range []string{"--version", "-v"} {

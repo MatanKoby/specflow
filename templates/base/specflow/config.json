@@ -5,7 +5,7 @@
   "initializedAt": "{{INIT_DATE}}",
   "config": {
     "agents": "{{AGENTS}}",
-    "mode": "full",
+    "mode": "{{MODE}}",
     "commit": "agent",
     "push": "agent"
   }

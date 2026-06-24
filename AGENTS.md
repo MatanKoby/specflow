@@ -26,11 +26,12 @@ the spec**, **finish a batch** — carry the discipline; their full steps live i
 
 - There is one **shared working branch** (default `main` — substitute your team's if different).
   Agents commit directly to it, subject to the **commit/push levers** below. Always
-  `git pull --ff-only` before claiming.
+  `git pull --ff-only` before you start work.
 - No feature branches in the normal flow. (Teams that prefer PR-per-batch can layer that on;
   the default is direct-commit.)
-- **Never** force-push the shared branch. The only acceptable response to a rejected push is
-  `git fetch + reset` (for a claim commit) or `git pull --rebase` (for a work commit), then re-push.
+- **Never** force-push the shared branch. Recover from a rejected push with `git pull --rebase`
+  (never force), then re-push. The one exception is a rejected
+  **claim** commit, which is resolved with `git fetch` + `reset` — see `claim-batch.md`.
 
 ## Commit & push authority
 
@@ -58,7 +59,7 @@ message when `commit: user`, and stop before pushing when `push: user`. The defa
 | `CLAIMS.md` | agents | Active claims + recent completions. The execution-state ledger. |
 | `specflow/history/CLAIMS_DONE.md` | agents | Older completed entries archived from `CLAIMS.md`. Reference-only. |
 | `AGENTS.md`, `specflow/**` | specflow | Generated mechanism. Overwritten on `specflow upgrade`; don't hand-edit. |
-| source code, assets | shared | Use `batch-N:` commits when working a claimed batch. |
+| source code, assets | shared | Commit with the grammar below. |
 
 The golden rule: **the queue declares work; the claims file records execution state.** They
 never mix. The user can overwrite `BUILD_QUEUE.md` at any time without breaking agent state,
@@ -94,23 +95,22 @@ finishes, newest first; older history archived to `specflow/history/CLAIMS_DONE.
 - Handoff note: ...                 (only when a mid-batch handoff occurred)
 ```
 
-## The three procedures
+## The procedures
 
 Detailed steps live in `specflow/procedures/`. **Read the relevant file before acting** —
 don't reconstruct it from memory.
 
+- **`specflow/procedures/spec-edit.md`** — before editing any `spec/**` file or persisting a
+  design decision: concern-matching, cross-reference-don't-restate, archive rule,
+  propagation to `BUILD_QUEUE.md`. **Run before any spec change.**
 - **`specflow/procedures/claim-batch.md`** — pull, eligibility + dependency + parallelism
   checks, write the `CLAIMS.md` entry, `meta: claim` commit, push-race recovery, handoff,
   stale-claim reclaim. **Run before starting any new batch.**
-- **`specflow/procedures/spec-edit.md`** — before editing any `spec/**` file or persisting a
-  design decision: concern-matching, cross-reference-don't-restate, archive rule, propagation
-  to `BUILD_QUEUE.md`. **Run before any spec change.**
 - **`specflow/procedures/finish-batch.md`** — final commit + SHA, move the entry to
   `## Completed`, summarize, move the batch out of `BUILD_QUEUE.md` into `specflow/history/BUILD_QUEUE_DONE.md`,
   `meta: complete` commit. **Run when wrapping up.**
 
-> Claude Code users: these are also installed as the skills `claim-batch`, `spec-edit`, and
-> `finish-batch`, which trigger automatically.
+> Claude Code users: these procedures are also installed as auto-triggering skills.
 
 ## Commit message convention
 
@@ -121,13 +121,14 @@ don't reconstruct it from memory.
 | `meta: complete batch-N` | Marking a batch done |
 | `meta: handoff batch-N` | Mid-batch hand-off (Owner cleared) |
 | `meta: reclaim batch-N from <prior owner>` | Stale-claim recovery |
-| `meta: <other>` | Changes to `CLAIMS.md` structure, tooling |
 | `spec: <change>` | Edits to any `spec/**` file |
+| `meta: <other>` | Tooling / structural changes |
 
 `git log --oneline` is the change log — there is no separate changelog file.
 
 ## Editing rules
 
+- Treat `spec/**` as the design — propose edits through the `spec-edit` procedure; don't freelance.
 - Treat `BUILD_QUEUE.md` and `spec/**` as user-owned for *execution state* (claim/Owner/
   timestamps live in `CLAIMS.md` only). Design intent may be written to both via `spec-edit`.
 - Anyone may add new `CLAIMS.md` entries, but only the current Owner mutates a batch's entry

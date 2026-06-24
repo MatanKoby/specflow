@@ -42,6 +42,86 @@ var (
 	endRe   = regexp.MustCompile(`(?s)<!--\s*specflow:end\b.*?-->`)
 )
 
+// Section-composition tags. A managed file's region can carry sub-sections wrapped in
+// specflow:full-only / specflow:spec-only marker pairs; render keeps the pair that matches the
+// install mode (stripping its markers) and drops the other pair entirely (markers + content). This
+// is how one source (AGENTS.md, spec-edit.md) serves both modes without forked variants. The tag
+// token (specflow:full-only:…) never collides with the region token (specflow:start/end).
+//
+// A tag pair is authored either on its own lines (the common case — wrapping whole paragraphs,
+// list items, or table rows) or inline within a line (wrapping a clause). The two are handled
+// separately so dropping a block leaves adjacent content contiguous (no table-splitting blank
+// line) while an inline drop removes only the clause, not the surrounding line breaks.
+type composeRe struct {
+	wholeBlock  *regexp.Regexp // a start…end pair on their own lines → match incl. both marker lines
+	wholeMarker *regexp.Regexp // a lone marker on its own line → match incl. its newline
+	inlineBlock *regexp.Regexp // a start…end pair within text → match markers + content, no newlines
+	inlineMark  *regexp.Regexp // a lone marker token
+}
+
+func newComposeRe(tag string) composeRe {
+	return composeRe{
+		wholeBlock:  regexp.MustCompile(`(?ms)^[ \t]*<!--\s*specflow:` + tag + `:start\b.*?-->[ \t]*\n.*?^[ \t]*<!--\s*specflow:` + tag + `:end\b.*?-->[ \t]*\n`),
+		wholeMarker: regexp.MustCompile(`(?m)^[ \t]*<!--\s*specflow:` + tag + `:(?:start|end)\b.*?-->[ \t]*\n`),
+		inlineBlock: regexp.MustCompile(`(?s)<!--\s*specflow:` + tag + `:start\b.*?-->.*?<!--\s*specflow:` + tag + `:end\b.*?-->`),
+		inlineMark:  regexp.MustCompile(`<!--\s*specflow:` + tag + `:(?:start|end)\b.*?-->`),
+	}
+}
+
+var (
+	fullOnly   = newComposeRe("full-only")
+	specOnly   = newComposeRe("spec-only")
+	blankRunRe = regexp.MustCompile(`\n{3,}`)
+)
+
+// renderBody composes a managed file's content for the given mode: the non-matching tag's blocks
+// are removed whole, the matching tag's markers are stripped (content kept), and the runs of blank
+// lines left behind are collapsed back to a single blank line. A file with no composition tags is
+// returned byte-for-byte unchanged (the common case), so this is safe to run over every template.
+func renderBody(s, mode string) string {
+	if !strings.Contains(s, "specflow:full-only:") && !strings.Contains(s, "specflow:spec-only:") {
+		return s
+	}
+	drop, keep := fullOnly, specOnly // spec-only mode: drop full-only blocks, keep spec-only
+	if mode != "spec-only" {
+		drop, keep = specOnly, fullOnly
+	}
+	s = drop.wholeBlock.ReplaceAllString(s, "")
+	s = drop.inlineBlock.ReplaceAllString(s, "")
+	s = keep.wholeMarker.ReplaceAllString(s, "")
+	s = keep.inlineMark.ReplaceAllString(s, "")
+	return blankRunRe.ReplaceAllString(s, "\n\n")
+}
+
+// renderFile applies renderBody to raw template bytes for the given mode.
+func renderFile(content []byte, mode string) []byte { return []byte(renderBody(string(content), mode)) }
+
+// specOnlyOmits reports whether a repo-relative file belongs to the batch/claim machinery that
+// spec-only mode leaves out: the queue, the claims ledger, their history archives, the claim/finish
+// procedures, and the claim-batch/finish-batch skills (for any agent). Everything else — AGENTS.md,
+// spec/, the spec-edit procedure + skill, the stamp, agent instruction files — installs in both modes.
+func specOnlyOmits(rel string) bool {
+	switch rel {
+	case "BUILD_QUEUE.md", "CLAIMS.md",
+		"specflow/procedures/claim-batch.md", "specflow/procedures/finish-batch.md":
+		return true
+	}
+	if strings.HasPrefix(rel, "specflow/history/") {
+		return true
+	}
+	return strings.Contains(rel, "skills/claim-batch/") || strings.Contains(rel, "skills/finish-batch/")
+}
+
+// modeOf reads the install mode from the stamp's config block, defaulting to "full".
+func modeOf(stamp map[string]any) string {
+	if cfg, ok := stamp["config"].(map[string]any); ok {
+		if m, _ := cfg["mode"].(string); m != "" {
+			return m
+		}
+	}
+	return "full"
+}
+
 type regionParts struct {
 	before, startMarker, region, endMarker, after string
 }
@@ -102,9 +182,16 @@ type managedEntry struct {
 
 // managedEntries expands the base-managed set plus the per-agent instruction files for the given
 // installed agents into concrete (dest, template-source) pairs — the authoritative managed set for
-// a repo with those agents.
-func managedEntries(tpl fs.FS, agentKeys []string) ([]managedEntry, error) {
+// a repo with those agents. In spec-only mode the batch/claim procedures are dropped (the queue and
+// claims machinery isn't installed), so they're never part of the managed set.
+func managedEntries(tpl fs.FS, agentKeys []string, mode string) ([]managedEntry, error) {
 	var out []managedEntry
+	add := func(rel, src string) {
+		if mode == "spec-only" && specOnlyOmits(rel) {
+			return
+		}
+		out = append(out, managedEntry{rel: rel, src: src})
+	}
 	for _, rel := range MANAGED {
 		src := "base/" + rel
 		info, err := fs.Stat(tpl, src)
@@ -117,7 +204,7 @@ func managedEntries(tpl fs.FS, agentKeys []string) ([]managedEntry, error) {
 					return err
 				}
 				if !d.IsDir() {
-					out = append(out, managedEntry{rel: strings.TrimPrefix(p, "base/"), src: p})
+					add(strings.TrimPrefix(p, "base/"), p)
 				}
 				return nil
 			})
@@ -125,7 +212,7 @@ func managedEntries(tpl fs.FS, agentKeys []string) ([]managedEntry, error) {
 				return nil, err
 			}
 		} else {
-			out = append(out, managedEntry{rel: rel, src: src})
+			add(rel, src)
 		}
 	}
 	for _, key := range agentKeys {
@@ -137,7 +224,7 @@ func managedEntries(tpl fs.FS, agentKeys []string) ([]managedEntry, error) {
 		if _, err := fs.Stat(tpl, src); err != nil {
 			continue
 		}
-		out = append(out, managedEntry{rel: rel, src: src})
+		add(rel, src)
 	}
 	return out, nil
 }
@@ -189,8 +276,9 @@ type placedFile struct {
 }
 
 // initFiles enumerates every file `init` would place: the base set plus the selected agents'
-// adapters, as (dest, template-source) pairs.
-func initFiles(tpl fs.FS, agentKeys []string) ([]placedFile, error) {
+// adapters, as (dest, template-source) pairs. In spec-only mode the queue/claims/batch files (and
+// the claim-batch/finish-batch skills) are filtered out — only the spec discipline is installed.
+func initFiles(tpl fs.FS, agentKeys []string, mode string) ([]placedFile, error) {
 	var out []placedFile
 	add := func(root string) error {
 		return fs.WalkDir(tpl, root, func(p string, d fs.DirEntry, err error) error {
@@ -198,7 +286,11 @@ func initFiles(tpl fs.FS, agentKeys []string) ([]placedFile, error) {
 				return err
 			}
 			if !d.IsDir() {
-				out = append(out, placedFile{rel: strings.TrimPrefix(p, root+"/"), src: p})
+				rel := strings.TrimPrefix(p, root+"/")
+				if mode == "spec-only" && specOnlyOmits(rel) {
+					return nil
+				}
+				out = append(out, placedFile{rel: rel, src: p})
 			}
 			return nil
 		})
@@ -241,8 +333,8 @@ func writeFile(dest string, content []byte) error {
 	return os.WriteFile(dest, content, 0o644)
 }
 
-// fillStamp substitutes the version/date/agents placeholders in the freshly copied config template.
-func fillStamp(targetDir, version string, agentKeys []string) error {
+// fillStamp substitutes the version/date/agents/mode placeholders in the freshly copied config template.
+func fillStamp(targetDir, version string, agentKeys []string, mode string) error {
 	p := configPath(targetDir)
 	b, err := os.ReadFile(p)
 	if err != nil {
@@ -252,14 +344,15 @@ func fillStamp(targetDir, version string, agentKeys []string) error {
 	s = strings.Replace(s, "{{VERSION}}", version, 1)
 	s = strings.Replace(s, "{{INIT_DATE}}", today(), 1)
 	s = strings.Replace(s, "{{AGENTS}}", strings.Join(agentKeys, ","), 1)
+	s = strings.Replace(s, "{{MODE}}", mode, 1)
 	return os.WriteFile(p, []byte(s), 0o644)
 }
 
 // computeManaged returns the baseline hash of each managed file's region as currently on disk (the
 // base set plus the installed agents' instruction files). Stored in the stamp so a later upgrade can
 // tell a pristine region (safe to refresh) from a hand-edited one (drift).
-func computeManaged(targetDir string, tpl fs.FS, agentKeys []string) (map[string]string, error) {
-	entries, err := managedEntries(tpl, agentKeys)
+func computeManaged(targetDir string, tpl fs.FS, agentKeys []string, mode string) (map[string]string, error) {
+	entries, err := managedEntries(tpl, agentKeys, mode)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +371,7 @@ func computeManaged(targetDir string, tpl fs.FS, agentKeys []string) (map[string
 
 // recordManaged reads the stamp, attaches/refreshes the managed-region baseline map (and any extra
 // fields), and writes it back.
-func recordManaged(targetDir string, tpl fs.FS, agentKeys []string, extra map[string]any) error {
+func recordManaged(targetDir string, tpl fs.FS, agentKeys []string, mode string, extra map[string]any) error {
 	p := configPath(targetDir)
 	b, err := os.ReadFile(p)
 	if err != nil {
@@ -288,7 +381,7 @@ func recordManaged(targetDir string, tpl fs.FS, agentKeys []string, extra map[st
 	if err := json.Unmarshal(b, &stamp); err != nil {
 		return err
 	}
-	managed, err := computeManaged(targetDir, tpl, agentKeys)
+	managed, err := computeManaged(targetDir, tpl, agentKeys, mode)
 	if err != nil {
 		return err
 	}
@@ -348,9 +441,9 @@ type fileAction struct {
 }
 
 // classifyInit decides, for every file init would place, what to do with it given the current disk
-// state. Deterministic from (targetDir, tpl, agentKeys) — PlanInit shows it, ApplyInit acts on it.
-func classifyInit(targetDir string, tpl fs.FS, agentKeys []string) ([]fileAction, error) {
-	entries, err := managedEntries(tpl, agentKeys)
+// state. Deterministic from (targetDir, tpl, agentKeys, mode) — PlanInit shows it, ApplyInit acts on it.
+func classifyInit(targetDir string, tpl fs.FS, agentKeys []string, mode string) ([]fileAction, error) {
+	entries, err := managedEntries(tpl, agentKeys, mode)
 	if err != nil {
 		return nil, err
 	}
@@ -358,7 +451,7 @@ func classifyInit(targetDir string, tpl fs.FS, agentKeys []string) ([]fileAction
 	for _, e := range entries {
 		managed[e.rel] = true
 	}
-	files, err := initFiles(tpl, agentKeys)
+	files, err := initFiles(tpl, agentKeys, mode)
 	if err != nil {
 		return nil, err
 	}
@@ -406,8 +499,8 @@ type InitPlan struct {
 }
 
 // PlanInit classifies the work without touching disk.
-func PlanInit(targetDir string, tpl fs.FS, agentKeys []string) (InitPlan, error) {
-	acts, err := classifyInit(targetDir, tpl, agentKeys)
+func PlanInit(targetDir string, tpl fs.FS, agentKeys []string, mode string) (InitPlan, error) {
+	acts, err := classifyInit(targetDir, tpl, agentKeys, mode)
 	if err != nil {
 		return InitPlan{}, err
 	}
@@ -441,9 +534,9 @@ type InitResult struct {
 // injection of specflow's region into files that already exist (batched consent); when false those
 // files are left untouched and reported as Declined — everything else is still written. init never
 // commits.
-func ApplyInit(targetDir string, tpl fs.FS, version string, agentKeys []string, allowInject bool) (InitResult, error) {
+func ApplyInit(targetDir string, tpl fs.FS, version string, agentKeys []string, mode string, allowInject bool) (InitResult, error) {
 	var res InitResult
-	acts, err := classifyInit(targetDir, tpl, agentKeys)
+	acts, err := classifyInit(targetDir, tpl, agentKeys, mode)
 	if err != nil {
 		return res, err
 	}
@@ -455,7 +548,7 @@ func ApplyInit(targetDir string, tpl fs.FS, version string, agentKeys []string, 
 			if err != nil {
 				return res, err
 			}
-			if err := writeFile(dest, b); err != nil {
+			if err := writeFile(dest, renderFile(b, mode)); err != nil {
 				return res, err
 			}
 			res.Created = append(res.Created, a.rel)
@@ -472,7 +565,7 @@ func ApplyInit(targetDir string, tpl fs.FS, version string, agentKeys []string, 
 			if err != nil {
 				return res, err
 			}
-			injected, ok := injectRegion(string(existing), string(b))
+			injected, ok := injectRegion(string(existing), string(renderFile(b, mode)))
 			if !ok {
 				res.AlreadyWired = append(res.AlreadyWired, a.rel)
 				continue
@@ -487,10 +580,10 @@ func ApplyInit(targetDir string, tpl fs.FS, version string, agentKeys []string, 
 			res.SkipExisting = append(res.SkipExisting, a.rel)
 		}
 	}
-	if err := fillStamp(targetDir, version, agentKeys); err != nil {
+	if err := fillStamp(targetDir, version, agentKeys, mode); err != nil {
 		return res, err
 	}
-	if err := recordManaged(targetDir, tpl, agentKeys, nil); err != nil {
+	if err := recordManaged(targetDir, tpl, agentKeys, mode, nil); err != nil {
 		return res, err
 	}
 	return res, nil
@@ -526,13 +619,14 @@ func Upgrade(targetDir string, tpl fs.FS, version string) (UpgradeResult, error)
 	}
 	res.From, _ = stamp["kitVersion"].(string)
 
+	mode := modeOf(stamp)
 	baseline := baselineMap(stamp)
 	next := map[string]string{}
 	for k, v := range baseline {
 		next[k] = v
 	}
 
-	entries, err := managedEntries(tpl, installedAgents(stamp))
+	entries, err := managedEntries(tpl, installedAgents(stamp), mode)
 	if err != nil {
 		return res, err
 	}
@@ -542,7 +636,9 @@ func Upgrade(targetDir string, tpl fs.FS, version string) (UpgradeResult, error)
 		if err != nil {
 			return res, err
 		}
-		srcContent := string(srcb)
+		// Re-render the template region for the install's recorded mode, so a spec-only repo refreshes
+		// to the spec-only composition (and its baseline hash, taken over the rendered region, matches).
+		srcContent := renderBody(string(srcb), mode)
 		srcParts, ok := extractRegion(srcContent)
 		if !ok {
 			continue // template lacks markers — nothing to manage (shouldn't happen)
@@ -654,7 +750,7 @@ func Verify(targetDir string, tpl fs.FS, version string) (VerifyReport, error) {
 	rep.OK = append(rep.OK, "specflow/config.json valid")
 
 	baseline := baselineMap(stamp)
-	entries, err := managedEntries(tpl, installedAgents(stamp))
+	entries, err := managedEntries(tpl, installedAgents(stamp), modeOf(stamp))
 	if err != nil {
 		return rep, err
 	}

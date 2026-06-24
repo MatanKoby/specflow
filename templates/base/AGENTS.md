@@ -15,22 +15,32 @@ config file, not here.
 
 ## The model in one paragraph
 
+<!-- specflow:full-only:start -->
 Work is **specced** before it is built (`spec/`), broken into **batches** (`BUILD_QUEUE.md`),
 and each batch is **claimed** in git before code is written (`CLAIMS.md`) so the record of
 "who is doing what / what is done" survives a crashed laptop and lets multiple agents (or
 people) work the same branch without colliding. Three procedures — **claim a batch**, **edit
 the spec**, **finish a batch** — carry the discipline; their full steps live in
 `specflow/procedures/`.
+<!-- specflow:full-only:end -->
+<!-- specflow:spec-only:start -->
+Work is **specced** before it is built: the design lives in `spec/`, organized one concern per
+file, and agents keep it current — creating, updating, splitting, and archiving spec files as
+the design evolves. This is a **spec-only** install: just the spec discipline, with no batch
+queue or claim ledger. One procedure — **edit the spec** — carries it; its full steps live in
+`specflow/procedures/`.
+<!-- specflow:spec-only:end -->
 
 ## Repo & branches
 
 - There is one **shared working branch** (default `main` — substitute your team's if different).
   Agents commit directly to it, subject to the **commit/push levers** below. Always
-  `git pull --ff-only` before claiming.
+  `git pull --ff-only` before you start work.
 - No feature branches in the normal flow. (Teams that prefer PR-per-batch can layer that on;
   the default is direct-commit.)
-- **Never** force-push the shared branch. The only acceptable response to a rejected push is
-  `git fetch + reset` (for a claim commit) or `git pull --rebase` (for a work commit), then re-push.
+- **Never** force-push the shared branch. Recover from a rejected push with `git pull --rebase`
+  (never force), then re-push.<!-- specflow:full-only:start --> The one exception is a rejected
+  **claim** commit, which is resolved with `git fetch` + `reset` — see `claim-batch.md`.<!-- specflow:full-only:end -->
 
 ## Commit & push authority
 
@@ -53,13 +63,16 @@ message when `commit: user`, and stop before pushing when `push: user`. The defa
 | File / path | Owner | Notes |
 |---|---|---|
 | `spec/**` | user | The design. Agents propose `spec:` edits via the `spec-edit` procedure; don't freelance. |
+<!-- specflow:full-only:start -->
 | `BUILD_QUEUE.md` | user | Declares the work (un-done batches, in full). Agents **never** write claim state here. |
 | `specflow/history/BUILD_QUEUE_DONE.md` | shared archive | One-paragraph summaries of completed batches. Append on finish. |
 | `CLAIMS.md` | agents | Active claims + recent completions. The execution-state ledger. |
 | `specflow/history/CLAIMS_DONE.md` | agents | Older completed entries archived from `CLAIMS.md`. Reference-only. |
+<!-- specflow:full-only:end -->
 | `AGENTS.md`, `specflow/**` | specflow | Generated mechanism. Overwritten on `specflow upgrade`; don't hand-edit. |
-| source code, assets | shared | Use `batch-N:` commits when working a claimed batch. |
+| source code, assets | shared | Commit with the grammar below. |
 
+<!-- specflow:full-only:start -->
 The golden rule: **the queue declares work; the claims file records execution state.** They
 never mix. The user can overwrite `BUILD_QUEUE.md` at any time without breaking agent state,
 because no Owner / Started / Finished / Status ever lives in it.
@@ -93,44 +106,51 @@ finishes, newest first; older history archived to `specflow/history/CLAIMS_DONE.
 - Commit: <short SHA of the work commit>   (only in Completed)
 - Handoff note: ...                 (only when a mid-batch handoff occurred)
 ```
+<!-- specflow:full-only:end -->
 
-## The three procedures
+## The procedures
 
 Detailed steps live in `specflow/procedures/`. **Read the relevant file before acting** —
 don't reconstruct it from memory.
 
+- **`specflow/procedures/spec-edit.md`** — before editing any `spec/**` file or persisting a
+  design decision: concern-matching, cross-reference-don't-restate, archive rule<!-- specflow:full-only:start -->,
+  propagation to `BUILD_QUEUE.md`<!-- specflow:full-only:end -->. **Run before any spec change.**
+<!-- specflow:full-only:start -->
 - **`specflow/procedures/claim-batch.md`** — pull, eligibility + dependency + parallelism
   checks, write the `CLAIMS.md` entry, `meta: claim` commit, push-race recovery, handoff,
   stale-claim reclaim. **Run before starting any new batch.**
-- **`specflow/procedures/spec-edit.md`** — before editing any `spec/**` file or persisting a
-  design decision: concern-matching, cross-reference-don't-restate, archive rule, propagation
-  to `BUILD_QUEUE.md`. **Run before any spec change.**
 - **`specflow/procedures/finish-batch.md`** — final commit + SHA, move the entry to
   `## Completed`, summarize, move the batch out of `BUILD_QUEUE.md` into `specflow/history/BUILD_QUEUE_DONE.md`,
   `meta: complete` commit. **Run when wrapping up.**
+<!-- specflow:full-only:end -->
 
-> Claude Code users: these are also installed as the skills `claim-batch`, `spec-edit`, and
-> `finish-batch`, which trigger automatically.
+> Claude Code users: these procedures are also installed as auto-triggering skills.
 
 ## Commit message convention
 
 | Prefix | When to use |
 |---|---|
+<!-- specflow:full-only:start -->
 | `batch-N: <imperative>` | Code/asset change toward batch N |
 | `meta: claim batch-N (<agent>)` | Claiming a batch |
 | `meta: complete batch-N` | Marking a batch done |
 | `meta: handoff batch-N` | Mid-batch hand-off (Owner cleared) |
 | `meta: reclaim batch-N from <prior owner>` | Stale-claim recovery |
-| `meta: <other>` | Changes to `CLAIMS.md` structure, tooling |
+<!-- specflow:full-only:end -->
 | `spec: <change>` | Edits to any `spec/**` file |
+| `meta: <other>` | Tooling / structural changes |
 
 `git log --oneline` is the change log — there is no separate changelog file.
 
 ## Editing rules
 
+- Treat `spec/**` as the design — propose edits through the `spec-edit` procedure; don't freelance.
+<!-- specflow:full-only:start -->
 - Treat `BUILD_QUEUE.md` and `spec/**` as user-owned for *execution state* (claim/Owner/
   timestamps live in `CLAIMS.md` only). Design intent may be written to both via `spec-edit`.
 - Anyone may add new `CLAIMS.md` entries, but only the current Owner mutates a batch's entry
   (except stale-claim recovery — see `claim-batch.md`).
 - Always `git pull --ff-only` before claiming so you don't race another agent.
+<!-- specflow:full-only:end -->
 <!-- specflow:end -->
