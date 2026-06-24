@@ -44,15 +44,23 @@ Run this when wrapping up. `AGENTS.md` carries only the pointer to this file.
 
 ## Hand the context back (if your agent supports context compaction)
 
-6. If you're about to compact/clear context, suggest keeping the *durable* takeaways and
-   dropping the execution detail:
+6. Offer a context handoff at the end of a batch — and **whenever the context window grows
+   heavy**, not only at batch end. First decide whether anything in-context needs to survive the
+   reset:
 
-   - **Keep:** durable artifacts shipped (new patterns, infra, decisions reaffirmed) + a
-     forward pointer to the next likely batch and why.
-   - **Drop:** blow-by-blow execution detail, specific file paths / SHAs (git + `CLAIMS.md`
-     own those), resolved debug threads, intermediate states.
+   - **Nothing to carry** — everything is already durable in the repo (spec, `git log`,
+     `BUILD_QUEUE.md`, `CLAIMS.md`). Don't write a keep-line at all: an empty compaction is just a
+     slower restart. Suggest a plain clear/restart plus a one-line re-prompt (e.g. "continue the
+     milestone").
+   - **Something to carry** — suggest compacting, and keep *only* that, briefly:
+     - **Keep:** durable takeaways **not recoverable elsewhere** — a decision just made but not yet
+       written down, a forward pointer to the next likely batch and why.
+     - **Drop:** blow-by-blow execution detail, specific file paths / SHAs (git + `CLAIMS.md` own
+       those), resolved debug threads, intermediate states, and anything already in spec / queue /
+       claims / git.
 
-   If nothing about the closed batch is worth preserving, say so plainly.
+   The test for each keep-line item: could a fresh agent reconstruct it from the repo? If yes,
+   leave it out.
 
 ## Next
 
