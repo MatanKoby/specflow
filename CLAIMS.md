@@ -17,6 +17,10 @@ Entry format:
 
 ## In progress
 
+### Batch G2 — Go release + install pipeline
+- Owner: claude
+- Started: 2026-06-24 08:25
+
 <!-- One entry per actively claimed batch. -->
 
 ## Completed
