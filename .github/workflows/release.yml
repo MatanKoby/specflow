@@ -1,0 +1,31 @@
+name: Release
+
+# A pushed semver tag (v0.1.0, v1.2.3, …) cross-compiles via GoReleaser and publishes
+# the GitHub Release. Local CI (ci.yml) stays the per-push/PR gate; this runs on tags only.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # create the release + upload archives
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # full history so the changelog/version are correct
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

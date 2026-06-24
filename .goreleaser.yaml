@@ -1,0 +1,70 @@
+# GoReleaser config — cross-compiles specflow and publishes a GitHub Release.
+# Triggered by a `v*` tag via .github/workflows/release.yml. Docs: https://goreleaser.com
+#
+# Homebrew tap / Scoop manifest are deferred post-v0.1 (tracked in BUILD_QUEUE.md → Batch G2
+# deferred + open-questions.md → Distribution). The `curl … | sh` front-end (install.sh) and
+# `go install …@latest` cover v0.1; a `brews:` block slots in here when the tap lands.
+version: 2
+
+project_name: specflow
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: specflow
+    main: ./cmd/specflow
+    binary: specflow
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      # Inject the tag's semver into main.version (overrides the dev default).
+      - -s -w -X main.version={{ .Version }}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      # No Windows/arm64 target for v0.1.
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - id: specflow
+    # specflow_0.1.0_linux_amd64.tar.gz  (install.sh depends on this exact shape)
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+snapshot:
+  # Used by `goreleaser release --snapshot` for local, unpublished test builds.
+  version_template: "{{ incpatch .Version }}-snapshot"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^meta:"
+      - "^spec:"
+      - "^docs:"
+
+release:
+  # A pushed tag produces a DRAFT release — review the artifacts, then publish from the
+  # GitHub UI. Flip to `draft: false` once the pipeline is trusted for hands-off releases.
+  draft: true
+  prerelease: auto

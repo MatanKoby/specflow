@@ -20,12 +20,21 @@ Antigravity, and any tool that reads `AGENTS.md`) honors the same protocol.
 specflow is a single binary — **no runtime (Node, Python, …) required**.
 
 ```bash
-# With Go installed (works today):
+# Prebuilt binary, no Go needed (Linux & macOS):
+curl -fsSL https://raw.githubusercontent.com/MatanKoby/specflow/main/install.sh | sh
+```
+
+This detects your OS/arch, downloads the matching binary from the latest
+[GitHub Release](https://github.com/MatanKoby/specflow/releases), verifies its checksum, and
+installs it to `/usr/local/bin` (falling back to `~/.local/bin`). Pin a version with
+`SPECFLOW_VERSION=v0.1.0`, or change the target with `SPECFLOW_INSTALL_DIR=…`.
+
+```bash
+# Or, with Go installed:
 go install github.com/MatanKoby/specflow/cmd/specflow@latest
 ```
 
-Prebuilt binaries with **no Go required** — a `curl … | sh` script and **Homebrew** — land with the
-release pipeline (see [Roadmap](#roadmap)).
+Windows binaries are attached to each release; **Homebrew** (`brew install`) is coming.
 
 ## Quick start
 
@@ -88,9 +97,10 @@ Cursor."* Then ask it to read `AGENTS.md` and claim a batch.
 
 ## Roadmap
 
-- **Now:** the authoring loop (spec → queue → claim → build), cross-agent.
-- **Next:** prebuilt binaries — `curl | sh` + Homebrew — published to GitHub Releases, so no Go is
-  needed to install.
+- **Now:** the authoring loop (spec → queue → claim → build), cross-agent, installed from a prebuilt
+  binary (`curl | sh` or `go install`) — no Go required.
+- **Next:** more install front-ends — **Homebrew** and Windows package managers — alongside the
+  `add-agent` / `status` / `--dry-run` commands.
 - **Later (opt-in):** `specflow verify` — an executable that enforces the invariants
   (claim-before-work, commit grammar, no-state-in-queue) at git-hook / CI chokepoints.
 - **Later:** a hosted tier that authors/syncs spec + queue into the repo (the file-contract is
