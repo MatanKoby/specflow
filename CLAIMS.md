@@ -17,13 +17,39 @@ Entry format:
 
 ## In progress
 
-### Batch G2 — Go release + install pipeline
-- Owner: claude
-- Started: 2026-06-24 08:25
-
 <!-- One entry per actively claimed batch. -->
 
 ## Completed
+
+### Batch G2 — Go release + install pipeline
+- Owner: claude
+- Started: 2026-06-24 08:25
+- Finished: 2026-07-03 09:35
+- Commit: 50c59aa
+
+**What shipped.** Zero-runtime distribution for the Go binary. **GoReleaser** (`.goreleaser.yaml`,
+v2) cross-compiles a **5-target matrix** (linux amd64/arm64, darwin amd64/arm64, windows amd64;
+windows/arm64 ignored) as `-trimpath` + `CGO_ENABLED=0` static builds with `main.version` injected
+from the tag; `tar.gz` archives (`.zip` on Windows) named `specflow_<version>_<os>_<arch>` bundle
+LICENSE + README, alongside a `sha256` `checksums.txt`. A **`Release` workflow**
+(`.github/workflows/release.yml`) fires on any `v*` tag → `goreleaser release --clean` with the
+auto `GITHUB_TOKEN` (`contents: write`) → a **draft** release (`prerelease: auto`; review then
+publish from the UI). An **`install.sh`** `curl … | sh` front-end detects OS/arch, resolves the
+latest published release (or `SPECFLOW_VERSION`), downloads + checksum-verifies + extracts the
+matching archive, installs to `/usr/local/bin` (sudo) or `~/.local/bin`, and honors `NO_COLOR`/
+non-TTY. README install section rewritten to the binary flow (+ `go install …@latest` fallback).
+
+**Verification.** `goreleaser release --snapshot` produced all 5 archives + `checksums.txt` with the
+exact names `install.sh` expects; install.sh's checksum-grep + extract path was replicated locally
+(binary runs, injected version correct). A pushed throwaway `v0.0.1-test` tag ran the workflow
+**green** ([run 28645497812](https://github.com/MatanKoby/specflow/actions/runs/28645497812)) and
+produced a draft release with all assets — draft correctly hidden from the public API, its assets not
+anonymously downloadable. Test tag + draft deleted afterward.
+
+**Deferred (post-v0.1).** Homebrew tap (a `brews:` block slots into `.goreleaser.yaml` when the tap
+repo lands), npm wrapper (`npx specflow`), Scoop/Winget — see `open-questions.md` → Distribution. The
+full public `curl … | sh` path is only exercisable against a *published* release, so it stays
+unproven until the real `v0.1.0`.
 
 ### Batch SO — Spec-only install mode (`--spec-only`)
 - Owner: claude

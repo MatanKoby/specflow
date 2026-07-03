@@ -10,6 +10,17 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch G2 — Go release + install pipeline
+Shipped zero-runtime distribution. **GoReleaser** (`.goreleaser.yaml`) cross-compiles a 5-target
+matrix (linux/darwin amd64+arm64, windows amd64) into checksummed `tar.gz`/`zip` archives named
+`specflow_<version>_<os>_<arch>`; a **`Release` workflow** on any `v*` tag runs `goreleaser release
+--clean` → a **draft** GitHub Release; an **`install.sh`** `curl … | sh` front-end detects OS/arch,
+checksum-verifies, and installs the matching binary (`/usr/local/bin` or `~/.local/bin`, `NO_COLOR`
+aware). README rewritten to the binary flow (+ `go install …@latest` fallback). Verified via a
+`--snapshot` build plus a throwaway `v0.0.1-test` tag that ran the workflow green and produced a draft
+with all assets (tag + draft since deleted). Key commit `50c59aa`. Deferred post-v0.1: Homebrew tap,
+npm wrapper, Scoop/Winget. Follow-up: the full public `curl|sh` path proves out at the real `v0.1.0`.
+
 ## Batch SO — Spec-only install mode (`--spec-only`)
 Shipped `specflow init --spec-only`: a lighter install that keeps only the spec discipline
 (`AGENTS.md` spec sections + `spec/` + the `spec-edit` procedure/skill + stamp + agent stubs) and
