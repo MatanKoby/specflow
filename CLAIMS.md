@@ -17,6 +17,10 @@ Entry format:
 
 ## In progress
 
+### Batch 1 — `specflow add-agent <name>`
+- Owner: claude
+- Started: 2026-07-03 09:41
+
 <!-- One entry per actively claimed batch. -->
 
 ## Completed
