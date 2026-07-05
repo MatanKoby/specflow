@@ -601,6 +601,102 @@ type UpgradeResult struct {
 	SchemaChanged bool
 }
 
+// upgradeAction is the decision for one managed file during upgrade. It's computed without writing,
+// so the apply path (Upgrade) and the --dry-run planner (PlanUpgrade) classify identically.
+type upgradeAction int
+
+const (
+	upSkip    upgradeAction = iota // brownfield file, no baseline — never adopted; not reported
+	upNoop                         // clean region already identical to the template — nothing to do
+	upRefresh                      // clean region → swap in the fresh content
+	upAdd                          // managed file absent → create it whole
+	upMigrate                      // pre-marker file (had a baseline) → back up + rewrite
+	upDrift                        // hand-edited / no baseline → write .specflow-new, don't overwrite
+)
+
+type upgradeDecision struct {
+	action  upgradeAction
+	updated string // full new file content (upRefresh/upAdd/upMigrate) or sidecar body (upDrift)
+	backup  string // original bytes to preserve as .specflow-bak (upMigrate only)
+	newHash string // region baseline to record (all actions that keep the file managed; not upDrift)
+}
+
+// decideUpgrade classifies one managed file from its rendered template (srcContent + its extracted
+// srcParts) against the current disk state, touching nothing. The write side effects each action
+// implies are carried in the decision so the caller can either apply or merely report them.
+func decideUpgrade(dest, rel, srcContent string, srcParts regionParts, baseline map[string]string) (upgradeDecision, error) {
+	db, err := os.ReadFile(dest)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return upgradeDecision{}, err
+		}
+		// Managed file introduced by a newer kit version: write it whole.
+		return upgradeDecision{action: upAdd, updated: srcContent, newHash: hashRegion(srcParts.region)}, nil
+	}
+	destContent := string(db)
+	destParts, ok := extractRegion(destContent)
+	if !ok {
+		// No region on disk. Only migrate a file specflow actually owned before (a recorded baseline
+		// ⇒ markers were stripped since install). A managed file with no region AND no baseline is a
+		// brownfield file init deliberately left untouched (e.g. a CLAUDE.md that already pointed at
+		// AGENTS.md) — never adopt/overwrite it.
+		if baseline[rel] == "" {
+			return upgradeDecision{action: upSkip}, nil
+		}
+		return upgradeDecision{action: upMigrate, updated: srcContent, backup: destContent, newHash: hashRegion(srcParts.region)}, nil
+	}
+	// Never overwrite a region we can't prove is pristine: a hash mismatch (hand-edited since install)
+	// or a missing baseline (lost/corrupt stamp, or newly managed) leaves the on-disk region untouched
+	// and drops the fresh version to a .specflow-new sidecar instead of clobbering in-region edits.
+	if base := baseline[rel]; base == "" || hashRegion(destParts.region) != base {
+		return upgradeDecision{action: upDrift, updated: srcContent}, nil
+	}
+	// Clean: swap in the fresh region (and the template's current marker wording), preserving
+	// everything outside the markers verbatim.
+	updated := destParts.before + srcParts.startMarker + srcParts.region + srcParts.endMarker + destParts.after
+	if updated == destContent {
+		return upgradeDecision{action: upNoop, newHash: hashRegion(srcParts.region)}, nil
+	}
+	return upgradeDecision{action: upRefresh, updated: updated, newHash: hashRegion(srcParts.region)}, nil
+}
+
+// relDecision pairs a managed file with its upgrade decision.
+type relDecision struct {
+	rel string
+	dec upgradeDecision
+}
+
+// upgradeDecisions classifies every managed file for the install described by stamp, without writing.
+// Shared by Upgrade (apply) and PlanUpgrade (--dry-run).
+func upgradeDecisions(targetDir string, tpl fs.FS, stamp map[string]any) ([]relDecision, error) {
+	mode := modeOf(stamp)
+	baseline := baselineMap(stamp)
+	entries, err := managedEntries(tpl, installedAgents(stamp), mode)
+	if err != nil {
+		return nil, err
+	}
+	var out []relDecision
+	for _, e := range entries {
+		srcb, err := fs.ReadFile(tpl, e.src)
+		if err != nil {
+			return nil, err
+		}
+		// Re-render the template region for the install's recorded mode, so a spec-only repo refreshes
+		// to the spec-only composition (and its baseline hash, taken over the rendered region, matches).
+		srcContent := renderBody(string(srcb), mode)
+		srcParts, ok := extractRegion(srcContent)
+		if !ok {
+			continue // template lacks markers — nothing to manage (shouldn't happen)
+		}
+		d, err := decideUpgrade(destPath(targetDir, e.rel), e.rel, srcContent, srcParts, baseline)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, relDecision{rel: e.rel, dec: d})
+	}
+	return out, nil
+}
+
 // Upgrade refreshes specflow's managed region in each managed file to the installed kit version,
 // non-destructively: a clean region has only its between-markers content replaced; a drifted region
 // is left untouched with the fresh version dropped to a .specflow-new sidecar; a pre-marker file is
@@ -619,94 +715,54 @@ func Upgrade(targetDir string, tpl fs.FS, version string) (UpgradeResult, error)
 	}
 	res.From, _ = stamp["kitVersion"].(string)
 
-	mode := modeOf(stamp)
 	baseline := baselineMap(stamp)
 	next := map[string]string{}
 	for k, v := range baseline {
 		next[k] = v
 	}
 
-	entries, err := managedEntries(tpl, installedAgents(stamp), mode)
+	decisions, err := upgradeDecisions(targetDir, tpl, stamp)
 	if err != nil {
 		return res, err
 	}
-	for _, e := range entries {
-		rel := e.rel
-		srcb, err := fs.ReadFile(tpl, e.src)
-		if err != nil {
-			return res, err
-		}
-		// Re-render the template region for the install's recorded mode, so a spec-only repo refreshes
-		// to the spec-only composition (and its baseline hash, taken over the rendered region, matches).
-		srcContent := renderBody(string(srcb), mode)
-		srcParts, ok := extractRegion(srcContent)
-		if !ok {
-			continue // template lacks markers — nothing to manage (shouldn't happen)
-		}
+	for _, rd := range decisions {
+		rel, d := rd.rel, rd.dec
 		dest := destPath(targetDir, rel)
-
-		db, readErr := os.ReadFile(dest)
-		if readErr != nil {
-			if !os.IsNotExist(readErr) {
-				return res, readErr
-			}
-			// Managed file introduced by a newer kit version: write it whole.
+		switch d.action {
+		case upSkip:
+			// brownfield file specflow never owned — leave it, don't record a baseline.
+		case upNoop:
+			next[rel] = d.newHash
+		case upAdd:
 			if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 				return res, err
 			}
-			if err := os.WriteFile(dest, []byte(srcContent), 0o644); err != nil {
+			if err := os.WriteFile(dest, []byte(d.updated), 0o644); err != nil {
 				return res, err
 			}
-			next[rel] = hashRegion(srcParts.region)
+			next[rel] = d.newHash
 			res.Added = append(res.Added, rel)
-			continue
-		}
-		destContent := string(db)
-		destParts, ok := extractRegion(destContent)
-		if !ok {
-			// No region on disk. Only migrate a file specflow actually owned before (a recorded
-			// baseline ⇒ markers were stripped since install). A managed file with no region AND no
-			// baseline is a brownfield file init deliberately left untouched (e.g. a CLAUDE.md that
-			// already pointed at AGENTS.md) — never adopt/overwrite it.
-			if baseline[rel] == "" {
-				continue
-			}
-			// Pre-marker install: back up verbatim, then write the marked template.
-			if err := os.WriteFile(dest+".specflow-bak", db, 0o644); err != nil {
+		case upMigrate:
+			if err := os.WriteFile(dest+".specflow-bak", []byte(d.backup), 0o644); err != nil {
 				return res, err
 			}
-			if err := os.WriteFile(dest, []byte(srcContent), 0o644); err != nil {
+			if err := os.WriteFile(dest, []byte(d.updated), 0o644); err != nil {
 				return res, err
 			}
-			next[rel] = hashRegion(srcParts.region)
+			next[rel] = d.newHash
 			res.Migrated = append(res.Migrated, rel)
-			continue
-		}
-
-		// Never overwrite a region we can't prove is pristine. Two cases leave the on-disk region
-		// untouched, drop the fresh version to a sidecar, and keep flagging:
-		//   - hash mismatch → the region was hand-edited since install (drift);
-		//   - missing baseline → no recorded fingerprint to compare against (a lost/corrupt stamp,
-		//     or a file newly brought under management). Defaulting to "overwrite" here would
-		//     silently clobber a user's in-region edits, so we default to "don't touch".
-		if base := baseline[rel]; base == "" || hashRegion(destParts.region) != base {
-			if err := os.WriteFile(dest+".specflow-new", []byte(srcContent), 0o644); err != nil {
+		case upDrift:
+			if err := os.WriteFile(dest+".specflow-new", []byte(d.updated), 0o644); err != nil {
 				return res, err
 			}
 			res.Drifted = append(res.Drifted, rel)
-			continue
-		}
-
-		// Clean: swap in the fresh region (and the template's current marker wording), preserving
-		// everything outside the markers verbatim.
-		updated := destParts.before + srcParts.startMarker + srcParts.region + srcParts.endMarker + destParts.after
-		if updated != destContent {
-			if err := os.WriteFile(dest, []byte(updated), 0o644); err != nil {
+		case upRefresh:
+			if err := os.WriteFile(dest, []byte(d.updated), 0o644); err != nil {
 				return res, err
 			}
+			next[rel] = d.newHash
 			res.Refreshed = append(res.Refreshed, rel)
 		}
-		next[rel] = hashRegion(srcParts.region)
 	}
 
 	stamp["kitVersion"] = version
@@ -719,6 +775,49 @@ func Upgrade(targetDir string, tpl fs.FS, version string) (UpgradeResult, error)
 		res.SchemaChanged = true
 	}
 	return res, nil
+}
+
+// UpgradePlan is what an upgrade would do, computed without touching disk — for `upgrade --dry-run`.
+type UpgradePlan struct {
+	NotInstalled bool
+	From, To     string
+	Refresh      []string // clean regions that would be refreshed
+	Add          []string // managed files that would be created
+	Migrate      []string // pre-marker files that would be backed up + rewritten
+	Drift        []string // drifted regions left untouched (fresh version → .specflow-new)
+}
+
+// PlanUpgrade classifies what Upgrade would do, writing nothing. upNoop/upSkip files are omitted —
+// the plan lists only the changes a real upgrade would make.
+func PlanUpgrade(targetDir string, tpl fs.FS, version string) (UpgradePlan, error) {
+	plan := UpgradePlan{To: version}
+	sb, err := os.ReadFile(configPath(targetDir))
+	if err != nil {
+		plan.NotInstalled = true
+		return plan, nil
+	}
+	var stamp map[string]any
+	if err := json.Unmarshal(sb, &stamp); err != nil {
+		return plan, fmt.Errorf("%s is corrupted (invalid JSON) — fix or restore it before upgrading: %w", filepath.Base(configPath(targetDir)), err)
+	}
+	plan.From, _ = stamp["kitVersion"].(string)
+	decisions, err := upgradeDecisions(targetDir, tpl, stamp)
+	if err != nil {
+		return plan, err
+	}
+	for _, rd := range decisions {
+		switch rd.dec.action {
+		case upRefresh:
+			plan.Refresh = append(plan.Refresh, rd.rel)
+		case upAdd:
+			plan.Add = append(plan.Add, rd.rel)
+		case upMigrate:
+			plan.Migrate = append(plan.Migrate, rd.rel)
+		case upDrift:
+			plan.Drift = append(plan.Drift, rd.rel)
+		}
+	}
+	return plan, nil
 }
 
 // AddAgentResult reports what `add-agent` did for one agent, for the CLI to summarize.

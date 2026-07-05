@@ -1061,6 +1061,117 @@ func TestStatusHelp(t *testing.T) {
 	}
 }
 
+func TestInitDryRunWritesNothing(t *testing.T) {
+	tmp := newRepo(t)
+	r := run(t, tmp, "init", "--dry-run")
+	if r.code != 0 {
+		t.Fatalf("init --dry-run exit %d: %s", r.code, r.stderr)
+	}
+	if !strings.Contains(r.stdout, "would create") || !strings.Contains(r.stdout, "AGENTS.md") {
+		t.Errorf("init --dry-run did not preview the file plan:\n%s", r.stdout)
+	}
+	// Nothing on disk: not even the stamp.
+	for _, f := range []string{"specflow/config.json", "AGENTS.md", "BUILD_QUEUE.md", "CLAUDE.md"} {
+		if exists(filepath.Join(tmp, f)) {
+			t.Errorf("init --dry-run wrote %s — it must write nothing", f)
+		}
+	}
+	// git tree stays empty too.
+	if c := strings.TrimSpace(gitOut(t, tmp, "status", "--porcelain")); c != "" {
+		t.Errorf("init --dry-run dirtied the tree:\n%s", c)
+	}
+}
+
+func TestInitDryRunPreviewsBrownfieldInjection(t *testing.T) {
+	tmp := newRepo(t)
+	mustWrite(t, filepath.Join(tmp, "AGENTS.md"), "# ours\nkeep me\n")
+	r := run(t, tmp, "init", "--dry-run", "--agents=claude")
+	if r.code != 0 {
+		t.Fatalf("init --dry-run exit %d: %s", r.code, r.stderr)
+	}
+	if !regexp.MustCompile(`(?s)would inject.*AGENTS\.md`).MatchString(r.stdout) {
+		t.Errorf("dry-run did not flag the existing AGENTS.md as an injection target:\n%s", r.stdout)
+	}
+	// The existing file is untouched (no region injected).
+	if got := read(t, filepath.Join(tmp, "AGENTS.md")); got != "# ours\nkeep me\n" {
+		t.Errorf("init --dry-run modified an existing file:\n%s", got)
+	}
+}
+
+func TestInitDryRunSpecOnlyPreview(t *testing.T) {
+	tmp := newRepo(t)
+	r := run(t, tmp, "init", "--dry-run", "--spec-only", "--agents=claude")
+	if r.code != 0 {
+		t.Fatalf("init --dry-run --spec-only exit %d: %s", r.code, r.stderr)
+	}
+	if !strings.Contains(r.stdout, "spec-only") {
+		t.Errorf("dry-run did not report spec-only mode:\n%s", r.stdout)
+	}
+	// The preview omits the batch/claim machinery, just like a real spec-only install.
+	if strings.Contains(r.stdout, "BUILD_QUEUE.md") || strings.Contains(r.stdout, "claim-batch") {
+		t.Errorf("spec-only dry-run previewed batch/claim files:\n%s", r.stdout)
+	}
+}
+
+func TestUpgradeDryRunPreviewsWithoutWriting(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	// Drift AGENTS.md (hand-edit inside the region) and strip CLAUDE.md's markers (pre-marker → migrate).
+	ag := filepath.Join(tmp, "AGENTS.md")
+	os.WriteFile(ag, []byte(startMarker.ReplaceAllStringFunc(read(t, ag), func(m string) string { return m + "\nDRIFT" })), 0o644)
+	cl := filepath.Join(tmp, "CLAUDE.md")
+	stripped := regexp.MustCompile(`(?s)<!--\s*specflow:(start|end).*?-->`).ReplaceAllString(read(t, cl), "")
+	os.WriteFile(cl, []byte(stripped), 0o644)
+
+	before := read(t, filepath.Join(tmp, "specflow/config.json"))
+	r := run(t, tmp, "upgrade", "--dry-run")
+	if r.code != 0 {
+		t.Fatalf("upgrade --dry-run exit %d: %s", r.code, r.stderr)
+	}
+	if !regexp.MustCompile(`(?s)would NOT overwrite.*AGENTS\.md`).MatchString(r.stdout) {
+		t.Errorf("dry-run did not preview the AGENTS.md drift:\n%s", r.stdout)
+	}
+	if !regexp.MustCompile(`(?s)would migrate.*CLAUDE\.md`).MatchString(r.stdout) {
+		t.Errorf("dry-run did not preview the CLAUDE.md migration:\n%s", r.stdout)
+	}
+	// It must write nothing: no sidecars, and the stamp is byte-identical.
+	for _, suffix := range []string{".specflow-new", ".specflow-bak"} {
+		if exists(ag+suffix) || exists(cl+suffix) {
+			t.Errorf("upgrade --dry-run wrote a %s sidecar", suffix)
+		}
+	}
+	if read(t, filepath.Join(tmp, "specflow/config.json")) != before {
+		t.Error("upgrade --dry-run modified the stamp")
+	}
+}
+
+func TestUpgradeDryRunAlreadyCurrent(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	r := run(t, tmp, "upgrade", "--dry-run")
+	if r.code != 0 {
+		t.Fatalf("upgrade --dry-run exit %d: %s", r.code, r.stderr)
+	}
+	if !regexp.MustCompile(`(?i)already current|nothing to refresh`).MatchString(r.stdout) {
+		t.Errorf("a fresh install should preview as already current:\n%s", r.stdout)
+	}
+}
+
+func TestUpgradeDryRunNotInstalled(t *testing.T) {
+	tmp := newRepo(t)
+	r := run(t, tmp, "upgrade", "--dry-run")
+	if r.code != 0 {
+		t.Fatalf("upgrade --dry-run on an empty repo should exit 0 with a notice; got %d", r.code)
+	}
+	if !regexp.MustCompile(`(?i)no specflow install|not installed`).MatchString(r.stdout) {
+		t.Errorf("upgrade --dry-run did not report the missing install:\n%s", r.stdout)
+	}
+}
+
 func TestVersionAndUnknownCommand(t *testing.T) {
 	tmp := t.TempDir()
 	for _, flag := range []string{"--version", "-v"} {
