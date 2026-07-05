@@ -727,6 +727,202 @@ func TestSpecOnlyVerifyPasses(t *testing.T) {
 	}
 }
 
+// stampAgents / stampManaged pull the config.agents CSV and the managed-baseline map from a repo's
+// stamp — small readers so the add-agent tests stay readable.
+func stampAgents(t *testing.T, dir string) string {
+	t.Helper()
+	var stamp map[string]any
+	json.Unmarshal([]byte(read(t, filepath.Join(dir, "specflow/config.json"))), &stamp)
+	cfg, _ := stamp["config"].(map[string]any)
+	s, _ := cfg["agents"].(string)
+	return s
+}
+
+func stampManaged(t *testing.T, dir string) map[string]any {
+	t.Helper()
+	var stamp map[string]any
+	json.Unmarshal([]byte(read(t, filepath.Join(dir, "specflow/config.json"))), &stamp)
+	m, _ := stamp["managed"].(map[string]any)
+	return m
+}
+
+func TestAddAgentAddsAdapterStampAndManaged(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	r := run(t, tmp, "add-agent", "cursor")
+	if r.code != 0 {
+		t.Fatalf("add-agent exit %d: %s", r.code, r.stderr)
+	}
+	if !exists(filepath.Join(tmp, ".cursor/rules/specflow.mdc")) {
+		t.Error("add-agent did not write the cursor adapter")
+	}
+	if got := stampAgents(t, tmp); got != "claude,cursor" {
+		t.Errorf("config.agents = %q, want claude,cursor", got)
+	}
+	if h, _ := stampManaged(t, tmp)[".cursor/rules/specflow.mdc"].(string); h == "" {
+		t.Error("new agent's instruction file not recorded in managed baseline")
+	}
+	if !strings.Contains(r.stdout, "git diff") {
+		t.Error("add-agent did not print the review/commit handoff")
+	}
+	// add-agent never commits.
+	if c := strings.TrimSpace(gitOut(t, tmp, "rev-list", "--all", "--count")); c != "0" {
+		t.Errorf("add-agent created commits (count %q) — it must never commit", c)
+	}
+}
+
+func TestAddAgentMultipleAndAlreadyPresent(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	if r := run(t, tmp, "add-agent", "cursor", "bob"); r.code != 0 {
+		t.Fatalf("add-agent exit %d: %s", r.code, r.stderr)
+	}
+	if got := stampAgents(t, tmp); got != "claude,cursor,bob" {
+		t.Errorf("config.agents = %q, want claude,cursor,bob", got)
+	}
+	// Re-adding an installed agent is a no-op that leaves the list unchanged.
+	r := run(t, tmp, "add-agent", "cursor")
+	if r.code != 0 {
+		t.Fatalf("re-add exit %d: %s", r.code, r.stderr)
+	}
+	if !strings.Contains(r.stdout, "already installed") {
+		t.Errorf("re-adding cursor should report already installed: %s", r.stdout)
+	}
+	if got := stampAgents(t, tmp); got != "claude,cursor,bob" {
+		t.Errorf("config.agents changed on no-op re-add = %q", got)
+	}
+}
+
+func TestAddAgentBrownfieldInjectsInstructionFile(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=cursor"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	// A pre-existing CLAUDE.md with user content — add-agent must inject the region, not clobber it.
+	mustWrite(t, filepath.Join(tmp, "CLAUDE.md"), "# My notes\nuse pnpm.\n")
+	r := run(t, tmp, "add-agent", "claude")
+	if r.code != 0 {
+		t.Fatalf("add-agent exit %d: %s", r.code, r.stderr)
+	}
+	cl := read(t, filepath.Join(tmp, "CLAUDE.md"))
+	if !startMarker.MatchString(cl) {
+		t.Error("add-agent did not inject a region into the existing CLAUDE.md")
+	}
+	if !strings.Contains(cl, "use pnpm.") {
+		t.Error("add-agent lost existing CLAUDE.md content on injection")
+	}
+	if strings.Index(cl, "specflow:start") > strings.Index(cl, "use pnpm.") {
+		t.Error("region not injected above the existing content")
+	}
+	if h, _ := stampManaged(t, tmp)["CLAUDE.md"].(string); h == "" {
+		t.Error("injected CLAUDE.md not recorded in managed baseline")
+	}
+	if !strings.Contains(r.stdout, "injected") {
+		t.Errorf("add-agent did not report the injection: %s", r.stdout)
+	}
+}
+
+func TestAddAgentLeavesAlreadyWiredFile(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=cursor"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	// A CLAUDE.md that already points at AGENTS.md (no region) — add-agent must leave it as-is.
+	mustWrite(t, filepath.Join(tmp, "CLAUDE.md"), "# Notes\nSee AGENTS.md for the protocol.\n")
+	r := run(t, tmp, "add-agent", "claude")
+	if r.code != 0 {
+		t.Fatalf("add-agent exit %d: %s", r.code, r.stderr)
+	}
+	if startMarker.MatchString(read(t, filepath.Join(tmp, "CLAUDE.md"))) {
+		t.Error("add-agent injected a region into a CLAUDE.md that already references AGENTS.md")
+	}
+	if !strings.Contains(r.stdout, "already wired") {
+		t.Errorf("add-agent did not report the file as already wired: %s", r.stdout)
+	}
+	// The agent's owned skills are still installed even though its instruction file was left alone.
+	if !exists(filepath.Join(tmp, ".claude/skills/spec-edit/SKILL.md")) {
+		t.Error("add-agent skipped the agent's skill files")
+	}
+}
+
+func TestAddAgentSpecOnlyOmitsBatchSkills(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=cursor", "--spec-only"); r.code != 0 {
+		t.Fatalf("init --spec-only exit %d: %s", r.code, r.stderr)
+	}
+	if r := run(t, tmp, "add-agent", "claude"); r.code != 0 {
+		t.Fatalf("add-agent exit %d: %s", r.code, r.stderr)
+	}
+	// A spec-only install must not gain the claim/finish skills, only spec-edit.
+	if !exists(filepath.Join(tmp, ".claude/skills/spec-edit/SKILL.md")) {
+		t.Error("add-agent (spec-only) missing the spec-edit skill")
+	}
+	for _, f := range []string{".claude/skills/claim-batch/SKILL.md", ".claude/skills/finish-batch/SKILL.md"} {
+		if exists(filepath.Join(tmp, f)) {
+			t.Errorf("add-agent (spec-only) wrote %s — batch skills must be omitted", f)
+		}
+	}
+}
+
+func TestAddAgentUnknownAndNotInstalled(t *testing.T) {
+	// Unknown agent in an installed repo → clean error, non-zero exit, nothing written.
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	r := run(t, tmp, "add-agent", "bogus")
+	if r.code == 0 {
+		t.Error("add-agent with an unknown agent should exit non-zero")
+	}
+	if !strings.Contains(r.stdout, "Unknown agent") {
+		t.Errorf("no unknown-agent message: %s", r.stdout)
+	}
+	if stampAgents(t, tmp) != "claude" {
+		t.Error("unknown agent altered config.agents")
+	}
+	// add-agent before init → guarded.
+	fresh := newRepo(t)
+	r = run(t, fresh, "add-agent", "claude")
+	if r.code == 0 {
+		t.Error("add-agent without an install should exit non-zero")
+	}
+	if !strings.Contains(r.stdout, "No specflow install") {
+		t.Errorf("no not-installed message: %s", r.stdout)
+	}
+}
+
+func TestAddAgentVerifyPassesAfterAdd(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	if r := run(t, tmp, "add-agent", "cursor"); r.code != 0 {
+		t.Fatalf("add-agent exit %d: %s", r.code, r.stderr)
+	}
+	r := run(t, tmp, "verify")
+	if r.code != 0 {
+		t.Fatalf("verify exit %d after add-agent: %s", r.code, r.stdout)
+	}
+	if !strings.Contains(r.stdout, ".cursor/rules/specflow.mdc") {
+		t.Errorf("verify did not account for the added agent's file: %s", r.stdout)
+	}
+}
+
+func TestAddAgentHelp(t *testing.T) {
+	tmp := t.TempDir()
+	r := run(t, tmp, "add-agent", "--help")
+	if r.code != 0 {
+		t.Fatalf("add-agent --help exit %d", r.code)
+	}
+	if !strings.Contains(r.stdout, "specflow add-agent") || !strings.Contains(r.stdout, "Never commits") {
+		t.Errorf("add-agent --help missing usage: %s", r.stdout)
+	}
+}
+
 func TestVersionAndUnknownCommand(t *testing.T) {
 	tmp := t.TempDir()
 	for _, flag := range []string{"--version", "-v"} {

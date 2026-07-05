@@ -443,6 +443,95 @@ func cmdVerify(args []string) error {
 	return nil
 }
 
+func addAgentUsage() {
+	fmt.Printf(`
+%s — wire another agent into an existing specflow repo
+
+%s
+  specflow add-agent <name> [<name>...]
+
+Copies the agent's adapter (skip-existing, non-destructive) and records it in
+specflow/config.json. If its instruction file already exists, specflow's marker
+region is injected — your content is preserved. In a spec-only install the
+claim/finish skills are left out. %s — review with %s, then commit.
+
+  -h, --help   show this help
+
+%s %s
+`,
+		bold("specflow add-agent"),
+		bold("Usage:"),
+		bold("Never commits"),
+		cyan("git diff"),
+		bold("Agents:"), strings.Join(allAgentKeys(), ", "))
+}
+
+func cmdAddAgent(args []string) error {
+	if helpRequested(args) {
+		addAgentUsage()
+		return nil
+	}
+	var names []string
+	for _, a := range args {
+		if !strings.HasPrefix(a, "-") {
+			names = append(names, a)
+		}
+	}
+	if len(names) == 0 {
+		fmt.Println(yellow("\nUsage: ") + cyan("specflow add-agent <name>") + dim("  (agents: "+strings.Join(allAgentKeys(), ", ")+")") + "\n")
+		os.Exit(1)
+	}
+	target, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	if !kit.IsInstalled(target) {
+		fmt.Println(yellow("\nNo specflow install found here.") + " Run " + cyan("specflow init") + " first.\n")
+		os.Exit(1)
+	}
+	// Validate every name up front so a typo doesn't half-apply a multi-agent batch.
+	var unknown []string
+	for _, n := range names {
+		if !knownAgent(n) {
+			unknown = append(unknown, n)
+		}
+	}
+	if len(unknown) > 0 {
+		fmt.Println(yellow("\nUnknown agent(s): ") + strings.Join(unknown, ", ") + dim("  (valid: "+strings.Join(allAgentKeys(), ", ")+")") + "\n")
+		os.Exit(1)
+	}
+
+	changed := false
+	for _, name := range names {
+		res, err := kit.AddAgent(target, specflow.Templates(), version, name)
+		if err != nil {
+			return err
+		}
+		if res.AlreadyPresent {
+			fmt.Println(yellow("\n"+name) + " is already installed" + dim(" — nothing to do."))
+			continue
+		}
+		changed = true
+		fmt.Println(green("\n✓ added "+name) + dim("  → agents: "+strings.Join(res.Agents, ", ")))
+		if len(res.Created) > 0 {
+			fmt.Println(dim("  created:  ") + strings.Join(res.Created, ", "))
+		}
+		if len(res.Injected) > 0 {
+			fmt.Println(dim("  injected region into: ") + strings.Join(res.Injected, ", ") + dim("  (your content kept)"))
+		}
+		if len(res.AlreadyWired) > 0 {
+			fmt.Println(dim("  already wired (left as-is): ") + strings.Join(res.AlreadyWired, ", "))
+		}
+		if len(res.SkipExisting) > 0 {
+			fmt.Println(dim("  left untouched (already present): ") + strings.Join(res.SkipExisting, ", "))
+		}
+	}
+	if changed {
+		fmt.Println(bold("\nReview, then commit:") + " inspect with " + cyan("git diff") + " / " + cyan("git status") + ", then commit (e.g. " + cyan("meta: add agent") + ").\n")
+	}
+	return nil
+}
+
 func usage() {
 	fmt.Printf(`
 %s %s — spec-driven batch/claim protocol for AI coding agents
@@ -450,13 +539,14 @@ func usage() {
 %s
   specflow init [--agents=claude,cursor] [--all]   %s
   specflow init --spec-only                        %s
+  specflow add-agent <name>                        %s
   specflow upgrade                                 %s
   specflow verify                                  %s
   specflow --version                               %s
   specflow --help
 
 %s
-  specflow init --help · specflow upgrade --help · specflow verify --help
+  specflow init --help · specflow add-agent --help · specflow upgrade --help · specflow verify --help
 
 %s %s
 `,
@@ -464,6 +554,7 @@ func usage() {
 		bold("Usage:"),
 		dim("scaffold into the current repo"),
 		dim("spec discipline only — no queue/claim"),
+		dim("wire another agent into the repo"),
 		dim("refresh the managed protocol files"),
 		dim("check installation integrity"),
 		dim("print the installed version"),
@@ -475,6 +566,8 @@ func dispatch(command string, args []string) error {
 	switch command {
 	case "init":
 		return cmdInit(args)
+	case "add-agent":
+		return cmdAddAgent(args)
 	case "upgrade":
 		return cmdUpgrade(args)
 	case "verify":

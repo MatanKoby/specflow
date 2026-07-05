@@ -721,6 +721,128 @@ func Upgrade(targetDir string, tpl fs.FS, version string) (UpgradeResult, error)
 	return res, nil
 }
 
+// AddAgentResult reports what `add-agent` did for one agent, for the CLI to summarize.
+type AddAgentResult struct {
+	NotInstalled   bool     // no specflow install in targetDir
+	AlreadyPresent bool     // agent already recorded in config.agents — no-op
+	Key            string   // the agent key acted on
+	Created        []string // adapter files written fresh
+	Injected       []string // existing instruction file specflow injected its region into
+	AlreadyWired   []string // instruction file already carried a region / pointed at AGENTS.md
+	SkipExisting   []string // specflow-owned adapter files already present — left untouched
+	Agents         []string // resulting installed-agent list
+}
+
+// AddAgent copies one agent's adapter into an already-initialized repo (non-destructive) and records
+// it in the stamp's config.agents. It mirrors init's per-file behavior for that agent: a missing file
+// is created; the agent's instruction file, if it already exists, has specflow's region injected (or
+// is left alone when already wired); any other adapter file that already exists is left untouched
+// (skip-existing). The install mode is read from the stamp, so a spec-only repo doesn't gain the
+// claim/finish skills. Nothing is committed — the caller reviews and commits. A no-op AlreadyPresent
+// result means the agent was already installed. The key is assumed valid (caller validates against
+// the known-agent list); an unknown key with no adapter templates returns an error.
+func AddAgent(targetDir string, tpl fs.FS, version, key string) (AddAgentResult, error) {
+	res := AddAgentResult{Key: key}
+	p := configPath(targetDir)
+	sb, err := os.ReadFile(p)
+	if err != nil {
+		res.NotInstalled = true
+		return res, nil
+	}
+	var stamp map[string]any
+	if err := json.Unmarshal(sb, &stamp); err != nil {
+		return res, fmt.Errorf("%s is corrupted (invalid JSON) — fix or restore it before adding an agent: %w", filepath.Base(p), err)
+	}
+	mode := modeOf(stamp)
+	existing := installedAgents(stamp)
+	for _, k := range existing {
+		if k == key {
+			res.AlreadyPresent = true
+			res.Agents = existing
+			return res, nil
+		}
+	}
+
+	root := "agents/" + key
+	if _, err := fs.Stat(tpl, root); err != nil {
+		return res, fmt.Errorf("no adapter templates for agent %q", key)
+	}
+	instrRel := agentInstructionFile[key]
+	err = fs.WalkDir(tpl, root, func(pth string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel := strings.TrimPrefix(pth, root+"/")
+		if mode == "spec-only" && specOnlyOmits(rel) {
+			return nil // spec-only repo: no claim/finish skills
+		}
+		dest := destPath(targetDir, rel)
+		b, err := fs.ReadFile(tpl, pth)
+		if err != nil {
+			return err
+		}
+		content := renderFile(b, mode)
+		if !pathExists(dest) {
+			if err := writeFile(dest, content); err != nil {
+				return err
+			}
+			res.Created = append(res.Created, rel)
+			return nil
+		}
+		// File exists. The managed instruction file gets specflow's region injected (non-destructive,
+		// content preserved); already-wired files and every other adapter file are left untouched.
+		if rel == instrRel {
+			db, err := os.ReadFile(dest)
+			if err != nil {
+				return err
+			}
+			cur := string(db)
+			if hasRegionMarkers(cur) || referencesAgents(cur) {
+				res.AlreadyWired = append(res.AlreadyWired, rel)
+				return nil
+			}
+			injected, ok := injectRegion(cur, string(content))
+			if !ok {
+				res.AlreadyWired = append(res.AlreadyWired, rel)
+				return nil
+			}
+			if err := os.WriteFile(dest, []byte(injected), 0o644); err != nil {
+				return err
+			}
+			res.Injected = append(res.Injected, rel)
+			return nil
+		}
+		res.SkipExisting = append(res.SkipExisting, rel)
+		return nil
+	})
+	if err != nil {
+		return res, err
+	}
+
+	// Record the agent in config.agents and refresh the managed-region baselines for the full set,
+	// so upgrade tracks the new instruction file's region. Files are already on disk, so
+	// computeManaged fingerprints the regions just written.
+	full := append(append([]string{}, existing...), key)
+	if cfg, ok := stamp["config"].(map[string]any); ok {
+		cfg["agents"] = strings.Join(full, ",")
+	} else {
+		stamp["config"] = map[string]any{"agents": strings.Join(full, ",")}
+	}
+	managed, err := computeManaged(targetDir, tpl, full, mode)
+	if err != nil {
+		return res, err
+	}
+	stamp["managed"] = managed
+	if err := writeJSON(p, stamp); err != nil {
+		return res, err
+	}
+	res.Agents = full
+	return res, nil
+}
+
 // VerifyReport is the outcome of an install-integrity check. Problems are Tier-1 failures (specflow
 // can't work properly); Warnings are Tier-3 / drift issues (degraded but functional); OK lists the
 // pieces that checked out.
