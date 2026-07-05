@@ -10,6 +10,16 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch 5 — `--dry-run` (preview)
+Shipped a `--dry-run` flag on `init` and `upgrade` that prints the planned file operations and exits
+without touching disk. `init --dry-run` reuses `PlanInit` (would create / inject / already-wired /
+skip), always non-interactive, previewing the default agent when `--agents` is omitted;
+`upgrade --dry-run` previews refresh / add / migrate / drift via a new read-only `PlanUpgrade`. The
+per-file upgrade classification was factored into a shared `decideUpgrade`/`upgradeDecisions` pair so
+the apply path (`Upgrade`, unchanged in behavior) and the planner can't diverge. Key commit `7f5f70b`.
+6 new tests + the existing upgrade suite guard the refactor; `go vet`/`gofmt` clean. **Completes
+Milestone v0.1** (code-complete; next is tagging `v0.1.0`).
+
 ## Batch 2 — `specflow status`
 Shipped `specflow status`: a read-only orientation summary that writes nothing. `kit.Status`
 reports the kit version (stamp vs. binary, with an upgrade hint on mismatch), install mode, wired

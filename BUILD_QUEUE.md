@@ -16,15 +16,13 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 
 ## Un-done batches
 
-> **Pick-order pointer — Milestone v0.1** (first live-testable release; goal/DoD in `roadmap.md`).
-> Build order: **Batch 5** (`--dry-run`) — the last v0.1 batch. It targets
-> the Go CLI (`cmd/specflow` + `internal/kit`); CLI is Go (Batch G1, done). **Batch CFG** (config
-> file + commit/push levers + safety fixes — the foundation the rest read), **Batch BI** (brownfield
-> `init` overhaul + `specflow verify` + the `_DONE` relocation), **Batch SO** (spec-only install
-> mode), **Batch G2** (release: GoReleaser → GitHub Releases + `curl|sh`; Homebrew deferred),
-> **Batch 1** (add-agent), and **Batch 2** (status) are **done**.
-> **Post-v0.1:** **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch W**
-> (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
+> **Pick-order pointer — Milestone v0.1 is code-complete** ✅ (goal/DoD in `roadmap.md`). All member
+> batches are done: **CFG** (config + commit/push levers + safety), **BI** (brownfield `init` +
+> `verify` + `_DONE` relocation), **SO** (spec-only mode), **G2** (release: GoReleaser → GitHub
+> Releases + `curl|sh`; Homebrew deferred), **1** (add-agent), **2** (status), **5** (`--dry-run`).
+> **Remaining before tagging `v0.1.0`:** cut the tag (the pipeline was proven in G2).
+> **Post-v0.1 queue below:** **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch
+> W** (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · Homebrew tap.
 
 ---
@@ -63,23 +61,6 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 
 ### Verification
 - Render check; links resolve; a new reader can follow the file-map without prior context.
-
----
-
-## Batch 5 — `--dry-run` (preview)
-
-**Goal.** A preview flag for `init` and `upgrade` that writes nothing and prints exactly what
-*would* be created / overwritten / skipped.
-
-### Deliverables
-- `specflow init --dry-run` and `specflow upgrade --dry-run` list the planned file operations and
-  exit without touching disk.
-
-### Files this batch creates/edits
-- `cmd/specflow/` · `internal/kit/` · `cmd/specflow/main_test.go`.
-
-### Verification
-- `go test ./...`; manual: `--dry-run` in a fresh dir creates no files.
 
 ---
 

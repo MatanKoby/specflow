@@ -17,13 +17,34 @@ Entry format:
 
 ## In progress
 
-### Batch 5 — `--dry-run` (preview)
-- Owner: claude
-- Started: 2026-07-05 04:40
-
 <!-- One entry per actively claimed batch. -->
 
 ## Completed
+
+### Batch 5 — `--dry-run` (preview)
+- Owner: claude
+- Started: 2026-07-05 04:40
+- Finished: 2026-07-05 05:14
+- Commit: 7f5f70b
+
+**What shipped.** A **`--dry-run`** flag on `init` and `upgrade` that prints the exact planned file
+operations and exits **without touching disk**. **`init --dry-run`** reuses `PlanInit` and renders
+*would create / would inject (content preserved) / already-wired / would skip*; it's always
+non-interactive (no agent/consent prompts) and previews the default agent (claude) when `--agents`
+is omitted, honoring `--spec-only`/`--all`. **`upgrade --dry-run`** renders *would refresh / add /
+migrate (→ `.specflow-bak`) / drift (→ `.specflow-new`, not overwritten)*, and *already current* when
+there's nothing to do. **Refactor (no behavior change):** the per-file upgrade classification is now
+a shared `decideUpgrade` + `upgradeDecisions` pair consumed by both the apply path (`Upgrade`, kept
+byte-for-byte in behavior) and the new read-only `PlanUpgrade` — so the preview and the real run can
+never diverge. Help text for both commands documents the flag.
+
+**Verification.** `go test ./...` green (6 new dry-run tests + the full existing upgrade suite,
+which guards the refactor). `go vet` + `gofmt` clean. Manually confirmed a fresh-dir `init --dry-run`
+and an `upgrade --dry-run` over a drifted+stripped install write nothing (no files, no sidecars, stamp
+unchanged).
+
+**Milestone.** This is the **last v0.1 batch** — v0.1's definition-of-done (roadmap.md) is now met in
+code. Next: cut the real `v0.1.0` tag (the release pipeline was proven in Batch G2).
 
 ### Batch 2 — `specflow status`
 - Owner: claude
