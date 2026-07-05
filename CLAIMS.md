@@ -17,6 +17,10 @@ Entry format:
 
 ## In progress
 
+### Batch 2 — `specflow status`
+- Owner: claude
+- Started: 2026-07-05 04:23
+
 <!-- One entry per actively claimed batch. -->
 
 ## Completed
