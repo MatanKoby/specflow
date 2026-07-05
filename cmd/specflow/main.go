@@ -532,6 +532,92 @@ func cmdAddAgent(args []string) error {
 	return nil
 }
 
+func statusUsage() {
+	fmt.Printf(`
+%s — read-only summary of the specflow install here
+
+%s
+  specflow status
+
+Prints the kit version (stamp vs. this binary), install mode, wired agents,
+commit/push levers, any active claims, the count of un-done batches, and a drift
+flag if a managed region was edited since install. Writes nothing; exits
+non-zero when specflow isn't installed here.
+
+  -h, --help   show this help
+`,
+		bold("specflow status"),
+		bold("Usage:"))
+}
+
+func cmdStatus(args []string) error {
+	if helpRequested(args) {
+		statusUsage()
+		return nil
+	}
+	target, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	rep, err := kit.Status(target, specflow.Templates(), version)
+	if err != nil {
+		return err
+	}
+	if !rep.Installed {
+		fmt.Println(yellow("\nspecflow is not installed here.") + " Run " + cyan("specflow init") + " first.\n")
+		os.Exit(1)
+	}
+
+	row := func(label, val string) { fmt.Printf("  %s  %s\n", bold(fmt.Sprintf("%-8s", label)), val) }
+	lever := func(v string) string {
+		if v == "" {
+			return dim("agent")
+		}
+		return v
+	}
+
+	fmt.Println(bold("\nspecflow status") + dim("  — "+target))
+	if rep.VersionMatch {
+		row("version", green(rep.StampVersion))
+	} else {
+		row("version", yellow(rep.StampVersion)+dim(" (stamp)")+" → "+yellow(rep.BinaryVersion)+dim(" (binary); run ")+cyan("specflow upgrade"))
+	}
+	row("mode", rep.Mode)
+	agents := strings.Join(rep.Agents, ", ")
+	if agents == "" {
+		agents = dim("none")
+	}
+	row("agents", agents)
+	row("levers", "commit="+lever(rep.Commit)+"  push="+lever(rep.Push))
+
+	if rep.HasQueue {
+		row("queue", fmt.Sprintf("%d un-done batch(es)", rep.UndoneBatches))
+	} else {
+		row("queue", dim("n/a (spec-only)"))
+	}
+
+	if len(rep.InProgress) == 0 {
+		row("claims", dim("none active"))
+	} else {
+		row("claims", fmt.Sprintf("%d active", len(rep.InProgress)))
+		for _, c := range rep.InProgress {
+			owner := c.Owner
+			if owner == "" || owner == "none" {
+				owner = "unassigned"
+			}
+			fmt.Println(dim("             · ") + c.Batch + dim("  ("+owner+")"))
+		}
+	}
+
+	if len(rep.Drifted) == 0 {
+		row("drift", green("none"))
+	} else {
+		row("drift", yellow(fmt.Sprintf("⚠ %d region(s) edited since install", len(rep.Drifted)))+dim(" — "+strings.Join(rep.Drifted, ", ")))
+	}
+	fmt.Println("")
+	return nil
+}
+
 func usage() {
 	fmt.Printf(`
 %s %s — spec-driven batch/claim protocol for AI coding agents
@@ -540,6 +626,7 @@ func usage() {
   specflow init [--agents=claude,cursor] [--all]   %s
   specflow init --spec-only                        %s
   specflow add-agent <name>                        %s
+  specflow status                                  %s
   specflow upgrade                                 %s
   specflow verify                                  %s
   specflow --version                               %s
@@ -555,6 +642,7 @@ func usage() {
 		dim("scaffold into the current repo"),
 		dim("spec discipline only — no queue/claim"),
 		dim("wire another agent into the repo"),
+		dim("summarize the install (read-only)"),
 		dim("refresh the managed protocol files"),
 		dim("check installation integrity"),
 		dim("print the installed version"),
@@ -568,6 +656,8 @@ func dispatch(command string, args []string) error {
 		return cmdInit(args)
 	case "add-agent":
 		return cmdAddAgent(args)
+	case "status":
+		return cmdStatus(args)
 	case "upgrade":
 		return cmdUpgrade(args)
 	case "verify":

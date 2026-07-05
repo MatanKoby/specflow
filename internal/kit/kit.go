@@ -843,6 +843,115 @@ func AddAgent(targetDir string, tpl fs.FS, version, key string) (AddAgentResult,
 	return res, nil
 }
 
+// Section/heading matchers for reading the queue + claims ledger in Status. The In-progress section
+// runs from its heading to the next top-level `## ` heading (always `## Completed` in practice); a
+// batch is any `## Batch …` heading in BUILD_QUEUE.md (done batches are removed from that file).
+var (
+	inProgressRe   = regexp.MustCompile(`(?ms)^##\s+In progress\s*$(.*?)^##\s`)
+	claimHeadingRe = regexp.MustCompile(`(?m)^###\s+(.+?)\s*$`)
+	ownerLineRe    = regexp.MustCompile(`(?m)^\s*-\s*Owner:\s*(.+?)\s*$`)
+	batchHeadingRe = regexp.MustCompile(`(?m)^##\s+Batch\b`)
+)
+
+// ClaimLine is one active claim parsed from CLAIMS.md's In-progress section.
+type ClaimLine struct {
+	Batch string // the ### heading text (e.g. "Batch 2 — `specflow status`")
+	Owner string // the Owner: value, or "" when unset
+}
+
+// parseInProgress extracts the active claims from the In-progress section body, pairing each ###
+// heading with the first Owner: line beneath it.
+func parseInProgress(section string) []ClaimLine {
+	locs := claimHeadingRe.FindAllStringSubmatchIndex(section, -1)
+	out := make([]ClaimLine, 0, len(locs))
+	for i, loc := range locs {
+		end := len(section)
+		if i+1 < len(locs) {
+			end = locs[i+1][0]
+		}
+		owner := ""
+		if m := ownerLineRe.FindStringSubmatch(section[loc[1]:end]); m != nil {
+			owner = strings.TrimSpace(m[1])
+		}
+		out = append(out, ClaimLine{Batch: strings.TrimSpace(section[loc[2]:loc[3]]), Owner: owner})
+	}
+	return out
+}
+
+// StatusReport is a read-only snapshot of a specflow install, for `specflow status`.
+type StatusReport struct {
+	Installed     bool
+	Mode          string      // full | spec-only
+	StampVersion  string      // kitVersion recorded in config.json
+	BinaryVersion string      // the running binary's version
+	VersionMatch  bool        // stamp == binary
+	Agents        []string    // wired agents
+	Commit, Push  string      // config levers
+	HasQueue      bool        // BUILD_QUEUE.md present (full mode)
+	UndoneBatches int         // count of un-done batches; -1 when there's no queue (spec-only)
+	InProgress    []ClaimLine // active claims from CLAIMS.md
+	Drifted       []string    // managed files whose region no longer matches its baseline
+}
+
+// Status assembles a read-only snapshot of the install: versions, mode, agents, commit/push levers,
+// active claims, the un-done batch count, and any managed-region drift. It writes nothing and never
+// fails on a missing queue/claims file (spec-only installs have neither). A corrupt config.json is
+// the one hard error.
+func Status(targetDir string, tpl fs.FS, version string) (StatusReport, error) {
+	rep := StatusReport{BinaryVersion: version, UndoneBatches: -1}
+	sb, err := os.ReadFile(configPath(targetDir))
+	if err != nil {
+		return rep, nil // Installed=false — caller prints the not-installed notice
+	}
+	var stamp map[string]any
+	if err := json.Unmarshal(sb, &stamp); err != nil {
+		return rep, fmt.Errorf("%s is corrupted (invalid JSON) — fix or restore it: %w", filepath.Base(configPath(targetDir)), err)
+	}
+	rep.Installed = true
+	rep.StampVersion, _ = stamp["kitVersion"].(string)
+	rep.VersionMatch = rep.StampVersion == version
+	rep.Mode = modeOf(stamp)
+	rep.Agents = installedAgents(stamp)
+	if cfg, ok := stamp["config"].(map[string]any); ok {
+		rep.Commit, _ = cfg["commit"].(string)
+		rep.Push, _ = cfg["push"].(string)
+	}
+
+	// Drift: a managed region whose current hash differs from the recorded baseline (same test the
+	// upgrade/verify paths use). Missing files / missing baselines aren't drift — they're a verify
+	// concern, kept out of this orientation summary.
+	baseline := baselineMap(stamp)
+	entries, err := managedEntries(tpl, rep.Agents, rep.Mode)
+	if err != nil {
+		return rep, err
+	}
+	for _, e := range entries {
+		b, err := os.ReadFile(destPath(targetDir, e.rel))
+		if err != nil {
+			continue
+		}
+		parts, ok := extractRegion(string(b))
+		if !ok {
+			continue
+		}
+		if base := baseline[e.rel]; base != "" && hashRegion(parts.region) != base {
+			rep.Drifted = append(rep.Drifted, e.rel)
+		}
+	}
+
+	// Queue + claims live at the repo root in full mode; spec-only installs have neither.
+	if qb, err := os.ReadFile(filepath.Join(targetDir, "BUILD_QUEUE.md")); err == nil {
+		rep.HasQueue = true
+		rep.UndoneBatches = len(batchHeadingRe.FindAllString(string(qb), -1))
+	}
+	if cb, err := os.ReadFile(filepath.Join(targetDir, "CLAIMS.md")); err == nil {
+		if m := inProgressRe.FindStringSubmatch(string(cb)); m != nil {
+			rep.InProgress = parseInProgress(m[1])
+		}
+	}
+	return rep, nil
+}
+
 // VerifyReport is the outcome of an install-integrity check. Problems are Tier-1 failures (specflow
 // can't work properly); Warnings are Tier-3 / drift issues (degraded but functional); OK lists the
 // pieces that checked out.

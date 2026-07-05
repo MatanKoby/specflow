@@ -923,6 +923,144 @@ func TestAddAgentHelp(t *testing.T) {
 	}
 }
 
+// setStampVersion rewrites the stamp's kitVersion — used to force the version-mismatch path.
+func setStampVersion(t *testing.T, dir, v string) {
+	t.Helper()
+	p := filepath.Join(dir, "specflow/config.json")
+	var stamp map[string]any
+	if err := json.Unmarshal([]byte(read(t, p)), &stamp); err != nil {
+		t.Fatal(err)
+	}
+	stamp["kitVersion"] = v
+	b, _ := json.MarshalIndent(stamp, "", "  ")
+	mustWrite(t, p, string(b)+"\n")
+}
+
+func TestStatusFreshInstall(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude,cursor"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	r := run(t, tmp, "status")
+	if r.code != 0 {
+		t.Fatalf("status exit %d: %s", r.code, r.stderr)
+	}
+	for _, want := range []string{"full", "claude, cursor", "commit=agent", "push=agent", "un-done batch", "none active"} {
+		if !strings.Contains(r.stdout, want) {
+			t.Errorf("status missing %q:\n%s", want, r.stdout)
+		}
+	}
+	// A pristine install reports no drift.
+	if !regexp.MustCompile(`(?m)drift\s+none`).MatchString(r.stdout) {
+		t.Errorf("fresh install should report drift none:\n%s", r.stdout)
+	}
+}
+
+func TestStatusReportsActiveClaims(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	mustWrite(t, filepath.Join(tmp, "CLAIMS.md"), `# Agent claims
+
+## In progress
+
+### Batch 9 — some work
+- Owner: alice
+- Started: 2026-01-01 00:00
+
+### Batch 7 — handoff item
+- Owner: none
+
+## Completed
+`)
+	r := run(t, tmp, "status")
+	if r.code != 0 {
+		t.Fatalf("status exit %d: %s", r.code, r.stderr)
+	}
+	if !strings.Contains(r.stdout, "2 active") {
+		t.Errorf("status did not count 2 active claims:\n%s", r.stdout)
+	}
+	if !strings.Contains(r.stdout, "Batch 9 — some work") || !strings.Contains(r.stdout, "alice") {
+		t.Errorf("status did not list the owned claim:\n%s", r.stdout)
+	}
+	// Owner: none renders as unassigned, not the literal "none".
+	if !strings.Contains(r.stdout, "unassigned") {
+		t.Errorf("status did not render an ownerless claim as unassigned:\n%s", r.stdout)
+	}
+}
+
+func TestStatusFlagsDrift(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	ag := filepath.Join(tmp, "AGENTS.md")
+	edited := startMarker.ReplaceAllStringFunc(read(t, ag), func(m string) string { return m + "\nDRIFT" })
+	os.WriteFile(ag, []byte(edited), 0o644)
+	r := run(t, tmp, "status")
+	if r.code != 0 {
+		t.Fatalf("status should not fail on drift; exit %d: %s", r.code, r.stderr)
+	}
+	if !regexp.MustCompile(`(?i)edited since install`).MatchString(r.stdout) || !strings.Contains(r.stdout, "AGENTS.md") {
+		t.Errorf("status did not flag AGENTS.md drift:\n%s", r.stdout)
+	}
+}
+
+func TestStatusVersionMismatch(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	setStampVersion(t, tmp, "0.0.9")
+	r := run(t, tmp, "status")
+	if r.code != 0 {
+		t.Fatalf("status exit %d: %s", r.code, r.stderr)
+	}
+	if !strings.Contains(r.stdout, "0.0.9") || !strings.Contains(r.stdout, "upgrade") {
+		t.Errorf("status did not surface the stamp/binary version gap + upgrade hint:\n%s", r.stdout)
+	}
+}
+
+func TestStatusSpecOnlyQueueNA(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--spec-only", "--agents=cursor"); r.code != 0 {
+		t.Fatalf("init --spec-only exit %d: %s", r.code, r.stderr)
+	}
+	r := run(t, tmp, "status")
+	if r.code != 0 {
+		t.Fatalf("status exit %d: %s", r.code, r.stderr)
+	}
+	if !strings.Contains(r.stdout, "spec-only") {
+		t.Errorf("status did not report spec-only mode:\n%s", r.stdout)
+	}
+	if !regexp.MustCompile(`(?i)queue\s+n/a`).MatchString(r.stdout) {
+		t.Errorf("spec-only status should mark the queue n/a:\n%s", r.stdout)
+	}
+}
+
+func TestStatusNotInstalled(t *testing.T) {
+	tmp := newRepo(t)
+	r := run(t, tmp, "status")
+	if r.code == 0 {
+		t.Error("status in an uninitialized repo should exit non-zero")
+	}
+	if !regexp.MustCompile(`(?i)not installed`).MatchString(r.stdout) {
+		t.Errorf("status did not say 'not installed':\n%s", r.stdout)
+	}
+}
+
+func TestStatusHelp(t *testing.T) {
+	tmp := t.TempDir()
+	r := run(t, tmp, "status", "--help")
+	if r.code != 0 {
+		t.Fatalf("status --help exit %d", r.code)
+	}
+	if !strings.Contains(r.stdout, "specflow status") {
+		t.Errorf("status --help missing usage:\n%s", r.stdout)
+	}
+}
+
 func TestVersionAndUnknownCommand(t *testing.T) {
 	tmp := t.TempDir()
 	for _, flag := range []string{"--version", "-v"} {
