@@ -17,13 +17,38 @@ Entry format:
 
 ## In progress
 
-### Batch 1 — `specflow add-agent <name>`
-- Owner: claude
-- Started: 2026-07-03 09:41
-
 <!-- One entry per actively claimed batch. -->
 
 ## Completed
+
+### Batch 1 — `specflow add-agent <name>`
+- Owner: claude
+- Started: 2026-07-03 09:41
+- Finished: 2026-07-05 04:18
+- Commit: fa3aa3d
+
+**What shipped.** A new **`specflow add-agent <name> [<name>...]`** command that wires another
+agent's adapter into an already-initialized repo. **`kit.AddAgent`** (in `internal/kit/kit.go`) reads
+the stamp, no-ops if the agent is already in `config.agents` (reported as *already installed*), then
+walks `agents/<key>/` and, per file: **creates** a missing adapter file (rendered for the install
+mode); **injects** specflow's marker region into an existing **instruction file** (CLAUDE.md etc.),
+preserving the user's content, or **leaves it as-is** when it already carries a region or points at
+AGENTS.md; and **skips** any other specflow-owned file already present. It then records the agent in
+`config.agents` and refreshes the managed-region baselines for the full agent set (so `upgrade`
+tracks the new instruction file). **Mode-aware:** a spec-only install doesn't gain the
+claim/finish skills (`specOnlyOmits` filter). The CLI (`cmd/specflow/main.go`) validates every name
+up front against the known-agent list (clean error + non-zero exit on a typo), guards the
+not-installed case, prints a per-agent summary, and ends with the **review-then-commit** handoff —
+**it never commits** (same discipline as `init`). Registered in `dispatch` + top-level/`--help`
+usage.
+
+**Verification.** `go test ./...` green (8 new tests: adapter+stamp+managed, multi-add +
+already-present no-op, brownfield inject, already-wired left-as-is, spec-only skill omission,
+unknown/not-installed guards, post-add `verify`, and `--help`). `go vet` + `gofmt` clean. Manually
+exercised end-to-end across all scenarios.
+
+**Follow-ups deferred.** `remove-agent` (still *decision pending* in `open-questions.md` → CLI /
+upgrade behavior) is out of scope here.
 
 ### Batch G2 — Go release + install pipeline
 - Owner: claude

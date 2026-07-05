@@ -17,33 +17,15 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 ## Un-done batches
 
 > **Pick-order pointer — Milestone v0.1** (first live-testable release; goal/DoD in `roadmap.md`).
-> Build order: **Batch 1** (add-agent) · **Batch 2** (status) · **Batch 5** (`--dry-run`). All target
+> Build order: **Batch 2** (status) · **Batch 5** (`--dry-run`). All target
 > the Go CLI (`cmd/specflow` + `internal/kit`); CLI is Go (Batch G1, done). **Batch CFG** (config
 > file + commit/push levers + safety fixes — the foundation the rest read), **Batch BI** (brownfield
 > `init` overhaul + `specflow verify` + the `_DONE` relocation), **Batch SO** (spec-only install
-> mode), and **Batch G2** (release: GoReleaser → GitHub Releases + `curl|sh`; Homebrew deferred) are
-> **done**.
+> mode), **Batch G2** (release: GoReleaser → GitHub Releases + `curl|sh`; Homebrew deferred), and
+> **Batch 1** (add-agent) are **done**.
 > **Post-v0.1:** **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch W**
 > (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · Homebrew tap.
-
----
-
-## Batch 1 — `specflow add-agent <name>`
-
-**Goal.** `init` is one-shot; adding an agent later means manual copying. Add a command that copies
-one agent's adapter into an already-initialized repo and records it in the stamp's `agents`.
-
-### Deliverables
-- `specflow add-agent claude|cursor|copilot|bob|antigravity` copies that adapter (skip-existing),
-  updates `config.json` `config.agents`, prints what was written.
-- Errors cleanly if specflow isn't installed here, or the agent is unknown/already present.
-
-### Files this batch creates/edits
-- `cmd/specflow/` + `internal/kit/` (new command + shared helpers) · `cmd/specflow/main_test.go` (coverage).
-
-### Verification
-- `go test ./...`; manual: init with one agent, `add-agent` a second, confirm files + stamp.
 
 ---
 

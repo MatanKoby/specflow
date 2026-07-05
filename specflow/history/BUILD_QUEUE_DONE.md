@@ -10,6 +10,16 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch 1 — `specflow add-agent <name>`
+Shipped `specflow add-agent <name> [<name>...]`: wires another agent's adapter into an
+already-initialized repo. `kit.AddAgent` copies the agent's adapter files (skip-existing,
+non-destructive), injects specflow's region into an existing instruction file (content preserved) or
+leaves an already-wired one alone, records the agent in `config.agents`, and refreshes the
+managed-region baselines; mode-aware, so a spec-only repo doesn't gain the claim/finish skills. The
+CLI validates agent names up front, guards the not-installed case, and never commits (review-then-
+commit handoff, like `init`). Key commit `fa3aa3d`. 8 new tests; `go vet`/`gofmt` clean. Follow-up
+deferred: `remove-agent` (decision pending).
+
 ## Batch G2 — Go release + install pipeline
 Shipped zero-runtime distribution. **GoReleaser** (`.goreleaser.yaml`) cross-compiles a 5-target
 matrix (linux/darwin amd64+arm64, windows amd64) into checksummed `tar.gz`/`zip` archives named
