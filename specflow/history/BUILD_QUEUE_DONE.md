@@ -10,6 +10,14 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch 2 — `specflow status`
+Shipped `specflow status`: a read-only orientation summary that writes nothing. `kit.Status`
+reports the kit version (stamp vs. binary, with an upgrade hint on mismatch), install mode, wired
+agents, commit/push levers, active claims parsed from CLAIMS.md's In-progress section (owner shown;
+`none` -> unassigned), the un-done batch count from BUILD_QUEUE.md, and a drift flag for any managed
+region edited since install. Spec-only installs report the queue as n/a; not-installed exits
+non-zero. Key commit `3f67292`. 7 new tests; `go vet`/`gofmt` clean.
+
 ## Batch 1 — `specflow add-agent <name>`
 Shipped `specflow add-agent <name> [<name>...]`: wires another agent's adapter into an
 already-initialized repo. `kit.AddAgent` copies the agent's adapter files (skip-existing,

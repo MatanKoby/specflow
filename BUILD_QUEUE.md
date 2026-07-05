@@ -17,31 +17,15 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 ## Un-done batches
 
 > **Pick-order pointer — Milestone v0.1** (first live-testable release; goal/DoD in `roadmap.md`).
-> Build order: **Batch 2** (status) · **Batch 5** (`--dry-run`). All target
+> Build order: **Batch 5** (`--dry-run`) — the last v0.1 batch. It targets
 > the Go CLI (`cmd/specflow` + `internal/kit`); CLI is Go (Batch G1, done). **Batch CFG** (config
 > file + commit/push levers + safety fixes — the foundation the rest read), **Batch BI** (brownfield
 > `init` overhaul + `specflow verify` + the `_DONE` relocation), **Batch SO** (spec-only install
-> mode), **Batch G2** (release: GoReleaser → GitHub Releases + `curl|sh`; Homebrew deferred), and
-> **Batch 1** (add-agent) are **done**.
+> mode), **Batch G2** (release: GoReleaser → GitHub Releases + `curl|sh`; Homebrew deferred),
+> **Batch 1** (add-agent), and **Batch 2** (status) are **done**.
 > **Post-v0.1:** **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch W**
 > (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · Homebrew tap.
-
----
-
-## Batch 2 — `specflow status`
-
-**Goal.** A read-only summary of the install so a user/agent can orient instantly.
-
-### Deliverables
-- Prints: kit version (stamp vs installed), installed agents, workflow profile (once Batch W lands),
-  `## In progress` claims, count of un-done batches, and a drift flag (managed file edited).
-
-### Files this batch creates/edits
-- `cmd/specflow/` · `internal/kit/` · `cmd/specflow/main_test.go`.
-
-### Verification
-- `go test ./...`; manual: run in a fresh install and in one with an active claim.
 
 ---
 
