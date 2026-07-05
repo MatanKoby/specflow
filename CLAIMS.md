@@ -17,6 +17,10 @@ Entry format:
 
 ## In progress
 
+### Batch 5 — `--dry-run` (preview)
+- Owner: claude
+- Started: 2026-07-05 04:40
+
 <!-- One entry per actively claimed batch. -->
 
 ## Completed
