@@ -158,12 +158,13 @@ func initUsage() {
 %s — scaffold specflow into the current repo
 
 %s
-  specflow init [--agents=claude,cursor,...] [--all] [--spec-only]
+  specflow init [--agents=claude,cursor,...] [--all] [--spec-only] [--dry-run]
 
 %s
   --agents=<list>   comma-separated agents to wire, non-interactive (%s)
   --all             wire every supported agent, non-interactive
   --spec-only       install the spec discipline only — no queue/claim/batch machinery
+  --dry-run         preview the file operations and exit without writing anything
   -h, --help        show this help
 
 Run with no flags to pick agents interactively, then confirm before specflow
@@ -195,12 +196,48 @@ preserved; a region you edited (drift) is left untouched and the fresh version i
 written alongside as %s. Your queue, claims, and spec are never
 touched, and upgrade never commits.
 
+  --dry-run    preview what would refresh / add / migrate / skip, and exit
   -h, --help   show this help
 `,
 		bold("specflow upgrade"),
 		bold("Usage:"),
 		bold("Non-destructive"),
 		cyan("<file>.specflow-new"))
+}
+
+// printInitPlan renders what `init --dry-run` would do, writing nothing.
+func printInitPlan(plan kit.InitPlan, target, mode string, agentKeys []string, defaulted bool) {
+	fmt.Println(bold("\nspecflow init --dry-run") + dim("  — preview; nothing will be written"))
+	fmt.Println(dim("  target: ") + target)
+	fmt.Println(dim("  mode:   ") + mode)
+	ag := strings.Join(agentKeys, ", ")
+	if ag == "" {
+		ag = dim("none")
+	}
+	if defaulted {
+		ag += dim("  (default; pass --agents=… to preview others)")
+	}
+	fmt.Println(dim("  agents: ") + ag)
+
+	if len(plan.Create) > 0 {
+		fmt.Println(bold(fmt.Sprintf("\n  would create (%d):", len(plan.Create))))
+		for _, f := range plan.Create {
+			fmt.Println(green("    + ") + f)
+		}
+	}
+	if len(plan.Inject) > 0 {
+		fmt.Println(bold(fmt.Sprintf("\n  would inject specflow's region into (%d):", len(plan.Inject))) + dim("  (your content preserved)"))
+		for _, f := range plan.Inject {
+			fmt.Println(cyan("    ~ ") + f)
+		}
+	}
+	if len(plan.AlreadyWired) > 0 {
+		fmt.Println(dim("\n  already wired, would leave as-is: ") + strings.Join(plan.AlreadyWired, ", "))
+	}
+	if len(plan.SkipExisting) > 0 {
+		fmt.Println(dim("  would skip (user-owned, already present): ") + strings.Join(plan.SkipExisting, ", "))
+	}
+	fmt.Println(dim("\n  Re-run without --dry-run to apply. init never commits.") + "\n")
 }
 
 func cmdInit(args []string) error {
@@ -226,10 +263,11 @@ func cmdInit(args []string) error {
 	if hasFlag(args, "--spec-only") {
 		mode = "spec-only"
 	}
+	dryRun := hasFlag(args, "--dry-run")
 	// Interactive only when the user gave no agent preset — then we prompt for agents and for
 	// injection consent. With --agents= / --all (agents, CI) we proceed and notify, since init
-	// never commits.
-	interactive := preset == ""
+	// never commits. --dry-run is always non-interactive: it previews and writes nothing.
+	interactive := preset == "" && !dryRun
 
 	if kit.IsInstalled(target) {
 		fmt.Println(yellow("\nThis repo already has specflow installed.") + " Run " + cyan("specflow upgrade") + " to update it.\n")
@@ -240,7 +278,14 @@ func cmdInit(args []string) error {
 		return nil
 	}
 
-	agentKeys := pickAgents(preset)
+	// --dry-run without an explicit --agents previews the default (claude) instead of blocking on a
+	// prompt; pass --agents=… to preview a different set.
+	var agentKeys []string
+	if dryRun && preset == "" {
+		agentKeys = []string{"claude"}
+	} else {
+		agentKeys = pickAgents(preset)
+	}
 	if len(agentKeys) == 0 {
 		fmt.Println(yellow("\nNo agents selected. Writing the universal AGENTS.md base only.\n"))
 	}
@@ -248,12 +293,16 @@ func cmdInit(args []string) error {
 	if mode == "spec-only" {
 		modeLabel = dim("  (spec-only — spec discipline, no queue/claim/batch)")
 	}
-	fmt.Println(bold("\nspecflow "+version) + " → " + dim(target) + modeLabel)
 
 	plan, err := kit.PlanInit(target, specflow.Templates(), agentKeys, mode)
 	if err != nil {
 		return err
 	}
+	if dryRun {
+		printInitPlan(plan, target, mode, agentKeys, preset == "")
+		return nil
+	}
+	fmt.Println(bold("\nspecflow "+version) + " → " + dim(target) + modeLabel)
 
 	// Phase 1 — files specflow will inject its region into (they already exist).
 	allowInject := true
@@ -330,6 +379,44 @@ func cmdInit(args []string) error {
 	return nil
 }
 
+// printUpgradePlan renders what `upgrade --dry-run` would do, writing nothing.
+func printUpgradePlan(plan kit.UpgradePlan) {
+	if plan.NotInstalled {
+		fmt.Println(yellow("\nNo specflow install found here.") + " Run " + cyan("specflow init") + " first.\n")
+		return
+	}
+	fmt.Println(bold("\nspecflow upgrade --dry-run") + dim(fmt.Sprintf("  — preview %s → %s; nothing will be written", plan.From, plan.To)))
+	if len(plan.Refresh)+len(plan.Add)+len(plan.Migrate)+len(plan.Drift) == 0 {
+		fmt.Println(dim("\n  Already current — nothing to refresh.") + "\n")
+		return
+	}
+	if len(plan.Refresh) > 0 {
+		fmt.Println(bold(fmt.Sprintf("\n  would refresh (%d):", len(plan.Refresh))))
+		for _, f := range plan.Refresh {
+			fmt.Println(cyan("    ~ ") + f)
+		}
+	}
+	if len(plan.Add) > 0 {
+		fmt.Println(bold(fmt.Sprintf("\n  would add (%d):", len(plan.Add))))
+		for _, f := range plan.Add {
+			fmt.Println(green("    + ") + f)
+		}
+	}
+	if len(plan.Migrate) > 0 {
+		fmt.Println(bold(fmt.Sprintf("\n  would migrate to managed-region format (%d):", len(plan.Migrate))) + dim("  (original → .specflow-bak)"))
+		for _, f := range plan.Migrate {
+			fmt.Println(yellow("    ⇄ ") + f)
+		}
+	}
+	if len(plan.Drift) > 0 {
+		fmt.Println(bold(fmt.Sprintf("\n  drifted — would NOT overwrite (%d):", len(plan.Drift))) + dim("  (fresh version → .specflow-new)"))
+		for _, f := range plan.Drift {
+			fmt.Println(yellow("    ⚠ ") + f)
+		}
+	}
+	fmt.Println(dim("\n  Re-run without --dry-run to apply. upgrade never commits.") + "\n")
+}
+
 func cmdUpgrade(args []string) error {
 	if helpRequested(args) {
 		upgradeUsage()
@@ -338,6 +425,14 @@ func cmdUpgrade(args []string) error {
 	target, err := os.Getwd()
 	if err != nil {
 		return err
+	}
+	if hasFlag(args, "--dry-run") {
+		plan, err := kit.PlanUpgrade(target, specflow.Templates(), version)
+		if err != nil {
+			return err
+		}
+		printUpgradePlan(plan)
+		return nil
 	}
 	res, err := kit.Upgrade(target, specflow.Templates(), version)
 	if err != nil {
@@ -532,6 +627,92 @@ func cmdAddAgent(args []string) error {
 	return nil
 }
 
+func statusUsage() {
+	fmt.Printf(`
+%s — read-only summary of the specflow install here
+
+%s
+  specflow status
+
+Prints the kit version (stamp vs. this binary), install mode, wired agents,
+commit/push levers, any active claims, the count of un-done batches, and a drift
+flag if a managed region was edited since install. Writes nothing; exits
+non-zero when specflow isn't installed here.
+
+  -h, --help   show this help
+`,
+		bold("specflow status"),
+		bold("Usage:"))
+}
+
+func cmdStatus(args []string) error {
+	if helpRequested(args) {
+		statusUsage()
+		return nil
+	}
+	target, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	rep, err := kit.Status(target, specflow.Templates(), version)
+	if err != nil {
+		return err
+	}
+	if !rep.Installed {
+		fmt.Println(yellow("\nspecflow is not installed here.") + " Run " + cyan("specflow init") + " first.\n")
+		os.Exit(1)
+	}
+
+	row := func(label, val string) { fmt.Printf("  %s  %s\n", bold(fmt.Sprintf("%-8s", label)), val) }
+	lever := func(v string) string {
+		if v == "" {
+			return dim("agent")
+		}
+		return v
+	}
+
+	fmt.Println(bold("\nspecflow status") + dim("  — "+target))
+	if rep.VersionMatch {
+		row("version", green(rep.StampVersion))
+	} else {
+		row("version", yellow(rep.StampVersion)+dim(" (stamp)")+" → "+yellow(rep.BinaryVersion)+dim(" (binary); run ")+cyan("specflow upgrade"))
+	}
+	row("mode", rep.Mode)
+	agents := strings.Join(rep.Agents, ", ")
+	if agents == "" {
+		agents = dim("none")
+	}
+	row("agents", agents)
+	row("levers", "commit="+lever(rep.Commit)+"  push="+lever(rep.Push))
+
+	if rep.HasQueue {
+		row("queue", fmt.Sprintf("%d un-done batch(es)", rep.UndoneBatches))
+	} else {
+		row("queue", dim("n/a (spec-only)"))
+	}
+
+	if len(rep.InProgress) == 0 {
+		row("claims", dim("none active"))
+	} else {
+		row("claims", fmt.Sprintf("%d active", len(rep.InProgress)))
+		for _, c := range rep.InProgress {
+			owner := c.Owner
+			if owner == "" || owner == "none" {
+				owner = "unassigned"
+			}
+			fmt.Println(dim("             · ") + c.Batch + dim("  ("+owner+")"))
+		}
+	}
+
+	if len(rep.Drifted) == 0 {
+		row("drift", green("none"))
+	} else {
+		row("drift", yellow(fmt.Sprintf("⚠ %d region(s) edited since install", len(rep.Drifted)))+dim(" — "+strings.Join(rep.Drifted, ", ")))
+	}
+	fmt.Println("")
+	return nil
+}
+
 func usage() {
 	fmt.Printf(`
 %s %s — spec-driven batch/claim protocol for AI coding agents
@@ -540,6 +721,7 @@ func usage() {
   specflow init [--agents=claude,cursor] [--all]   %s
   specflow init --spec-only                        %s
   specflow add-agent <name>                        %s
+  specflow status                                  %s
   specflow upgrade                                 %s
   specflow verify                                  %s
   specflow --version                               %s
@@ -555,6 +737,7 @@ func usage() {
 		dim("scaffold into the current repo"),
 		dim("spec discipline only — no queue/claim"),
 		dim("wire another agent into the repo"),
+		dim("summarize the install (read-only)"),
 		dim("refresh the managed protocol files"),
 		dim("check installation integrity"),
 		dim("print the installed version"),
@@ -568,6 +751,8 @@ func dispatch(command string, args []string) error {
 		return cmdInit(args)
 	case "add-agent":
 		return cmdAddAgent(args)
+	case "status":
+		return cmdStatus(args)
 	case "upgrade":
 		return cmdUpgrade(args)
 	case "verify":

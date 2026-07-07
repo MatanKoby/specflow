@@ -17,13 +17,60 @@ Entry format:
 
 ## In progress
 
-### Batch 2 — `specflow status`
-- Owner: claude
-- Started: 2026-07-05 04:23
-
 <!-- One entry per actively claimed batch. -->
 
 ## Completed
+
+### Batch 5 — `--dry-run` (preview)
+- Owner: claude
+- Started: 2026-07-05 04:40
+- Finished: 2026-07-05 05:14
+- Commit: 7f5f70b
+
+**What shipped.** A **`--dry-run`** flag on `init` and `upgrade` that prints the exact planned file
+operations and exits **without touching disk**. **`init --dry-run`** reuses `PlanInit` and renders
+*would create / would inject (content preserved) / already-wired / would skip*; it's always
+non-interactive (no agent/consent prompts) and previews the default agent (claude) when `--agents`
+is omitted, honoring `--spec-only`/`--all`. **`upgrade --dry-run`** renders *would refresh / add /
+migrate (→ `.specflow-bak`) / drift (→ `.specflow-new`, not overwritten)*, and *already current* when
+there's nothing to do. **Refactor (no behavior change):** the per-file upgrade classification is now
+a shared `decideUpgrade` + `upgradeDecisions` pair consumed by both the apply path (`Upgrade`, kept
+byte-for-byte in behavior) and the new read-only `PlanUpgrade` — so the preview and the real run can
+never diverge. Help text for both commands documents the flag.
+
+**Verification.** `go test ./...` green (6 new dry-run tests + the full existing upgrade suite,
+which guards the refactor). `go vet` + `gofmt` clean. Manually confirmed a fresh-dir `init --dry-run`
+and an `upgrade --dry-run` over a drifted+stripped install write nothing (no files, no sidecars, stamp
+unchanged).
+
+**Milestone.** This is the **last v0.1 batch** — v0.1's definition-of-done (roadmap.md) is now met in
+code. Next: cut the real `v0.1.0` tag (the release pipeline was proven in Batch G2).
+
+### Batch 2 — `specflow status`
+- Owner: claude
+- Started: 2026-07-05 04:23
+- Finished: 2026-07-05 04:39
+- Commit: 3f67292
+
+**What shipped.** A read-only **`specflow status`** that orients a user/agent at a glance, writing
+nothing. **`kit.Status`** (in `internal/kit/kit.go`) assembles a snapshot from the stamp + repo:
+**kit version** (stamp `kitVersion` vs. the running binary, with a *run upgrade* hint on mismatch),
+**install mode**, **wired agents**, the **commit/push levers**, **active claims** parsed out of
+CLAIMS.md's In-progress section (each `###` heading paired with its `Owner:`; `none`/unset renders as
+*unassigned*), the **un-done batch count** (a `^## Batch` count over BUILD_QUEUE.md, since done
+batches are removed from that file), and a **drift flag** listing any managed region whose hash no
+longer matches its recorded baseline (the same test `verify`/`upgrade` use). The CLI
+(`cmd/specflow/main.go`) renders an aligned label/value block (NO_COLOR-aware via the shared paint
+helpers), exits non-zero when specflow isn't installed, and marks the queue **n/a** for a spec-only
+install (no BUILD_QUEUE.md/CLAIMS.md). Registered in `dispatch` + top-level/`--help` usage.
+
+**Verification.** `go test ./...` green (7 new tests: fresh install, active claims incl.
+owner/unassigned, drift flag, version mismatch + upgrade hint, spec-only queue-n/a, not-installed
+non-zero exit, and `--help`). `go vet` + `gofmt` clean. Manually exercised across all scenarios.
+
+**Note (not part of this batch).** A parallel session's git worktree appeared at
+`.claude/worktrees/` during the batch; a `.gitignore` entry for it would prevent accidental commits
+(flagged for the user, left out of scope here).
 
 ### Batch 1 — `specflow add-agent <name>`
 - Owner: claude
