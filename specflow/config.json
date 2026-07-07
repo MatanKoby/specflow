@@ -13,8 +13,8 @@
     "CLAUDE.md": "8f326570de8ff4bc3dbdb6b113bf11bf8e5060065cc6f874de26c3577559f58a",
     "specflow/procedures/claim-batch.md": "7b2972b38d3de5f8acb1189cdfc74737b99605536ea89c1bb05e46b3447e3bf7",
     "specflow/procedures/finish-batch.md": "7f56d80c7e1b98aec4b9327e59380a4656d0b3d4d51076eb60623d5bba37ce01",
-    "specflow/procedures/spec-edit.md": "3af4e8f8f961d32e7a21f9a394277e820da05105d6664aa3217e129afc828148"
+    "specflow/procedures/spec-edit.md": "ca06265cc386a969662cb124c73aa41ed1596cd835db37bc7f1dcb5b3ceb9eb2"
   },
   "schemaVersion": 1,
-  "upgradedAt": "2026-06-24"
+  "upgradedAt": "2026-07-07"
 }

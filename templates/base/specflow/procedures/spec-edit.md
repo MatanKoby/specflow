@@ -16,6 +16,10 @@ Pick the **single** file whose concern matches the change. If the change natural
 multiple files, that's a signal the concern might be miscarved — **flag it to the user before
 duplicating content.** Don't just write to both files.
 
+For example, roadmap, milestones, and "what's next" are one concern: they live in
+`spec/roadmap.md` (create it if absent), never in the project README and never scattered across
+other files.
+
 ## Cross-reference, don't restate
 
 When file A needs a concept that lives in file B, link by **file path** — e.g.

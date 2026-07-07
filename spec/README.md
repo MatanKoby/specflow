@@ -16,16 +16,17 @@ the procedure in `specflow/procedures/spec-edit.md`.
 
 ## Files
 
-- **`architecture.md`** — what specflow is: the CLI + `templates/` layout, `init`/`upgrade`, the
+- **`architecture.md`**: what specflow is: the CLI + `templates/` layout, `init`/`upgrade`, the
   ownership split, the host-repo file-contract, versioning/stamp, distribution, the SaaS frontier.
-- **`workflow.md`** — the git/autonomy policy model: four orthogonal config dimensions, the profile
+- **`workflow.md`**: the git/autonomy policy model: four orthogonal config dimensions, the profile
   on-ramps, the `config.md` rendering, and the `init` setup flow.
-- **`adoption.md`** — bringing specflow onto existing, unspecced code (brownfield): incremental
+- **`adoption.md`**: bringing specflow onto existing, unspecced code (brownfield): incremental
   spec, optional assisted backfill, and how the agent behaves around code it didn't spec.
-- **`open-questions.md`** — decisions still under discussion, kept here so they survive beyond any
+- **`open-questions.md`**: decisions still under discussion, kept here so they survive beyond any
   one conversation. Resolved items graduate into the file above whose concern they match.
-- **`roadmap.md`** — milestones (near-term release goals + their batch groupings, e.g. v0.1) and
-  deferred-but-intended directions (standalone demo repo, the SaaS tier).
+- **`roadmap.md`**: milestones (near-term release goals + their batch groupings, e.g. v0.1) and
+  deferred-but-intended directions (standalone demo repo, the SaaS tier). The single, authoritative
+  home for roadmap content; never restated in the root README.
 - **`research/`** holds dated research snapshots that feed roadmap/design decisions (competitive
   surveys, option/tradeoff analyses), written on the go so an abruptly ended session is never lost.
   Gate-free; conclusions graduate into `open-questions.md` / `roadmap.md`. See `research/README.md`.

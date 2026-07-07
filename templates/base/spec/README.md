@@ -13,11 +13,11 @@ two sections always change in tandem, they belong in the same file. Edit via the
      sub-folder appears, give it its own README and point to it here instead of listing every
      file. Example:
 
-- **`architecture.md`** — tech stack, deployment, the major moving parts.
-- **`schema.md`** — data model.
-- **`flows.md`** — end-to-end flows.
-- **`roadmap.md`** — post-MVP / deferred work.
-- **`archive.md`** — historical content no longer reflecting live code.
+- **`architecture.md`**: tech stack, deployment, the major moving parts.
+- **`schema.md`**: data model.
+- **`flows.md`**: end-to-end flows.
+- **`roadmap.md`**: the single home for roadmap content, milestones and deferred / what's-next directions (never restated in the project README).
+- **`archive.md`**: historical content no longer reflecting live code.
 -->
 
 ## Reading order
