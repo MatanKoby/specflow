@@ -25,7 +25,7 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > **Batch 1** (add-agent) are **done**.
 > **Post-v0.1:** **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch W**
 > (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
-> **Batch P** (npm-wrapper front-end) · Homebrew tap.
+> **Batch P** (npm-wrapper front-end) · **Batch RF** (ship the research-flow convention) · Homebrew tap.
 
 ---
 
@@ -173,3 +173,31 @@ then drafts the sub-batches.
 G2 (GoReleaser) — not npm. This batch is reduced to the **optional npm wrapper**: an npm package that
 fetches the prebuilt binary so `npx specflow` still works for the JS ecosystem (esbuild pattern).
 Claim only if we decide to also serve `npx`. See `open-questions.md` → Distribution.
+
+---
+
+## Batch RF: Ship the research-flow convention
+
+**Goal.** Make the lightweight research-note flow a shipped part of specflow, so a fresh install
+carries the convention, not just this self-hosted repo.
+
+**Design ref:** `spec/workflow.md` → *Research notes (optional pre-idea input)*, `spec/research/README.md`.
+
+### Deliverables
+- The AGENTS.md spec-discipline region (via `templates/base/AGENTS.md`) names the optional research
+  pre-step and the `spec/research/` home: dated, gate-free snapshots; written on the go; conclusions
+  graduate into `open-questions.md` / `roadmap.md`.
+- `templates/base/specflow/procedures/spec-edit.md` gains a short research-notes note: gate-free
+  checkpoint, write-as-you-go cadence, graduate-upward lifecycle.
+- `templates/base/spec/README.md` documents the `research/` convention so a fresh install carries it.
+- Spec-only mode inherits it (research discipline is spec discipline; keep the section self-contained,
+  no queue references).
+
+### Files this batch creates/edits
+- `templates/base/AGENTS.md` · `templates/base/specflow/procedures/spec-edit.md` ·
+  `templates/base/spec/README.md` · possibly `internal/kit/` (if the composed region is code-driven) ·
+  `cmd/specflow/main_test.go`.
+
+### Verification
+- `go test ./...`; `init` into a temp repo and confirm AGENTS.md + spec-edit.md mention research
+  notes and `spec/README.md` documents `research/`.
