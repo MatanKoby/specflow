@@ -36,3 +36,9 @@ Medium/large-repo optimization is explicitly **out of scope**. Member batches: `
   (`adoption.md` → Pull from existing docs) for teams whose design already lives elsewhere.
 - **Hosted / SaaS tier.** See `architecture.md` → SaaS frontier: a producer that authors/syncs
   `spec/` + `BUILD_QUEUE.md` into a repo; the file-contract is the API between the tiers.
+
+## Research inputs
+
+Pre-design research that feeds these milestones and directions lives in `research/` (dated
+snapshots; see `research/README.md`). Current: `research/2026-07-competitive-landscape.md` (the
+better-specs / maintenance / backfill landscape, gap analysis, and import-vs-copy verdict).

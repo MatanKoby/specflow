@@ -133,6 +133,25 @@ before building it*. The model is **start by telling the agent; add strict enfor
 designed** — never mislead a user that a chosen policy is locked down when it is currently a written
 promise.
 
+## Research notes (optional pre-idea input)
+
+The pipeline above starts at *idea*, but design work often begins earlier: surveying prior art,
+gathering options, weighing tradeoffs. That output feeds an idea and is **not yet design**, so it
+fits neither `spec/` proper, `open-questions.md`, nor the queue. specflow gives it a lightweight
+home, **`spec/research/`** (dated snapshots; see `spec/research/README.md`). Research notes are:
+
+- **Gate-free.** They assert no design, so the agent may write and update them without gate-1
+  approval. Only *graduating a conclusion* into `open-questions.md` / `roadmap.md` needs the user's
+  ratification.
+- **Written on the go.** The agent checkpoints research as a session proceeds, not only at the end,
+  so an abruptly ended terminal session (a forced OS restart, a crash) never loses the work. This is
+  the `spec-edit.md` principle (the transcript is not durable) applied one step earlier.
+- **Dated snapshots**, exempt from the archive/stay-current rule: a note records what was true when
+  written. Conclusions graduate upward; the note stays as the evidence trail.
+
+The flow becomes **(research) → idea → (approval) → spec → batch → claim → build**, with research
+optional and non-binding. It is a convention, not machinery: no command, no gate, no install mode.
+
 ## Still open
 
 The exact **profile → dimension mapping** (what each profile sets each lever to — the starting

@@ -26,6 +26,9 @@ the procedure in `specflow/procedures/spec-edit.md`.
   one conversation. Resolved items graduate into the file above whose concern they match.
 - **`roadmap.md`** — milestones (near-term release goals + their batch groupings, e.g. v0.1) and
   deferred-but-intended directions (standalone demo repo, the SaaS tier).
+- **`research/`** holds dated research snapshots that feed roadmap/design decisions (competitive
+  surveys, option/tradeoff analyses), written on the go so an abruptly ended session is never lost.
+  Gate-free; conclusions graduate into `open-questions.md` / `roadmap.md`. See `research/README.md`.
 
 ## Reading order
 
