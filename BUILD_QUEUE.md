@@ -16,11 +16,11 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 
 ## Un-done batches
 
-> **Pick-order pointer — Milestone v0.1 is code-complete** ✅ (goal/DoD in `roadmap.md`). All member
+> **Pick-order pointer — Milestone v0.1 is shipped** 🚀 (goal/DoD in `roadmap.md`). `v0.1.0` is
+> tagged, published, and the public `curl|sh` install is verified end-to-end. All member
 > batches are done: **CFG** (config + commit/push levers + safety), **BI** (brownfield `init` +
 > `verify` + `_DONE` relocation), **SO** (spec-only mode), **G2** (release: GoReleaser → GitHub
 > Releases + `curl|sh`; Homebrew deferred), **1** (add-agent), **2** (status), **5** (`--dry-run`).
-> **Remaining before tagging `v0.1.0`:** cut the tag (the pipeline was proven in G2).
 > **Post-v0.1 queue below:** **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch
 > W** (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · **Batch RF** (ship the research-flow convention) · Homebrew tap.
