@@ -23,7 +23,63 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > Releases + `curl|sh`; Homebrew deferred), **1** (add-agent), **2** (status), **5** (`--dry-run`).
 > **Post-v0.1 queue below:** **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch
 > W** (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
-> **Batch P** (npm-wrapper front-end) · **Batch RF** (ship the research-flow convention) · Homebrew tap.
+> **Batch P** (npm-wrapper front-end) · **Batch RF** (ship the research-flow convention) · **Batch
+> FH** (finish-batch step-6 handoff rework) · **Batch CH** (Claude Code batch-boundary hook, opt-in) ·
+> Homebrew tap.
+
+---
+
+## Batch FH — finish-batch step-6 handoff rework
+
+**Goal.** Make the end-of-batch context-handoff offer hard to skip. Root cause (retro): step 6 is
+the only finish-batch step that produces no artifact, so a skip is invisible and cheap under
+throughput pressure, and the agent rationalizes it away as "noise."
+
+### Deliverables
+- Rewrite `## Hand the context back` (step 6) in `templates/base/specflow/procedures/finish-batch.md`:
+  state the payoff to the user (cheaper + more reliable next batch, a decision point), pre-kill the
+  "it's noise" rationalization, and require a fixed terminal handoff line so an omission is visible.
+- Step 7 gains one clause: a user's "continue" authorizes the next claim but does not waive the
+  step-6 line.
+- Propagate to this repo's dogfood copy via `specflow upgrade` (do not hand-edit
+  `specflow/procedures/finish-batch.md`; let upgrade refresh it and rebaseline the stamp).
+
+### Files this batch creates/edits
+- `templates/base/specflow/procedures/finish-batch.md` · `specflow/procedures/finish-batch.md`
+  (via upgrade) · `specflow/config.json` (baseline hash, via upgrade).
+
+### Verification
+- `go test ./...` green; `gofmt`/`go vet` clean; the dogfood copy refreshes cleanly via `upgrade`
+  and the stamp hash for `finish-batch.md` updates.
+
+---
+
+## Batch CH `[NOT READY]` — Claude Code batch-boundary hook (opt-in)
+
+**Goal.** A Claude-Code-only deterministic backstop for the step-6 handoff: a `PostToolUse` hook
+that fires on the `meta: complete batch-*` commit and reminds the agent to offer the handoff, so the
+boundary no longer depends on the agent choosing to. Hooks don't port to other agents, so this is a
+Claude-only add-on layered on top of the portable text (Batch FH).
+
+**Delivery decision (opt-in, no auto-merge).** specflow's installer is markdown-marker based and
+can't merge into an existing `.claude/settings.json` (JSON, no merge path). So:
+- Ship the hook script under `templates/agents/claude/.claude/hooks/` (create-once).
+- The CLI prints the exact settings.json block to paste, and where, for claude installs at the end
+  of `init` / `add-agent` (no auto-merge, no surprise executable).
+- The Claude adapter (`templates/agents/claude/CLAUDE.md` region) instructs the agent: when it
+  installs or upgrades specflow for the user, relay the hook-setup instructions (what to paste,
+  where) rather than leaving them buried in CLI output.
+
+**Why `[NOT READY]`:** needs a short design pass first (hook script contents + exact commit match,
+committed vs local settings, and the CLI/agent messaging) before build.
+
+### Files this batch creates/edits
+- `templates/agents/claude/.claude/hooks/*` · `cmd/specflow/main.go` (post-install hook notice for
+  claude) · `templates/agents/claude/CLAUDE.md` (relay instruction) · `cmd/specflow/main_test.go`.
+
+### Verification
+- `go test ./...`; `init --agents=claude` into a temp repo prints the paste-snippet and drops the
+  hook script; simulate a `meta: complete` commit and confirm the hook emits the reminder.
 
 ---
 
