@@ -19,6 +19,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch RF — Ship the research-flow convention
+- Owner: claude
+- Started: 2026-07-11 20:49
+
 ## Completed
 
 ### Batch 3 — Broaden the test suite
