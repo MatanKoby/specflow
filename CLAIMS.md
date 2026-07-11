@@ -19,11 +19,35 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch RF — Ship the research-flow convention
 - Owner: claude
 - Started: 2026-07-11 20:49
+- Finished: 2026-07-11 20:57
+- Commit: 9fbba41
 
-## Completed
+**What shipped.** Made the lightweight research-note flow a shipped part of specflow, so a fresh
+install carries the convention (not just this self-hosted repo). Three template edits, all
+self-contained with **no queue/claim references** so spec-only inherits them: (1)
+`templates/base/AGENTS.md` — the spec-discipline region's spec-edit pointer now names the optional
+**pre-design research step** and the gate-free `spec/research/` home (dated snapshots, written on the
+go, conclusions graduate into `open-questions.md` / `roadmap.md`); (2)
+`templates/base/specflow/procedures/spec-edit.md` — a new **"Research notes"** section placed as the
+pre-design exception to the archive rule, covering the gate-free / write-as-you-go / graduate-upward
+lifecycle; (3) `templates/base/spec/README.md` — documents the optional `research/` sub-folder in the
+file map. Design ref: `spec/workflow.md` → *Research notes*, `spec/research/README.md`. The dogfood
+`spec/README.md` already carried the convention (it's the project's own spec, not a managed region),
+so only the two managed files needed propagation.
+
+**Verification.** `go test ./...` green (2 new tests: `TestResearchFlowConventionShipped` full-mode
+and `TestResearchFlowInSpecOnly`, both asserting `init` ships the convention across AGENTS.md +
+spec-edit.md + spec/README.md; the pre-existing spec-only banned-word test confirms the research
+sections stay queue-free). `go vet` + `gofmt` clean. Propagated the two managed files (root
+`AGENTS.md`, root `spec-edit.md`) to the dogfood copies via `specflow upgrade` (dry-run showed exactly
+those two refreshing; applied; `specflow verify` clean, no drift). **Follow-up:** none — this is the
+last of the queued research-flow work; together with Batch FH's step-6 rework it forms the user-facing
+payload of the `v0.1.1` release cut immediately after this batch.
 
 ### Batch 3 — Broaden the test suite
 - Owner: claude

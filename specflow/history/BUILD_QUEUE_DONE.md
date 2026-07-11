@@ -10,6 +10,18 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch RF — Ship the research-flow convention
+Made the lightweight research-note flow a shipped part of specflow, so a fresh install carries the
+convention (previously only self-hosted). Three template edits, all self-contained (no queue/claim
+refs) so **spec-only inherits them**: `templates/base/AGENTS.md` names the optional pre-design
+research step + the gate-free `spec/research/` home in its spec-discipline region;
+`templates/base/specflow/procedures/spec-edit.md` gains a *Research notes* section (gate-free /
+write-as-you-go / graduate-upward, framed as the pre-design exception to the archive rule);
+`templates/base/spec/README.md` documents the optional `research/` sub-folder. Key commit `9fbba41`.
+2 new tests (full + spec-only) assert `init` ships the convention in all three files; the existing
+spec-only banned-word test guards the sections stay queue-free. Propagated the two managed files to
+the dogfood copies via `specflow upgrade` (verify clean). No follow-ups.
+
 ## Batch 3 — Broaden the test suite
 Locked behavior beyond the file-existence smoke checks with 4 new tests. **Content assertions** on
 the generated `AGENTS.md` (`TestAgentsMdContentSections`): its key sections, the commit-grammar table
