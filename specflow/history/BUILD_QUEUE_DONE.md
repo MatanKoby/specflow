@@ -10,6 +10,15 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch FH — finish-batch step-6 handoff rework
+Reworked step 6 of `finish-batch.md` so the end-of-batch context handoff is hard to skip: it now
+states the payoff to the user (cheaper + more reliable next batch, a decision point), names and
+refutes the "it's noise" rationalization, and requires a fixed terminal handoff line so an omission
+is visible. Step 7 clarifies that "continue" authorizes the next claim but doesn't waive the line.
+Canonical template edited and propagated to the dogfood copy via `specflow upgrade` (stamp
+rebaselined). Key commit `2962ae1`. Portable (text-only, all agents); the Claude-Code deterministic
+hook backstop is queued as Batch CH.
+
 ## Batch 5 — `--dry-run` (preview)
 Shipped a `--dry-run` flag on `init` and `upgrade` that prints the planned file operations and exits
 without touching disk. `init --dry-run` reuses `PlanInit` (would create / inject / already-wired /

@@ -24,33 +24,7 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > **Post-v0.1 queue below:** **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch
 > W** (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · **Batch RF** (ship the research-flow convention) · **Batch
-> FH** (finish-batch step-6 handoff rework) · **Batch CH** (Claude Code batch-boundary hook, opt-in) ·
-> Homebrew tap.
-
----
-
-## Batch FH — finish-batch step-6 handoff rework
-
-**Goal.** Make the end-of-batch context-handoff offer hard to skip. Root cause (retro): step 6 is
-the only finish-batch step that produces no artifact, so a skip is invisible and cheap under
-throughput pressure, and the agent rationalizes it away as "noise."
-
-### Deliverables
-- Rewrite `## Hand the context back` (step 6) in `templates/base/specflow/procedures/finish-batch.md`:
-  state the payoff to the user (cheaper + more reliable next batch, a decision point), pre-kill the
-  "it's noise" rationalization, and require a fixed terminal handoff line so an omission is visible.
-- Step 7 gains one clause: a user's "continue" authorizes the next claim but does not waive the
-  step-6 line.
-- Propagate to this repo's dogfood copy via `specflow upgrade` (do not hand-edit
-  `specflow/procedures/finish-batch.md`; let upgrade refresh it and rebaseline the stamp).
-
-### Files this batch creates/edits
-- `templates/base/specflow/procedures/finish-batch.md` · `specflow/procedures/finish-batch.md`
-  (via upgrade) · `specflow/config.json` (baseline hash, via upgrade).
-
-### Verification
-- `go test ./...` green; `gofmt`/`go vet` clean; the dogfood copy refreshes cleanly via `upgrade`
-  and the stamp hash for `finish-batch.md` updates.
+> CH** (Claude Code batch-boundary hook, opt-in) · Homebrew tap.
 
 ---
 

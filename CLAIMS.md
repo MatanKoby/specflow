@@ -19,11 +19,28 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch FH — finish-batch step-6 handoff rework
 - Owner: claude
 - Started: 2026-07-11 19:35
+- Finished: 2026-07-11 19:43
+- Commit: 2962ae1
 
-## Completed
+**What shipped.** Reworked step 6 of `finish-batch.md` so the end-of-batch context handoff is hard
+to skip. Root cause (from a retro): step 6 was the only finish step that produced no artifact, so a
+skip was invisible and cheap under throughput pressure and got rationalized away as "noise." The
+rewrite (a) states the payoff to the user (cheaper next batch, more reliable next batch, a decision
+point), (b) names and refutes the "it's noise" excuse, and (c) requires a fixed terminal handoff
+line so an omission is self-evidently non-compliant. Step 7 now clarifies that a user's "continue"
+authorizes the next claim but does not waive the step-6 line. Edited the canonical template
+(`templates/base/specflow/procedures/finish-batch.md`) and propagated to this repo's dogfood copy
+via `specflow upgrade` (stamp rebaselined; `verify` clean). Portable across all agents (text only);
+the Claude-Code deterministic backstop is queued separately as Batch CH.
+
+**Verification.** `go test ./...` green, `go vet`/`gofmt` clean. `upgrade --dry-run` showed exactly
+one file refreshing; applied; the dogfood copy is back in sync with the template; `specflow verify`
+reports all regions intact (no drift).
 
 ### Batch 5 — `--dry-run` (preview)
 - Owner: claude
