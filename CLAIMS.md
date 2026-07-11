@@ -19,6 +19,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch FH — finish-batch step-6 handoff rework
+- Owner: claude
+- Started: 2026-07-11 19:35
+
 ## Completed
 
 ### Batch 5 — `--dry-run` (preview)
