@@ -116,6 +116,10 @@ don't reconstruct it from memory.
 - **`specflow/procedures/spec-edit.md`** — before editing any `spec/**` file or persisting a
   design decision: concern-matching, cross-reference-don't-restate, archive rule<!-- specflow:full-only:start -->,
   propagation to `BUILD_QUEUE.md`<!-- specflow:full-only:end -->. **Run before any spec change.**
+  Its *Research notes* section also covers the optional pre-design step: exploratory research
+  (prior-art scans, option/tradeoff analysis) has a gate-free home in `spec/research/` — dated
+  snapshots written on the go — whose conclusions graduate up into the spec (e.g.
+  `open-questions.md` / `roadmap.md`).
 <!-- specflow:full-only:start -->
 - **`specflow/procedures/claim-batch.md`** — pull, eligibility + dependency + parallelism
   checks, write the `CLAIMS.md` entry, `meta: claim` commit, push-race recovery, handoff,

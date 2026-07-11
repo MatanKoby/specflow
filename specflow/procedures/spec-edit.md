@@ -33,6 +33,19 @@ reflecting live code — an abandoned approach, a removed table, a deprecated fl
 `spec/archive.md` rather than leaving it inline. `archive.md` is the institutional memory;
 everything else is current.
 
+## Research notes — the pre-design exception
+
+Exploratory research (prior-art scans, option/tradeoff analysis) comes *before* design and is
+**not yet design**, so it lives outside the rules above — in an optional `spec/research/`
+sub-folder (dated snapshots, `YYYY-MM-topic.md`):
+
+- **Gate-free.** A note asserts no design, so write and update it freely. Only *graduating a
+  conclusion* into the spec (e.g. `open-questions.md` / `roadmap.md`) needs the user's sign-off.
+- **Write as you go.** Checkpoint findings during the session, not only at the end — the
+  transcript isn't durable (the reason this procedure exists), so a crashed session loses nothing.
+- **Dated snapshots, exempt from the archive rule.** A note records what was true when written;
+  don't rewrite it to stay current. Conclusions graduate upward; the note stays as the evidence trail.
+
 ## Size watch
 
 When a file heads past ~600 lines (~20k tokens), consider whether the next bite of content

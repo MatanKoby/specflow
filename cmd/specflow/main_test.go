@@ -1324,3 +1324,44 @@ func TestInitAllFlagWiresEveryAdapter(t *testing.T) {
 		}
 	}
 }
+
+// assertResearchFlowShipped checks that a fresh install carries the research-flow convention in all
+// three places Batch RF ships it: the AGENTS.md spec-discipline region, the spec-edit procedure, and
+// the spec/README.md file map.
+func assertResearchFlowShipped(t *testing.T, dir string) {
+	t.Helper()
+	ag := read(t, filepath.Join(dir, "AGENTS.md"))
+	if !strings.Contains(ag, "spec/research") || !strings.Contains(ag, "Research notes") {
+		t.Errorf("AGENTS.md does not name the research pre-step / spec/research home:\n%s", ag)
+	}
+	se := read(t, filepath.Join(dir, "specflow/procedures/spec-edit.md"))
+	for _, want := range []string{"## Research notes", "spec/research", "Gate-free", "graduate"} {
+		if !strings.Contains(se, want) {
+			t.Errorf("spec-edit.md research section missing %q", want)
+		}
+	}
+	rd := read(t, filepath.Join(dir, "spec/README.md"))
+	if !strings.Contains(rd, "spec/research") || !strings.Contains(rd, "Research notes") {
+		t.Errorf("spec/README.md does not document the research/ convention:\n%s", rd)
+	}
+}
+
+// TestResearchFlowConventionShipped: a full install carries the research-flow convention.
+func TestResearchFlowConventionShipped(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	assertResearchFlowShipped(t, tmp)
+}
+
+// TestResearchFlowInSpecOnly: research discipline is spec discipline, so a spec-only install inherits
+// the convention too — and the research sections stay self-contained (the existing spec-only
+// banned-word test guards that they drag in no queue/claim machinery).
+func TestResearchFlowInSpecOnly(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude", "--spec-only"); r.code != 0 {
+		t.Fatalf("init --spec-only exit %d: %s", r.code, r.stderr)
+	}
+	assertResearchFlowShipped(t, tmp)
+}

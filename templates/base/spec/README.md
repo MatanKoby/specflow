@@ -20,6 +20,14 @@ two sections always change in tandem, they belong in the same file. Edit via the
 - **`archive.md`**: historical content no longer reflecting live code.
 -->
 
+## Research notes (optional)
+
+Pre-design research (prior-art scans, option/tradeoff analysis) is **not yet design**, so it lives
+in an optional `spec/research/` sub-folder rather than the files above: **dated, gate-free
+snapshots** (`YYYY-MM-topic.md`) that **graduate upward** into `roadmap.md` / `open-questions.md` as
+conclusions mature. Create it with its own `README.md` when you start research. Full lifecycle:
+`specflow/procedures/spec-edit.md` → *Research notes*.
+
 ## Reading order
 
 For someone new: README → (the architecture/overview file) → the files for the area in front
