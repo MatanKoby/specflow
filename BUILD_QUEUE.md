@@ -21,6 +21,8 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > batches are done: **CFG** (config + commit/push levers + safety), **BI** (brownfield `init` +
 > `verify` + `_DONE` relocation), **SO** (spec-only mode), **G2** (release: GoReleaser → GitHub
 > Releases + `curl|sh`; Homebrew deferred), **1** (add-agent), **2** (status), **5** (`--dry-run`).
+> **`v0.1.1`** (patch) ships the user-facing content improvements since: **FH** (finish-batch step-6
+> handoff rework) and **RF** (research-flow convention).
 > **Post-v0.1 queue below:** **Batch 4** (badges + file-map) · **Batch
 > W** (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · **Batch
