@@ -19,6 +19,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch 3 — Broaden the test suite
+- Owner: claude
+- Started: 2026-07-11 19:52
+
 ## Completed
 
 ### Batch FH — finish-batch step-6 handoff rework
