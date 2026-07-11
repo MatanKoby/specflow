@@ -10,6 +10,19 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch 3 — Broaden the test suite
+Locked behavior beyond the file-existence smoke checks with 4 new tests. **Content assertions** on
+the generated `AGENTS.md` (`TestAgentsMdContentSections`): its key sections, the commit-grammar table
+header + `batch-N`/`meta:`/`spec:` rows, and the `specflow/procedures/*.md` path references.
+**Picker + adapter coverage**: the interactive agent picker over piped stdin (numeric multi-select +
+the "a" all-shortcut) and the `--all` flag, asserting each of the five adapters' instruction files is
+written, marker-wrapped, and baseline-hashed, then a follow-up `upgrade` stays a clean no-op — first
+coverage of the copilot/bob/antigravity adapters. An **embed-manifest test** in the new root-package
+`templates_test.go` walks the on-disk `templates/**` tree and asserts every file is embedded
+byte-for-byte, counting dot-paths so the `//go:embed all:` dotfile footgun can't regress (proven to
+bite: dropping `all:` fails it, then reverted). Key commit `677b265`. `go vet`/`gofmt` clean. The
+suggested `internal/kit/` unit split was skipped as redundant with the end-to-end binary coverage.
+
 ## Batch FH — finish-batch step-6 handoff rework
 Reworked step 6 of `finish-batch.md` so the end-of-batch context handoff is hard to skip: it now
 states the payoff to the user (cheaper + more reliable next batch, a decision point), names and

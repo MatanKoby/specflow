@@ -19,11 +19,39 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch 3 — Broaden the test suite
 - Owner: claude
 - Started: 2026-07-11 19:52
+- Finished: 2026-07-11 20:02
+- Commit: 677b265
 
-## Completed
+**What shipped.** Locked behavior beyond the existing file-existence smoke checks, in three areas.
+(1) **Content assertions** on the generated full-mode `AGENTS.md` (`TestAgentsMdContentSections`):
+its key sections (*Commit & push authority*, *File ownership*, *The work queue*, *The claims file*,
+*The procedures*, *Commit message convention*, *Editing rules*), the **commit-grammar table** header
+plus its `batch-N` / `meta: claim` / `meta: complete` / `spec:` rows, and that the procedures section
+references the real `specflow/procedures/*.md` paths (not bare filenames). (2) **Adapter + picker
+coverage**: the interactive agent picker driven over piped stdin — numeric multi-select
+(`TestInitInteractivePicksAgentsByNumber`, "3,4,5" → copilot/bob/antigravity, unpicked agents absent)
+and the "a" all-shortcut (`TestInitInteractiveAllShortcut`) — plus the **`--all`** flag
+(`TestInitAllFlagWiresEveryAdapter`) asserting each of the five adapters' instruction files is
+written, carries the managed region markers, and has a baseline hash, then that a follow-up
+`upgrade` stays a clean no-op. This is the first coverage of the **copilot / bob / antigravity**
+adapters. (3) An **embed-manifest test** in the root package (`templates_test.go`) that walks the
+on-disk `templates/**` tree and asserts every file is embedded **byte-for-byte**, explicitly counting
+dot-path templates so the `//go:embed all:` dotfile footgun can't regress unnoticed.
+
+**Verification.** `go test ./...` green (4 new tests: 3 in `cmd/specflow/main_test.go`, 1 in the new
+root-package `templates_test.go` — the root package had no tests before). `go vet` + `gofmt` clean.
+Proved the embed guard actually bites: temporarily dropping `all:` from the `//go:embed` directive
+made the manifest test fail on exactly the dropped dotfiles (Claude skills, cursor/copilot adapters),
+then reverted to green. **Note:** the embed-manifest test lives in a new root-package file rather than
+`cmd/specflow/`, because that is where the `embed.FS` and `Templates()` are — the batch's file list
+allowed for splitting tests out. **Deferred (out of scope):** the batch's suggested `internal/kit/`
+unit-test split was not done — the behavior is fully covered end-to-end through the built binary, so
+a redundant unit layer wasn't warranted now.
 
 ### Batch FH — finish-batch step-6 handoff rework
 - Owner: claude

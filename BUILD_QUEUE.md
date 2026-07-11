@@ -21,7 +21,7 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > batches are done: **CFG** (config + commit/push levers + safety), **BI** (brownfield `init` +
 > `verify` + `_DONE` relocation), **SO** (spec-only mode), **G2** (release: GoReleaser → GitHub
 > Releases + `curl|sh`; Homebrew deferred), **1** (add-agent), **2** (status), **5** (`--dry-run`).
-> **Post-v0.1 queue below:** **Batch 3** (broaden tests) · **Batch 4** (badges + file-map) · **Batch
+> **Post-v0.1 queue below:** **Batch 4** (badges + file-map) · **Batch
 > W** (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · **Batch RF** (ship the research-flow convention) · **Batch
 > CH** (Claude Code batch-boundary hook, opt-in) · Homebrew tap.
@@ -54,25 +54,6 @@ committed vs local settings, and the CLI/agent messaging) before build.
 ### Verification
 - `go test ./...`; `init --agents=claude` into a temp repo prints the paste-snippet and drops the
   hook script; simulate a `meta: complete` commit and confirm the hook emits the reminder.
-
----
-
-## Batch 3 — Broaden the test suite
-
-**Goal.** Lock behavior beyond the current smoke checks.
-
-### Deliverables
-- Content assertions: generated `AGENTS.md` contains its key sections (work-queue, claims, commit
-  grammar table); procedures reference `specflow/procedures/…`.
-- Interactive picker (piped stdin), `--all`, and copilot/bob/antigravity adapters covered.
-- An embed-manifest test asserting every `templates/**` file is embedded in the binary (guards the
-  `go:embed all:` dotfile footgun).
-
-### Files this batch creates/edits
-- `cmd/specflow/main_test.go` (or split into `internal/kit/` tests).
-
-### Verification
-- `go test ./...` green locally and in CI (ubuntu + macos).
 
 ---
 
