@@ -1187,3 +1187,140 @@ func TestVersionAndUnknownCommand(t *testing.T) {
 		t.Error("unknown command should exit non-zero")
 	}
 }
+
+// TestAgentsMdContentSections locks the shape of the generated AGENTS.md — the document every agent
+// reads before working. A refactor that quietly drops a section or the commit-grammar table would
+// otherwise pass the file-existence smoke checks.
+func TestAgentsMdContentSections(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	ag := read(t, filepath.Join(tmp, "AGENTS.md"))
+
+	// The key sections a reader (and every agent) relies on.
+	for _, sec := range []string{
+		"## Commit & push authority",
+		"## File ownership",
+		"## The work queue",
+		"## The claims file",
+		"## The procedures",
+		"## Commit message convention",
+		"## Editing rules",
+	} {
+		if !strings.Contains(ag, sec) {
+			t.Errorf("generated AGENTS.md missing section %q", sec)
+		}
+	}
+
+	// The commit-grammar table: its header plus the grammar rows agents must follow.
+	if !strings.Contains(ag, "| Prefix | When to use |") {
+		t.Error("AGENTS.md missing the commit-grammar table header")
+	}
+	for _, cell := range []string{
+		"batch-N: <imperative>",
+		"meta: claim batch-N (<agent>)",
+		"meta: complete batch-N",
+		"spec: <change>",
+	} {
+		if !strings.Contains(ag, cell) {
+			t.Errorf("commit-grammar table missing the %q row", cell)
+		}
+	}
+
+	// The procedures section points at the real specflow/procedures/ paths, not bare filenames.
+	for _, p := range []string{
+		"specflow/procedures/spec-edit.md",
+		"specflow/procedures/claim-batch.md",
+		"specflow/procedures/finish-batch.md",
+	} {
+		if !strings.Contains(ag, p) {
+			t.Errorf("AGENTS.md does not reference the procedure path %q", p)
+		}
+	}
+}
+
+// adapterPrimaryFile is the primary (managed instruction) file each agent adapter drops. Restated
+// independently of the CLI's own map so a wrong-path regression in either is caught.
+var adapterPrimaryFile = map[string]string{
+	"claude":      "CLAUDE.md",
+	"cursor":      ".cursor/rules/specflow.mdc",
+	"copilot":     ".github/copilot-instructions.md",
+	"bob":         ".bob/rules/specflow.md",
+	"antigravity": ".agents/rules/specflow.md",
+}
+
+// TestInitInteractivePicksAgentsByNumber drives the interactive agent picker over piped stdin. The
+// menu is claude=1, cursor=2, copilot=3, bob=4, antigravity=5; a fresh repo has no existing files,
+// so no injection prompt follows and a single line drives the whole run.
+func TestInitInteractivePicksAgentsByNumber(t *testing.T) {
+	tmp := newRepo(t)
+	r := runStdin(t, tmp, "3,4,5\n", "init")
+	if r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	if got := stampAgents(t, tmp); got != "copilot,bob,antigravity" {
+		t.Errorf("config.agents = %q, want copilot,bob,antigravity", got)
+	}
+	for _, k := range []string{"copilot", "bob", "antigravity"} {
+		if !exists(filepath.Join(tmp, adapterPrimaryFile[k])) {
+			t.Errorf("interactive pick did not write the %s adapter (%s)", k, adapterPrimaryFile[k])
+		}
+	}
+	// The unpicked agents' files must not appear.
+	if exists(filepath.Join(tmp, adapterPrimaryFile["cursor"])) {
+		t.Error("unpicked cursor adapter leaked in")
+	}
+	if exists(filepath.Join(tmp, "CLAUDE.md")) {
+		t.Error("claude was not picked but CLAUDE.md was written")
+	}
+}
+
+// TestInitInteractiveAllShortcut covers the picker's "a" (all) branch over piped stdin.
+func TestInitInteractiveAllShortcut(t *testing.T) {
+	tmp := newRepo(t)
+	r := runStdin(t, tmp, "a\n", "init")
+	if r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	if got := stampAgents(t, tmp); got != "claude,cursor,copilot,bob,antigravity" {
+		t.Errorf("config.agents = %q, want all five agents", got)
+	}
+}
+
+// TestInitAllFlagWiresEveryAdapter covers `--all` and, with it, the copilot / bob / antigravity
+// adapters that the rest of the suite never exercised: each adapter's instruction file is written,
+// carries the managed region, and has a baseline hash — and a follow-up upgrade stays a clean no-op.
+func TestInitAllFlagWiresEveryAdapter(t *testing.T) {
+	tmp := newRepo(t)
+	r := run(t, tmp, "init", "--all")
+	if r.code != 0 {
+		t.Fatalf("init --all exit %d: %s", r.code, r.stderr)
+	}
+	if got := stampAgents(t, tmp); got != "claude,cursor,copilot,bob,antigravity" {
+		t.Errorf("config.agents = %q, want all five agents", got)
+	}
+	managed := stampManaged(t, tmp)
+	for _, k := range []string{"claude", "cursor", "copilot", "bob", "antigravity"} {
+		rel := adapterPrimaryFile[k]
+		if !exists(filepath.Join(tmp, rel)) {
+			t.Errorf("%s adapter file %s not written", k, rel)
+			continue
+		}
+		if !startMarker.MatchString(read(t, filepath.Join(tmp, rel))) {
+			t.Errorf("%s adapter file %s lacks the specflow region markers", k, rel)
+		}
+		if h, _ := managed[rel].(string); h == "" {
+			t.Errorf("%s adapter file %s has no managed baseline hash", k, rel)
+		}
+	}
+	// A later upgrade over the full adapter set is a clean no-op — no drift sidecars.
+	if ru := run(t, tmp, "upgrade"); ru.code != 0 {
+		t.Fatalf("upgrade after --all exit %d: %s", ru.code, ru.stderr)
+	}
+	for _, k := range []string{"copilot", "bob", "antigravity"} {
+		if exists(filepath.Join(tmp, adapterPrimaryFile[k]+".specflow-new")) {
+			t.Errorf("clean upgrade wrote a drift sidecar for the %s adapter", k)
+		}
+	}
+}
