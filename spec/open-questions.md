@@ -72,6 +72,12 @@ in-scope-vs-new-scope test). The **one open piece** is the *mechanism*:
 - **Enforcement → Batch E (research-first).** Today enforcement is honor-system, exactly as in
   Upside. Batch E researches/discusses how to add it incrementally (validator → hooks → CI → branch
   protection) before building. (`verify` / `install-hooks` / host-CI become sub-batches there.)
+- **Step-6 handoff backstop → Batch CH (Claude-only, ships now).** The first concrete slice of the
+  "hooks" layer, shipped narrowly ahead of Batch E's general research: a `PostToolUse` hook that
+  blocks the loop (`decision:block`) right after a `meta: complete batch-*` commit to force the
+  finish-batch step-6 handoff. Claude-only (hooks don't port to other agents), opt-in (pasted into
+  `.claude/settings.json`), layered on the portable step-6 text (Batch FH). See `BUILD_QUEUE.md` →
+  Batch CH.
 - **Embed-manifest test** — assert every `templates/**` file is embedded in the binary (guards the
   `go:embed all:` dotfile footgun) — folded into Batch 3.
 
