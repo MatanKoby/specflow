@@ -702,10 +702,48 @@ func upgradeDecisions(targetDir string, tpl fs.FS, stamp map[string]any) ([]relD
 	return out, nil
 }
 
+// missingAdapterFiles returns the installed agents' non-managed adapter files (e.g. the Claude
+// step-6 handoff hook) that `init` would place but that are absent here — the create-once files a
+// newer kit shipped after this repo was installed. Managed-region files are handled by the region
+// upgrade (a missing one is recreated via upAdd); base files are never recreated (a user may have
+// deleted them deliberately), so this is scoped to the agents/ tree only. Create-once: present files
+// are left untouched.
+func missingAdapterFiles(targetDir string, tpl fs.FS, stamp map[string]any) ([]placedFile, error) {
+	agents := installedAgents(stamp)
+	mode := modeOf(stamp)
+	files, err := initFiles(tpl, agents, mode)
+	if err != nil {
+		return nil, err
+	}
+	entries, err := managedEntries(tpl, agents, mode)
+	if err != nil {
+		return nil, err
+	}
+	managed := map[string]bool{}
+	for _, e := range entries {
+		managed[e.rel] = true
+	}
+	var out []placedFile
+	for _, f := range files {
+		if !strings.HasPrefix(f.src, "agents/") {
+			continue // base files aren't recreated on upgrade
+		}
+		if managed[f.rel] {
+			continue // region files are handled by the managed-region upgrade
+		}
+		if _, err := os.Stat(destPath(targetDir, f.rel)); err == nil {
+			continue // create-once: already present
+		}
+		out = append(out, f)
+	}
+	return out, nil
+}
+
 // Upgrade refreshes specflow's managed region in each managed file to the installed kit version,
 // non-destructively: a clean region has only its between-markers content replaced; a drifted region
 // is left untouched with the fresh version dropped to a .specflow-new sidecar; a pre-marker file is
 // migrated (backed up to .specflow-bak, then rewritten). Text outside the markers is never touched.
+// It also places any non-managed adapter file a newer kit added for the installed agents (create-once).
 func Upgrade(targetDir string, tpl fs.FS, version string) (UpgradeResult, error) {
 	res := UpgradeResult{To: version}
 	sp := configPath(targetDir)
@@ -770,6 +808,27 @@ func Upgrade(targetDir string, tpl fs.FS, version string) (UpgradeResult, error)
 		}
 	}
 
+	// Place non-managed adapter files a newer kit added (e.g. the Claude handoff hook) — create-once,
+	// not baselined (init doesn't baseline these either).
+	missing, err := missingAdapterFiles(targetDir, tpl, stamp)
+	if err != nil {
+		return res, err
+	}
+	for _, f := range missing {
+		srcb, err := fs.ReadFile(tpl, f.src)
+		if err != nil {
+			return res, err
+		}
+		dest := destPath(targetDir, f.rel)
+		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+			return res, err
+		}
+		if err := os.WriteFile(dest, renderFile(srcb, modeOf(stamp)), 0o644); err != nil {
+			return res, err
+		}
+		res.Added = append(res.Added, f.rel)
+	}
+
 	stamp["kitVersion"] = version
 	stamp["upgradedAt"] = today()
 	stamp["managed"] = next
@@ -821,6 +880,13 @@ func PlanUpgrade(targetDir string, tpl fs.FS, version string) (UpgradePlan, erro
 		case upDrift:
 			plan.Drift = append(plan.Drift, rd.rel)
 		}
+	}
+	missing, err := missingAdapterFiles(targetDir, tpl, stamp)
+	if err != nil {
+		return plan, err
+	}
+	for _, f := range missing {
+		plan.Add = append(plan.Add, f.rel)
 	}
 	return plan, nil
 }

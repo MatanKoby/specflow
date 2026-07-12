@@ -1485,3 +1485,40 @@ func TestClaudeStep6HookScriptBehavior(t *testing.T) {
 		t.Errorf("non-completion HEAD should be silent; exit=%d out=%q", c, o)
 	}
 }
+
+// TestUpgradeAddsMissingAdapterHook: upgrade converges an install that predates a non-managed adapter
+// file (the hook) by adding it create-once, but never resurrects a user-deleted base file.
+func TestUpgradeAddsMissingAdapterHook(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	hook := filepath.Join(tmp, ".claude/hooks/specflow-handoff-reminder.sh")
+	queue := filepath.Join(tmp, "BUILD_QUEUE.md")
+	// Simulate an install that predates the hook, and a deliberately-removed base file.
+	if err := os.Remove(hook); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(queue); err != nil {
+		t.Fatal(err)
+	}
+
+	r := run(t, tmp, "upgrade")
+	if r.code != 0 {
+		t.Fatalf("upgrade exit %d: %s", r.code, r.stderr)
+	}
+	if !exists(hook) {
+		t.Error("upgrade did not add the missing adapter hook")
+	}
+	if !strings.Contains(r.stdout, ".claude/hooks/specflow-handoff-reminder.sh") {
+		t.Error("upgrade did not report the added hook")
+	}
+	if exists(queue) {
+		t.Error("upgrade resurrected a user-deleted base file (BUILD_QUEUE.md)")
+	}
+
+	// Idempotent: a second upgrade adds nothing.
+	if r2 := run(t, tmp, "upgrade"); strings.Contains(r2.stdout, "added:") {
+		t.Errorf("second upgrade re-added files: %s", r2.stdout)
+	}
+}
