@@ -7,7 +7,7 @@
   },
   "initializedAt": "2026-06-17",
   "kit": "specflow",
-  "kitVersion": "0.1.1",
+  "kitVersion": "0.1.2",
   "managed": {
     "AGENTS.md": "a728495df9551eff1126949d1e79f189c4ae2e8d3f4ab8a032f9a79368966b85",
     "CLAUDE.md": "623ebe15c457cc8a159f56246d910b23dd0ed59593201146cc0fcae488182a61",

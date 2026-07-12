@@ -23,6 +23,9 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > Releases + `curl|sh`; Homebrew deferred), **1** (add-agent), **2** (status), **5** (`--dry-run`).
 > **`v0.1.1`** (patch) ships the user-facing content improvements since: **FH** (finish-batch step-6
 > handoff rework) and **RF** (research-flow convention).
+> **`v0.1.2`** (patch) ships **CH** (Claude-Code step-6 handoff hook: a `PostToolUse` backstop that
+> blocks the loop after a `meta: complete batch-*` commit to force the handoff) plus the `upgrade`
+> convergence that delivers newly-shipped non-managed adapter files to existing installs.
 > **Post-v0.1 queue below:** **Batch 4** (badges + file-map) · **Batch
 > W** (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · Homebrew tap.
