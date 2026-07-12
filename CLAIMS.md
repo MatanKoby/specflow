@@ -19,6 +19,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch CH — Claude Code batch-boundary hook (opt-in)
+- Owner: claude
+- Started: 2026-07-12 11:39
+
 ## Completed
 
 ### Batch RF — Ship the research-flow convention
