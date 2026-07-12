@@ -19,10 +19,6 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
-### Batch 4 — README badges + file-map
-- Owner: claude
-- Started: 2026-07-12 10:49
-
 ## Completed
 
 ### Batch RF — Ship the research-flow convention
