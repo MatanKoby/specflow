@@ -30,32 +30,48 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 
 ---
 
-## Batch CH `[NOT READY]` — Claude Code batch-boundary hook (opt-in)
+## Batch CH — Claude Code batch-boundary hook (opt-in)
 
-**Goal.** A Claude-Code-only deterministic backstop for the step-6 handoff: a `PostToolUse` hook
-that fires on the `meta: complete batch-*` commit and reminds the agent to offer the handoff, so the
-boundary no longer depends on the agent choosing to. Hooks don't port to other agents, so this is a
-Claude-only add-on layered on top of the portable text (Batch FH).
+**Goal.** A Claude-Code-only deterministic backstop for the finish-batch step-6 handoff: a
+`PostToolUse(Bash)` hook that fires the moment the agent lands a `meta: complete batch-*` commit and
+**blocks the agentic loop** with a reminder to run step 6, so the boundary no longer depends on the
+agent choosing to. Hooks don't port to other agents, so this is a Claude-only add-on layered on the
+portable step-6 text (Batch FH). Enforcement relationship: the first concrete slice of the "hooks"
+layer in `spec/open-questions.md` → Quality / enforcement, shipped ahead of the general Batch E
+research.
 
-**Delivery decision (opt-in, no auto-merge).** specflow's installer is markdown-marker based and
-can't merge into an existing `.claude/settings.json` (JSON, no merge path). So:
-- Ship the hook script under `templates/agents/claude/.claude/hooks/` (create-once).
-- The CLI prints the exact settings.json block to paste, and where, for claude installs at the end
-  of `init` / `add-agent` (no auto-merge, no surprise executable).
-- The Claude adapter (`templates/agents/claude/CLAUDE.md` region) instructs the agent: when it
-  installs or upgrades specflow for the user, relay the hook-setup instructions (what to paste,
-  where) rather than leaving them buried in CLI output.
+**Trigger (settled).** `PostToolUse`, `matcher: "Bash"`. The script gates cheaply — proceed only if
+`tool_input.command` contains `git commit` — then confirms robustly against the landed **HEAD
+subject** (`git -C <cwd> log -1 --pretty=%s` matches `^meta: complete batch-`). Matching the landed
+subject (not the command text) handles `-m` / `-F` / heredoc uniformly and proves the commit
+succeeded; the next commit (`meta: claim …`) doesn't match, so it self-de-dups.
 
-**Why `[NOT READY]`:** needs a short design pass first (hook script contents + exact commit match,
-committed vs local settings, and the CLI/agent messaging) before build.
+**Delivery (settled).** Emit `{"decision":"block","reason":<reminder>}` (exit 0) — halts the loop
+after the commit and feeds the step-6 reminder back so the agent must act on it before continuing.
+Soft-depends on `jq`; if `jq` is absent the script fails open (exit 0) so it can never break a commit
+— the FH text stays the floor.
+
+**Delivery decision (opt-in, no auto-merge).** specflow's installer is marker-based and can't merge
+into an existing `.claude/settings.json` (JSON, no merge path). So:
+- Ship the hook script under `templates/agents/claude/.claude/hooks/specflow-handoff-reminder.sh`
+  (create-once; invoked as `bash <path>`, so it needs no exec bit — the installer writes `0o644`).
+- The CLI prints the exact settings block to paste at the end of `init` / `add-agent` for claude
+  installs (no auto-merge) — **recommend committed `.claude/settings.json`** (team-wide backstop; the
+  script is already committed), noting `settings.local.json` as the personal alternative.
+- The Claude adapter (`templates/agents/claude/CLAUDE.md` managed region) instructs the agent: when
+  it installs or upgrades specflow for the user, relay the hook-setup step (what to paste, where)
+  rather than leaving it buried in CLI output.
 
 ### Files this batch creates/edits
-- `templates/agents/claude/.claude/hooks/*` · `cmd/specflow/main.go` (post-install hook notice for
-  claude) · `templates/agents/claude/CLAUDE.md` (relay instruction) · `cmd/specflow/main_test.go`.
+- `templates/agents/claude/.claude/hooks/specflow-handoff-reminder.sh` (new) ·
+  `cmd/specflow/main.go` (post-install paste-notice for claude on `init` + `add-agent`) ·
+  `templates/agents/claude/CLAUDE.md` (relay instruction) · `cmd/specflow/main_test.go`.
 
 ### Verification
-- `go test ./...`; `init --agents=claude` into a temp repo prints the paste-snippet and drops the
-  hook script; simulate a `meta: complete` commit and confirm the hook emits the reminder.
+- `go test ./...`; `init --agents=claude` into a temp repo drops the hook script and prints the
+  paste-snippet; unit-test the script by piping a fake `PostToolUse` payload against a temp git repo
+  — matching HEAD subject → emits `decision:block`; non-commit command or non-matching subject →
+  silent (exit 0, no output).
 
 ---
 
