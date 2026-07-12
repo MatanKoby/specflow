@@ -10,6 +10,23 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch CH — Claude Code batch-boundary hook (opt-in)
+Shipped the Claude-only deterministic backstop for the finish-batch step-6 handoff, layered on the
+portable FH text. A `PostToolUse(Bash)` hook (`templates/agents/claude/.claude/hooks/specflow-handoff-reminder.sh`)
+gates on `git commit` in the command, confirms via the landed HEAD subject `^meta: complete batch-`
+(handles `-m`/`-F`/heredoc, proves the commit landed, self-de-dups), and emits
+`{"decision":"block","reason":…}` to halt the loop and force the handoff. Soft-deps on `jq`, fails
+open so it can never break a commit. The CLI prints an opt-in `.claude/settings.json` paste-block at
+the end of `init`/`add-agent` (recommends committed settings; no auto-merge — JSON can't be
+marker-merged); the claude `CLAUDE.md` full-only region tells the agent to relay that step. spec-only
+omits it (no batch boundary). Also **extended `upgrade`** to place newly-shipped non-managed adapter
+files create-once (scoped to `agents/`, never resurrects a deleted base file), so existing installs
+receive the hook — previously upgrade only refreshed managed regions. Key commits `c99b734`
+(hook + CLI + relay + tests), `2e4b69a` (upgrade convergence), `7b3ffdc` (dogfood upgrade
+0.1.0→0.1.1). Design recorded in `spec/open-questions.md` → Quality / enforcement. 4 new tests
+(install+notice, add-agent, jq-gated script behavior, upgrade-adds-hook). Follow-up: activating the
+hook in this repo's own `.claude/settings.json` is left as a user opt-in.
+
 ## Batch RF — Ship the research-flow convention
 Made the lightweight research-note flow a shipped part of specflow, so a fresh install carries the
 convention (previously only self-hosted). Three template edits, all self-contained (no queue/claim
