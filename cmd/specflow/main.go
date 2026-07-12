@@ -7,11 +7,45 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	specflow "github.com/MatanKoby/specflow"
 	"github.com/MatanKoby/specflow/internal/kit"
 )
+
+// claudeHookRel is the repo-relative path of the Claude-Code step-6 handoff-reminder hook script,
+// installed with the claude adapter in full mode. specflow can't auto-merge it into the JSON
+// settings file, so printClaudeHookNotice tells the user the one-time block to paste.
+const claudeHookRel = ".claude/hooks/specflow-handoff-reminder.sh"
+
+// printClaudeHookNotice prints the opt-in activation step for the Claude step-6 handoff hook: the
+// settings.json block to paste, and where. Called when the hook script was just created (claude
+// adapter, full mode) — never for spec-only installs, which have no batch boundary to backstop.
+func printClaudeHookNotice() {
+	fmt.Println(bold("\nClaude Code — activate the step-6 handoff hook") +
+		dim("  (deterministic backstop for finish-batch step 6; opt-in)"))
+	fmt.Println(dim("  Dropped a hook script at ") + cyan(claudeHookRel) +
+		dim(". To turn it on, merge this into ") + cyan(".claude/settings.json") +
+		dim(" (recommended — commit it so the whole team's Claude agents get the backstop; or ") +
+		cyan(".claude/settings.local.json") + dim(" for a personal, uncommitted setup):"))
+	fmt.Println(cyan(`
+  {
+    "hooks": {
+      "PostToolUse": [
+        {
+          "matcher": "Bash",
+          "hooks": [
+            { "type": "command", "command": "bash ${CLAUDE_PROJECT_DIR}/.claude/hooks/specflow-handoff-reminder.sh" }
+          ]
+        }
+      ]
+    }
+  }`))
+	fmt.Println(dim("  It blocks the loop right after a ") + cyan("meta: complete batch-*") +
+		dim(" commit so the handoff always gets offered. Without it, the portable text in ") +
+		cyan("finish-batch.md") + dim(" is the only reminder.") + "\n")
+}
 
 // version is overridden at build time via -ldflags "-X main.version=x.y.z".
 var version = "0.1.1"
@@ -376,6 +410,9 @@ func cmdInit(args []string) error {
 	} else {
 		fmt.Println("  3. Fill in " + cyan("spec/README.md") + ", seed " + cyan("BUILD_QUEUE.md") + ", and point your agent at " + cyan("AGENTS.md") + ".\n")
 	}
+	if slices.Contains(res.Created, claudeHookRel) {
+		printClaudeHookNotice()
+	}
 	return nil
 }
 
@@ -619,6 +656,9 @@ func cmdAddAgent(args []string) error {
 		}
 		if len(res.SkipExisting) > 0 {
 			fmt.Println(dim("  left untouched (already present): ") + strings.Join(res.SkipExisting, ", "))
+		}
+		if slices.Contains(res.Created, claudeHookRel) {
+			printClaudeHookNotice()
 		}
 	}
 	if changed {

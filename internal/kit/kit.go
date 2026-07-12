@@ -98,8 +98,9 @@ func renderFile(content []byte, mode string) []byte { return []byte(renderBody(s
 
 // specOnlyOmits reports whether a repo-relative file belongs to the batch/claim machinery that
 // spec-only mode leaves out: the queue, the claims ledger, their history archives, the claim/finish
-// procedures, and the claim-batch/finish-batch skills (for any agent). Everything else — AGENTS.md,
-// spec/, the spec-edit procedure + skill, the stamp, agent instruction files — installs in both modes.
+// procedures, the claim-batch/finish-batch skills, and the finish-batch handoff hook (for any agent).
+// Everything else — AGENTS.md, spec/, the spec-edit procedure + skill, the stamp, agent instruction
+// files — installs in both modes.
 func specOnlyOmits(rel string) bool {
 	switch rel {
 	case "BUILD_QUEUE.md", "CLAIMS.md",
@@ -107,6 +108,10 @@ func specOnlyOmits(rel string) bool {
 		return true
 	}
 	if strings.HasPrefix(rel, "specflow/history/") {
+		return true
+	}
+	// The handoff-reminder hook backstops finish-batch step 6, which spec-only doesn't have.
+	if strings.Contains(rel, ".claude/hooks/specflow-handoff-reminder.sh") {
 		return true
 	}
 	return strings.Contains(rel, "skills/claim-batch/") || strings.Contains(rel, "skills/finish-batch/")

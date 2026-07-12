@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -605,6 +606,7 @@ var (
 		"BUILD_QUEUE.md", "CLAIMS.md",
 		"specflow/procedures/claim-batch.md", "specflow/procedures/finish-batch.md",
 		".claude/skills/claim-batch/SKILL.md", ".claude/skills/finish-batch/SKILL.md",
+		".claude/hooks/specflow-handoff-reminder.sh",
 		"specflow/history/BUILD_QUEUE_DONE.md", "specflow/history/CLAIMS_DONE.md",
 	}
 	specOnlyKept = []string{
@@ -630,6 +632,10 @@ func TestInitSpecOnlyOmitsBatchMachinery(t *testing.T) {
 		if !exists(filepath.Join(tmp, f)) {
 			t.Errorf("spec-only install missing %s", f)
 		}
+	}
+	// The step-6 hook backstops a boundary spec-only doesn't have, so its notice must stay silent.
+	if strings.Contains(r.stdout, "activate the step-6 handoff hook") {
+		t.Error("spec-only init printed the step-6 hook notice")
 	}
 	var stamp map[string]any
 	json.Unmarshal([]byte(read(t, filepath.Join(tmp, "specflow/config.json"))), &stamp)
@@ -1364,4 +1370,118 @@ func TestResearchFlowInSpecOnly(t *testing.T) {
 		t.Fatalf("init --spec-only exit %d: %s", r.code, r.stderr)
 	}
 	assertResearchFlowShipped(t, tmp)
+}
+
+// TestClaudeStep6HookInstalledWithNotice: a full claude install drops the handoff-reminder hook,
+// prints the opt-in activation notice with the paste block, and carries the adapter relay line.
+func TestClaudeStep6HookInstalledWithNotice(t *testing.T) {
+	tmp := newRepo(t)
+	r := run(t, tmp, "init", "--agents=claude")
+	if r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	if !exists(filepath.Join(tmp, ".claude/hooks/specflow-handoff-reminder.sh")) {
+		t.Fatal("claude full install missing the step-6 handoff hook script")
+	}
+	if !strings.Contains(r.stdout, "activate the step-6 handoff hook") {
+		t.Error("init did not print the hook activation notice")
+	}
+	if !strings.Contains(r.stdout, "${CLAUDE_PROJECT_DIR}/.claude/hooks/specflow-handoff-reminder.sh") {
+		t.Error("notice did not include the settings.json paste-block command")
+	}
+	if c := read(t, filepath.Join(tmp, "CLAUDE.md")); !strings.Contains(c, "relay the Claude-Code step-6 handoff hook") {
+		t.Error("CLAUDE.md missing the full-only relay instruction")
+	}
+}
+
+// TestAddAgentClaudeHookNotice: adding claude to a full repo installs the hook and prints the notice
+// once; re-adding an already-present claude is a no-op and must not re-print it.
+func TestAddAgentClaudeHookNotice(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=copilot"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	r := run(t, tmp, "add-agent", "claude")
+	if r.code != 0 {
+		t.Fatalf("add-agent exit %d: %s", r.code, r.stderr)
+	}
+	if !exists(filepath.Join(tmp, ".claude/hooks/specflow-handoff-reminder.sh")) {
+		t.Error("add-agent claude did not install the hook script")
+	}
+	if !strings.Contains(r.stdout, "activate the step-6 handoff hook") {
+		t.Error("add-agent claude did not print the hook notice")
+	}
+	if r2 := run(t, tmp, "add-agent", "claude"); strings.Contains(r2.stdout, "activate the step-6 handoff hook") {
+		t.Error("re-adding an already-present claude re-printed the hook notice")
+	}
+}
+
+// runHook drives the installed hook script with a synthetic PostToolUse payload and returns its
+// stdout and exit code.
+func runHook(t *testing.T, script, cwd, command string) (string, int) {
+	t.Helper()
+	payload := fmt.Sprintf(`{"cwd":%q,"tool_input":{"command":%q}}`, cwd, command)
+	cmd := exec.Command("bash", script)
+	cmd.Dir = cwd
+	cmd.Stdin = strings.NewReader(payload)
+	var out, errb strings.Builder
+	cmd.Stdout = &out
+	cmd.Stderr = &errb
+	if err := cmd.Run(); err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			return out.String(), ee.ExitCode()
+		}
+		t.Fatalf("run hook: %v (stderr=%s)", err, errb.String())
+	}
+	return out.String(), 0
+}
+
+// TestClaudeStep6HookScriptBehavior exercises the shipped hook: it blocks the loop only when a
+// `meta: complete batch-*` commit just landed, and stays silent otherwise. Skipped without jq
+// (the hook fails open when jq is absent, so there's nothing deterministic to assert).
+func TestClaudeStep6HookScriptBehavior(t *testing.T) {
+	if _, err := exec.LookPath("jq"); err != nil {
+		t.Skip("jq not installed — the hook fails open without it")
+	}
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	script := filepath.Join(tmp, ".claude/hooks/specflow-handoff-reminder.sh")
+
+	// A repo whose HEAD subject we control, pointed at by the payload's cwd.
+	gd := newRepo(t)
+	gitOut(t, gd, "config", "user.email", "t@t.t")
+	gitOut(t, gd, "config", "user.name", "t")
+	gitOut(t, gd, "commit", "--allow-empty", "-m", "meta: complete batch-CH")
+
+	// Matching: a git commit landed on a `meta: complete batch-*` HEAD → block + reminder.
+	out, code := runHook(t, script, gd, "git commit -q -m x")
+	if code != 0 {
+		t.Fatalf("hook exit %d (want 0), out=%s", code, out)
+	}
+	var dec struct {
+		Decision string `json:"decision"`
+		Reason   string `json:"reason"`
+	}
+	if err := json.Unmarshal([]byte(out), &dec); err != nil {
+		t.Fatalf("hook output is not valid JSON: %v\n%s", err, out)
+	}
+	if dec.Decision != "block" {
+		t.Errorf("decision = %q, want block", dec.Decision)
+	}
+	if !strings.Contains(dec.Reason, "finish-batch step 6") {
+		t.Errorf("block reason missing the step-6 reminder: %q", dec.Reason)
+	}
+
+	// Non-commit command → silent, exit 0.
+	if o, c := runHook(t, script, gd, "ls -la"); c != 0 || strings.TrimSpace(o) != "" {
+		t.Errorf("non-commit command should be silent; exit=%d out=%q", c, o)
+	}
+
+	// git commit but HEAD is a claim, not a completion → silent.
+	gitOut(t, gd, "commit", "--allow-empty", "-m", "meta: claim batch-X (claude)")
+	if o, c := runHook(t, script, gd, "git commit -m y"); c != 0 || strings.TrimSpace(o) != "" {
+		t.Errorf("non-completion HEAD should be silent; exit=%d out=%q", c, o)
+	}
 }
