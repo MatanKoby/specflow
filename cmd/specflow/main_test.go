@@ -758,6 +758,58 @@ func TestVerifyCatchesModeLeak(t *testing.T) {
 	}
 }
 
+// An existing spec-only install must be fixable by `upgrade`, not only by re-init. Managed regions
+// refresh on their own, but the skill stubs are non-managed create-once files that upgrade would
+// otherwise leave stale forever — and a stale spec-edit stub is the worst case, since its YAML
+// description loads into every session's skill listing. Simulates a leaking legacy install by
+// writing full-mode content over a spec-only one.
+func TestUpgradeRepairsLegacySpecOnlyLeak(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--all", "--spec-only"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	stub := filepath.Join(tmp, ".claude/skills/spec-edit/SKILL.md")
+	legacy := "---\nname: spec-edit\ndescription: Covers size-watch, and propagation to BUILD_QUEUE.md.\n---\n\nUpdate `spec/` and `BUILD_QUEUE.md` — never put claim state in the queue.\n"
+	if err := os.WriteFile(stub, []byte(legacy), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if r := run(t, tmp, "verify"); r.code == 0 {
+		t.Errorf("verify passed with a leaking non-managed skill stub: %s", r.stdout)
+	}
+	if r := run(t, tmp, "upgrade"); r.code != 0 {
+		t.Fatalf("upgrade exit %d: %s", r.code, r.stderr)
+	}
+	got := read(t, stub)
+	for _, tok := range kit.QueueTokens {
+		if strings.Contains(got, tok) {
+			t.Errorf("upgrade left %q in the spec-edit stub:\n%s", tok, got)
+		}
+	}
+	if r := run(t, tmp, "verify"); r.code != 0 {
+		t.Errorf("verify still failing after upgrade: %s", r.stdout)
+	}
+}
+
+// The repair above keys off a mode leak, so it must never fire in full mode — a full install's
+// stubs legitimately name the queue, and rewriting a user's customized stub would be destructive.
+func TestUpgradeLeavesFullModeStubsAlone(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	stub := filepath.Join(tmp, ".claude/skills/spec-edit/SKILL.md")
+	custom := read(t, stub) + "\nMy own note about BUILD_QUEUE.md.\n"
+	if err := os.WriteFile(stub, []byte(custom), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if r := run(t, tmp, "upgrade"); r.code != 0 {
+		t.Fatalf("upgrade exit %d: %s", r.code, r.stderr)
+	}
+	if got := read(t, stub); got != custom {
+		t.Errorf("upgrade overwrote a customized full-mode stub:\n%s", got)
+	}
+}
+
 func TestFullModeManagedFilesAreComplete(t *testing.T) {
 	tmp := newRepo(t)
 	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {

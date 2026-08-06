@@ -765,6 +765,45 @@ func missingAdapterFiles(targetDir string, tpl fs.FS, stamp map[string]any) ([]p
 	return out, nil
 }
 
+// staleAdapterFiles returns the non-managed adapter files that are present but name machinery the
+// install's mode omits — a skill stub left behind by a kit that shipped un-gated prose.
+//
+// These files are create-once and carry no baseline, so upgrade normally can't tell a pristine copy
+// from a user-edited one and leaves them alone. A mode leak resolves that: no user would write
+// "propagation to BUILD_QUEUE.md" into a repo that has no queue, so the leak itself proves the
+// content is stale specflow text and is safe to replace. Without this, an existing spec-only install
+// keeps a wrong `spec-edit` skill forever — and its YAML description loads into every session.
+func staleAdapterFiles(targetDir string, tpl fs.FS, stamp map[string]any) ([]placedFile, error) {
+	agents := installedAgents(stamp)
+	mode := modeOf(stamp)
+	files, err := initFiles(tpl, agents, mode)
+	if err != nil {
+		return nil, err
+	}
+	entries, err := managedEntries(tpl, agents, mode)
+	if err != nil {
+		return nil, err
+	}
+	managed := map[string]bool{}
+	for _, e := range entries {
+		managed[e.rel] = true
+	}
+	var out []placedFile
+	for _, f := range files {
+		if !strings.HasPrefix(f.src, "agents/") || managed[f.rel] {
+			continue
+		}
+		b, err := os.ReadFile(destPath(targetDir, f.rel))
+		if err != nil {
+			continue // absent — missingAdapterFiles handles placement
+		}
+		if len(ModeLeaks(mode, string(b))) > 0 {
+			out = append(out, f)
+		}
+	}
+	return out, nil
+}
+
 // Upgrade refreshes specflow's managed region in each managed file to the installed kit version,
 // non-destructively: a clean region has only its between-markers content replaced; a drifted region
 // is left untouched with the fresh version dropped to a .specflow-new sidecar; a pre-marker file is
@@ -853,6 +892,22 @@ func Upgrade(targetDir string, tpl fs.FS, version string) (UpgradeResult, error)
 			return res, err
 		}
 		res.Added = append(res.Added, f.rel)
+	}
+
+	// Replace non-managed adapter files whose content names machinery this mode omits.
+	stale, err := staleAdapterFiles(targetDir, tpl, stamp)
+	if err != nil {
+		return res, err
+	}
+	for _, f := range stale {
+		srcb, err := fs.ReadFile(tpl, f.src)
+		if err != nil {
+			return res, err
+		}
+		if err := os.WriteFile(destPath(targetDir, f.rel), renderFile(srcb, modeOf(stamp)), 0o644); err != nil {
+			return res, err
+		}
+		res.Refreshed = append(res.Refreshed, f.rel)
 	}
 
 	stamp["kitVersion"] = version
@@ -1220,6 +1275,16 @@ func Verify(targetDir string, tpl fs.FS, version string) (VerifyReport, error) {
 		} else {
 			rep.OK = append(rep.OK, e.rel)
 		}
+	}
+
+	// Non-managed adapter files (skill stubs, hooks) have no region to hash, so the loop above never
+	// sees them — but a stale one is exactly as misleading to an agent as a stale region.
+	stale, err := staleAdapterFiles(targetDir, tpl, stamp)
+	if err != nil {
+		return rep, err
+	}
+	for _, f := range stale {
+		rep.Problems = append(rep.Problems, f.rel+" names batch/claim machinery this spec-only install doesn't have — run `specflow upgrade`")
 	}
 	return rep, nil
 }
