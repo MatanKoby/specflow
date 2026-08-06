@@ -117,6 +117,32 @@ func specOnlyOmits(rel string) bool {
 	return strings.Contains(rel, "skills/claim-batch/") || strings.Contains(rel, "skills/finish-batch/")
 }
 
+// QueueTokens are the queue/claim identifiers that only exist in a full install. A spec-only repo
+// has none of the files or skills they name, so a generated file mentioning one is pointing the
+// agent at machinery that isn't there. Shared by Verify's mode-consistency check and the
+// composition tests so the two can't drift apart.
+var QueueTokens = []string{"BUILD_QUEUE", "CLAIMS.md", "claim-batch", "finish-batch"}
+
+// ModeLeaks returns the QueueTokens present in content that the given install mode omits. Full mode
+// omits nothing, so it always returns nil.
+//
+// This exists because baseline hashes structurally cannot catch a mode mismatch: the baseline is
+// taken over the *rendered* region, so a full-mode paragraph wrongly shipped into a spec-only
+// install still matches its own recorded hash and reports as clean. Hashes prove a region is
+// unmodified; only this proves it is mode-appropriate.
+func ModeLeaks(mode, content string) []string {
+	if mode != "spec-only" {
+		return nil
+	}
+	var found []string
+	for _, tok := range QueueTokens {
+		if strings.Contains(content, tok) {
+			found = append(found, tok)
+		}
+	}
+	return found
+}
+
 // modeOf reads the install mode from the stamp's config block, defaulting to "full".
 func modeOf(stamp map[string]any) string {
 	if cfg, ok := stamp["config"].(map[string]any); ok {
@@ -1127,6 +1153,7 @@ func Status(targetDir string, tpl fs.FS, version string) (StatusReport, error) {
 // pieces that checked out.
 type VerifyReport struct {
 	Installed bool
+	Mode      string // full | spec-only — surfaced so the report says which mode it validated
 	OK        []string
 	Warnings  []string
 	Problems  []string
@@ -1151,7 +1178,9 @@ func Verify(targetDir string, tpl fs.FS, version string) (VerifyReport, error) {
 	rep.OK = append(rep.OK, "specflow/config.json valid")
 
 	baseline := baselineMap(stamp)
-	entries, err := managedEntries(tpl, installedAgents(stamp), modeOf(stamp))
+	mode := modeOf(stamp)
+	rep.Mode = mode
+	entries, err := managedEntries(tpl, installedAgents(stamp), mode)
 	if err != nil {
 		return rep, err
 	}
@@ -1177,6 +1206,13 @@ func Verify(targetDir string, tpl fs.FS, version string) (VerifyReport, error) {
 			default:
 				rep.Problems = append(rep.Problems, e.rel+" has no specflow region (markers missing) — run `specflow upgrade`")
 			}
+			continue
+		}
+		// Mode consistency, checked over the managed region only — text outside the markers is the
+		// user's and specflow doesn't police it.
+		if leaks := ModeLeaks(mode, parts.region); len(leaks) > 0 {
+			rep.Problems = append(rep.Problems, e.rel+" names batch/claim machinery this spec-only install doesn't have ("+
+				strings.Join(leaks, ", ")+") — run `specflow upgrade`")
 			continue
 		}
 		if base := baseline[e.rel]; base != "" && hashRegion(parts.region) != base {

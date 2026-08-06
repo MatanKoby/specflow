@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/MatanKoby/specflow/internal/kit"
 )
 
 // The tests build the real binary once, then drive it against temp repos and assert observable
@@ -615,6 +617,11 @@ var (
 	}
 	// composeTag finds any leftover section-composition scaffolding in a rendered file.
 	composeTag = regexp.MustCompile(`specflow:(full-only|spec-only)`)
+	// batchProse catches queue/claim language that names no identifier, so kit.QueueTokens can't see
+	// it — e.g. spec/README.md's "For an agent claiming a batch: read the queue entry first". Kept to
+	// the test side: verify scans managed regions where a literal-token match is the precise rule,
+	// while this guards the wording specflow authors into files it then hands to the user.
+	batchProse = regexp.MustCompile(`(?i)claiming a batch|the queue entry|claimed in git|split into batches|new batch|wrapping up a batch`)
 )
 
 func TestInitSpecOnlyOmitsBatchMachinery(t *testing.T) {
@@ -673,6 +680,81 @@ func TestSpecOnlyManagedFilesCarryNoBatchReferences(t *testing.T) {
 	// The spec discipline must survive: AGENTS.md still wires the spec-edit procedure.
 	if !strings.Contains(ag, "spec-edit") || !strings.Contains(ag, "## File ownership") {
 		t.Error("spec-only AGENTS.md lost the spec discipline content")
+	}
+}
+
+// A spec-only install must not name the machinery it deliberately omits, in *any* generated file —
+// not just the two that happen to be section-composed. The pre-existing checks assert which files
+// spec-only omits, never what the kept files say, which is how full-mode prose shipped into every
+// adapter unnoticed. This walks the whole install instead of naming files, so a newly added
+// template is covered the day it lands rather than the day someone remembers to list it.
+func TestSpecOnlyInstallNamesNoOmittedMachinery(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--all", "--spec-only"); r.code != 0 {
+		t.Fatalf("init --all --spec-only exit %d: %s", r.code, r.stderr)
+	}
+	err := filepath.Walk(tmp, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			if info.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		rel, _ := filepath.Rel(tmp, path)
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		body := string(b)
+		for _, tok := range kit.QueueTokens {
+			if strings.Contains(body, tok) {
+				t.Errorf("spec-only install: %s names %q, which this mode does not install", rel, tok)
+			}
+		}
+		if m := batchProse.FindString(body); m != "" {
+			t.Errorf("spec-only install: %s uses batch/claim language (%q)", rel, m)
+		}
+		if composeTag.MatchString(body) {
+			t.Errorf("spec-only install: %s carries leftover section-composition tags", rel)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// verify must report a mode leak as a Tier-1 problem. Without this, the check is invisible: a
+// leaking install reports "All good" because every region still matches its own baseline hash.
+func TestVerifyCatchesModeLeak(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude", "--spec-only"); r.code != 0 {
+		t.Fatalf("init --spec-only exit %d: %s", r.code, r.stderr)
+	}
+	if r := run(t, tmp, "verify"); r.code != 0 {
+		t.Fatalf("verify on a clean spec-only install should pass, got %d: %s", r.code, r.stdout)
+	}
+	// Re-stamp a full-mode CLAUDE.md region as if it were the spec-only rendering: the baseline is
+	// recomputed over it, so hash-checking alone still says clean.
+	claudePath := filepath.Join(tmp, "CLAUDE.md")
+	body := read(t, claudePath)
+	leaked := strings.Replace(body, "# CLAUDE.md", "# CLAUDE.md\n\nBefore starting any new batch → `claim-batch`.", 1)
+	if leaked == body {
+		t.Fatal("could not inject a leak into CLAUDE.md")
+	}
+	os.WriteFile(claudePath, []byte(leaked), 0o644)
+	r := run(t, tmp, "verify")
+	if r.code == 0 {
+		t.Errorf("verify passed on a spec-only install naming claim-batch: %s", r.stdout)
+	}
+	if !strings.Contains(r.stdout, "claim-batch") {
+		t.Errorf("verify did not name the leaked token: %s", r.stdout)
+	}
+	if !strings.Contains(r.stdout, "mode: spec-only") {
+		t.Errorf("verify did not surface the install mode: %s", r.stdout)
 	}
 }
 

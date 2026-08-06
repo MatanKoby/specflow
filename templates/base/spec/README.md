@@ -33,8 +33,14 @@ conclusions mature. Create it with its own `README.md` when you start research. 
 For someone new: README → (the architecture/overview file) → the files for the area in front
 of them. Don't read everything.
 
+<!-- specflow:full-only:start -->
 For an agent claiming a batch: read the queue entry first, then the 2–4 spec files relevant to
 the batch's domain. Pull a sub-folder README before reading individual files there.
+<!-- specflow:full-only:end -->
+<!-- specflow:spec-only:start -->
+For an agent picking up a task: read the 2–4 spec files relevant to its domain, not the whole
+spec. Pull a sub-folder README before reading individual files there.
+<!-- specflow:spec-only:end -->
 
 ## Editing convention
 

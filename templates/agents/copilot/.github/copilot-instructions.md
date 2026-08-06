@@ -3,6 +3,7 @@
 
 This repo uses **specflow**, a shared protocol for AI coding agents.
 
+<!-- specflow:full-only:start -->
 **Read `AGENTS.md` at the repo root before doing anything.** It is the full protocol: work is
 specced (`spec/`), split into batches (`BUILD_QUEUE.md`), and each batch is claimed in git
 (`CLAIMS.md`) before code is written.
@@ -15,4 +16,15 @@ The three procedures live in `specflow/procedures/` — read the relevant one be
 
 Commit grammar: `batch-N:` for batch work, `meta:` for claims/queue/tooling, `spec:` for spec
 edits. Never force-push the shared branch. Never write claim state into `BUILD_QUEUE.md`.
+<!-- specflow:full-only:end -->
+<!-- specflow:spec-only:start -->
+**Read `AGENTS.md` at the repo root before doing anything.** It is the full protocol: design is
+written down in `spec/`, and the user approves a design before it is persisted or built.
+
+The spec procedure lives in `specflow/procedures/` — read it before acting:
+
+- Before editing any `spec/**` file or persisting a design decision → `specflow/procedures/spec-edit.md`
+
+Commit grammar: `spec:` for spec edits, `meta:` for tooling. Never force-push the shared branch.
+<!-- specflow:spec-only:end -->
 <!-- specflow:end -->

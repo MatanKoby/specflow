@@ -552,7 +552,11 @@ func cmdVerify(args []string) error {
 		fmt.Println("")
 		os.Exit(1)
 	}
-	fmt.Println(bold("\nspecflow verify") + dim("  — installation integrity"))
+	modeNote := ""
+	if rep.Mode != "" {
+		modeNote = dim("  [mode: " + rep.Mode + "]")
+	}
+	fmt.Println(bold("\nspecflow verify") + dim("  — installation integrity") + modeNote)
 	for _, o := range rep.OK {
 		fmt.Println(green("  ✓ ") + dim(o))
 	}

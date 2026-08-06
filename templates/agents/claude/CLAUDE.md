@@ -1,6 +1,7 @@
 <!-- specflow:start - managed by specflow; do not edit inside these markers (your edits block specflow upgrade). Add your own notes outside them. -->
 # CLAUDE.md
 
+<!-- specflow:full-only:start -->
 This repo uses **[specflow](https://github.com/MatanKoby/specflow)** — a spec-driven, batch,
 claim-before-work protocol shared by all agents.
 
@@ -11,7 +12,19 @@ The three procedures live in `specflow/procedures/` and are also installed as th
 - Before starting any new batch → `claim-batch`
 - Before editing any `spec/**` file or persisting a design decision → `spec-edit`
 - When wrapping up a batch → `finish-batch`
+<!-- specflow:full-only:end -->
+<!-- specflow:spec-only:start -->
+This repo uses **[specflow](https://github.com/MatanKoby/specflow)** — a spec-driven protocol
+shared by all agents: design is written down and approved before code is written.
+
+**Read [`AGENTS.md`](AGENTS.md) first.** It is the full protocol: propose → approve → spec →
+build. The spec procedure lives in `specflow/procedures/` and is also installed as the `spec-edit`
+skill, which triggers automatically:
+
+- Before editing any `spec/**` file or persisting a design decision → `spec-edit`
+<!-- specflow:spec-only:end -->
 <!-- specflow:full-only:start -->
+
 **When you install or upgrade specflow for the user** (running `specflow init`, `add-agent`, or
 `upgrade`), relay the Claude-Code step-6 handoff hook it prints — don't leave it buried in CLI
 scrollback. Tell them the exact block to paste into `.claude/settings.json` and why: it's the
