@@ -26,7 +26,7 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > **`v0.1.2`** (patch) ships **CH** (Claude-Code step-6 handoff hook: a `PostToolUse` backstop that
 > blocks the loop after a `meta: complete batch-*` commit to force the handoff) plus the `upgrade`
 > convergence that delivers newly-shipped non-managed adapter files to existing installs.
-> **`v0.1.3`** (patch, unreleased) ships **SL** (spec-only mode no longer names the queue/claim
+> **`v0.1.3`** (patch) ships **SL** (spec-only mode no longer names the queue/claim
 > machinery it omits, plus the `verify` mode-consistency check and an `upgrade` repair path for
 > existing installs) and **SZ** (the spec-file 600-line cap is now a stop-and-ask, with a
 > `specflow:size-ok` waiver that re-asks every +200 lines).
