@@ -19,6 +19,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch SL — spec-only mode leaks queue/batch language
+- Owner: claude
+- Started: 2026-08-06 07:17
+
 ## Completed
 
 ### Batch CH — Claude Code batch-boundary hook (opt-in)
