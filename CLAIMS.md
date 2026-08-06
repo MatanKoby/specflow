@@ -19,6 +19,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch SZ — spec-file 600-line hard cap
+- Owner: claude
+- Started: 2026-08-06 10:14
+
 ## Completed
 
 ### Batch SL — spec-only mode leaks queue/batch language
