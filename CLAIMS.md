@@ -19,11 +19,48 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch SL — spec-only mode leaks queue/batch language
 - Owner: claude
 - Started: 2026-08-06 07:17
+- Finished: 2026-08-06 07:35
+- Commit: 3b265e0
 
-## Completed
+**What shipped.** The fix for a user-reported 0.1.2 defect: `init --spec-only` generated files that
+instructed agents to use `BUILD_QUEUE.md`, `CLAIMS.md`, `claim-batch`, and `finish-batch`, none of
+which the mode installs. (1) **Template gating** — the six templates with no mode markers now carry
+`specflow:full-only` / `specflow:spec-only` pairs with *replacement* spec-only wording, not
+deletion: the four adapter rule-files (cursor `.mdc` incl. its frontmatter `description:`, copilot,
+bob, antigravity), `.claude/skills/spec-edit/SKILL.md` (incl. its YAML `description:`, which loads
+into every session's skill listing), and `templates/base/spec/README.md`. (2) **`CLAUDE.md` guards
+widened** past the step-6 hook paragraph to the protocol description, "three procedures", and the
+claim/finish trigger bullets — it advertised the two skills `specOnlyOmits` had just skipped. (3)
+**Mode-consistency check** (`kit.ModeLeaks` + `kit.QueueTokens`, shared with the tests): baseline
+hashes are taken over the *rendered* region, so full-mode prose in a spec-only install matches its
+own hash and reported clean — hashes prove a region is unmodified, never that it is
+mode-appropriate. `verify` now scans managed regions for queue/claim tokens when the stamp records
+spec-only, and prints the mode it validated. (4) **`upgrade` made a complete fix path**
+(`staleAdapterFiles`): skill stubs and hooks are non-managed create-once files with no baseline, so
+upgrade previously left an existing spec-only repo with a wrong `spec-edit` stub forever. The repair
+keys off the mode leak itself, which proves the content is stale specflow text; full mode returns
+nil from `ModeLeaks`, so a customized stub is never touched.
+
+**Verification.** `go test ./...` uncached green, `go vet` + `gofmt` clean. Four new tests, written
+before the fix and observed failing across all six files: a whole-install walk (covers a new
+template the day it lands, rather than a hand-maintained file list), a `verify`-catches-leak test,
+a legacy-upgrade-repair test, and a full-mode-stub-untouched test guarding the repair from being
+destructive. A prose regex on the test side catches queue/claim wording that names no identifier
+(`spec/README.md`'s "claiming a batch: read the queue entry first"), which the token list cannot
+see. Exercised end-to-end against a **real v0.1.2 binary** built from `2951d78`: the new `verify`
+reports 6 problems where 0.1.2 said "All good", and `upgrade` then clears every specflow-owned file.
+Propagated to this repo's dogfood install (`upgrade` refreshed `CLAUDE.md`; `verify` clean).
+
+**Known residue, by contract.** `spec/README.md` is user-owned, so `upgrade` must never rewrite it;
+an existing spec-only install keeps its line 36 until the user edits it. Fixed at source, so new
+installs are clean. Design ref: `spec/architecture.md` → *Install modes*.
+
+**Follow-up.** Batch SZ (600-line cap) was unblocked by this batch and is next in the queue.
 
 ### Batch CH — Claude Code batch-boundary hook (opt-in)
 - Owner: claude

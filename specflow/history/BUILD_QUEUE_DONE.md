@@ -10,6 +10,22 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch SL — spec-only mode leaks queue/batch language
+Fixed a user-reported 0.1.2 defect where `init --spec-only` generated files pointing agents at
+`BUILD_QUEUE.md`, `CLAIMS.md`, `claim-batch`, and `finish-batch` — none of which the mode installs.
+Gated the six templates that had no mode markers (four adapter rule-files, the `spec-edit` skill
+stub incl. its YAML `description:`, and `templates/base/spec/README.md`) with *replacement*
+spec-only wording rather than deletion, and widened `CLAUDE.md`'s guards past the step-6 paragraph
+to the protocol description and trigger bullets. Added the mode-consistency check baseline hashes
+structurally cannot provide (they're taken over the rendered region, so full-mode prose in a
+spec-only install matches its own hash — which is why `verify` said "All good" on a broken install):
+`kit.ModeLeaks`/`kit.QueueTokens`, shared with the tests, plus the install mode in `verify`'s
+output. Made `upgrade` a complete fix path via `staleAdapterFiles`, since non-managed create-once
+skill stubs carry no baseline and were being left stale forever. Tests written first and observed
+failing across all six files; verified against a real v0.1.2 binary built from `2951d78`. Key commit
+`ee4b6b7`, final `3b265e0`. Residue by contract: `spec/README.md` is user-owned so `upgrade` can't
+correct existing installs. Follow-up: Batch SZ (600-line cap) unblocked.
+
 ## Batch CH — Claude Code batch-boundary hook (opt-in)
 Shipped the Claude-only deterministic backstop for the finish-batch step-6 handoff, layered on the
 portable FH text. A `PostToolUse(Bash)` hook (`templates/agents/claude/.claude/hooks/specflow-handoff-reminder.sh`)
