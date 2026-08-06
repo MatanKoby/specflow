@@ -47,6 +47,10 @@ behaves* (anything the user would plausibly have a view on), it is design: propo
 If it only affects *how the code achieves an already-approved behavior*, it is the agent's. When
 genuinely unsure which side a choice falls on, treat it as design and ask.
 
+A third, narrower stop follows the same shape: when a spec file would cross its size cap, the agent
+stops and asks the user to split or keep rather than restructuring `spec/` on its own authority.
+See `architecture.md` → *Spec organization*.
+
 These gates live in the procedures (`spec-edit.md` → gate 1, `claim-batch.md` → gate 2). How
 strictly they are *enforced* — written guidelines vs. an executable check — is the one piece still
 open (see `open-questions.md` → *Speccing & approval discipline*); v1 is guidelines-only, consistent

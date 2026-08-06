@@ -48,6 +48,38 @@ overwrite text authored by a user or another agent**, in any file. They write on
 marker-delimited region; everything outside is preserved. `init` additionally **never writes without
 consent and never commits** (see below).
 
+## Spec organization — concern-per-file and the 600-line cap
+
+`spec/` is organized concern-per-file, with sub-folders and a per-folder `README.md` index as it
+grows. The **primary** reason to split a file is that it has started holding **two concerns** —
+that fires long before any line count, and it is what the spec-edit procedure's concern-matching
+rule exists to catch.
+
+**600 lines is a hard cap, not a nudge.** It backstops the case where a file quietly accumulated a
+second concern and nobody noticed:
+
+- When an edit would push a live design file past its current limit, the agent **stops and asks the
+  user** rather than deciding for itself. It presents the file's **section headlines** (so the user
+  can judge where a split would fall) and states whether it believes the file still holds a
+  **single concern**.
+- The ask always carries the cost, in these words: *"The bigger a spec file is, the more I read when
+  I need even just a small chunk from it, so it's best the file is small in advance. But, you're the
+  boss."*
+- The agent **never asks the user to pick a number.** The only question is split or keep.
+- **If the user says keep**, the agent writes a waiver marker as the **first line of the file**
+  recording that the user decided it, the timestamp (UTC), and the next threshold:
+  `<!-- specflow:size-ok - user approved this file over 600 lines on YYYY-MM-DD HH:MM UTC; next check at 800. -->`
+  The threshold advances by **+200 lines** each time, so the next ask lands at 800, then 1000. A
+  waiver is never permanent silence.
+
+**Exempt: `archive.md` and `research/`.** Both grow monotonically by design — `archive.md` is
+institutional memory and research notes are dated snapshots the archive rule already forbids
+rewriting — so neither has a concern-split available and the cap would only produce an
+unanswerable prompt.
+
+The 600 figure is load-bearing elsewhere: it is the assumption behind *no spec Q&A* (specs fit in
+context, so asking the invoking agent is free) — see `research/2026-07-competitive-landscape.md` #7.
+
 ## Install modes — full vs spec-only
 
 `init` installs one of two modes (the user picks at init; recorded in the stamp):
@@ -62,16 +94,34 @@ Spec-only writes `AGENTS.md` (spec sections only), `spec/`, the **spec-edit** pr
 and the selected agent stubs; it omits `BUILD_QUEUE.md` / `CLAIMS.md` / `claim-batch` / `finish-batch`
 and their skills.
 
-**One source, composed — not two forks.** `AGENTS.md` and `spec-edit.md` are **section-composed**:
-their managed region is built from tagged sub-sections, and spec-only **omits the batch/claim
-sections** at render time. There is a single template (organic, no drifting variants); the mode
-decides which sub-sections are emitted, and the baseline hash is taken over the *rendered* region.
+**One source, composed — not two forks.** Every template that ships in both modes is
+**section-composed**: its managed region is built from tagged sub-sections, and spec-only **omits the
+batch/claim sections** at render time. There is a single template (organic, no drifting variants);
+the mode decides which sub-sections are emitted, and the baseline hash is taken over the *rendered*
+region.
 - `AGENTS.md` sub-sections: **spec discipline** (always) · **commit/push authority** (always) ·
   **batch & claim** (full only).
 - `spec-edit.md` sub-sections: the spec-organization core (always) · the *"a decision also goes to
   the queue"* persistence step (full only).
-The spec sub-sections are **self-contained** — they never reference the queue/claims, so spec-only
-reads cleanly.
+- **Every per-agent instruction file** (`CLAUDE.md`, `.cursor/rules/specflow.mdc`,
+  `.github/copilot-instructions.md`, `.bob/rules/specflow.md`, `.agents/rules/specflow.md`) and the
+  **`spec-edit` skill stub**: the one-paragraph model description, the auto-trigger list, and the
+  commit grammar are all mode-dependent. Spec-only needs *replacement wording*, not just deletion —
+  an adapter must still describe the protocol it did install.
+- `spec/README.md` ships as user-owned content, so its reading-order line is composed at render
+  time and cannot be corrected retroactively by `upgrade` (see *Ownership* above).
+
+**Composition scope is a hard invariant: a generated file may never name machinery its own install
+mode omits.** An install that points agents at `BUILD_QUEUE.md`, `CLAIMS.md`, `claim-batch`, or
+`finish-batch` when spec-only did not create them is a defect, not cosmetic drift. The spec
+sub-sections are **self-contained** — they never reference the queue/claims, so spec-only reads
+cleanly.
+
+`verify` enforces this: per-region baseline hashes prove a region is *unmodified*, but they cannot
+prove it is *mode-appropriate* (each mode hashes its own rendering, so a full-mode paragraph
+wrongly shipped into a spec-only install still matches its own baseline). A **mode-consistency
+check** therefore scans managed regions for queue/claim tokens whenever the stamp records
+`mode: spec-only`, and reports them as drift.
 
 ## init / upgrade
 
