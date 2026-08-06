@@ -1656,3 +1656,140 @@ func TestUpgradeAddsMissingAdapterHook(t *testing.T) {
 		t.Errorf("second upgrade re-added files: %s", r2.stdout)
 	}
 }
+
+// The 600-line cap is a stop-and-ask, not a nudge, so the shipped procedure has to carry the four
+// parts an agent needs to execute it without the spec in context: the headline listing, the
+// single-concern claim, the verbatim read-cost warning, and the waiver format. The warning is
+// asserted word-for-word because the user specified those exact words — a paraphrase drops the
+// "you're the boss" that makes the ask a real question rather than a lecture.
+func assertSizeCapShipped(t *testing.T, dir string) {
+	t.Helper()
+	raw := read(t, filepath.Join(dir, "specflow/procedures/spec-edit.md"))
+	// The prose is hard-wrapped, so collapse whitespace before matching sentence-length strings.
+	body := strings.Join(strings.Fields(raw), " ")
+	want := []string{
+		"600 lines is a hard cap, not a nudge",
+		"section headlines",
+		"single concern",
+		"The bigger a spec file is, the more I read when I need even just a small chunk from it, " +
+			"so it's best the file is small in advance. But, you're the boss.",
+		"Never ask the user to pick a number",
+		"specflow:size-ok",
+		"next check at 800",
+		"plus 200",
+		"`archive.md` and anything under `research/`",
+	}
+	for _, w := range want {
+		if !strings.Contains(body, w) {
+			t.Errorf("spec-edit.md is missing the size-cap rule %q", w)
+		}
+	}
+	// The old nudge wording and its token gloss were both wrong: it never fired, and 600 lines is
+	// roughly 10-11k tokens at this corpus's line length, not 20k.
+	for _, stale := range []string{"20k tokens", "consider whether the next bite of content"} {
+		if strings.Contains(body, stale) {
+			t.Errorf("spec-edit.md still carries the superseded size-watch wording %q", stale)
+		}
+	}
+}
+
+func TestSizeCapShippedFullMode(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	assertSizeCapShipped(t, tmp)
+	// The skill description loads into every session, so it is where a stale summary does damage.
+	skill := read(t, filepath.Join(tmp, ".claude/skills/spec-edit/SKILL.md"))
+	if !strings.Contains(skill, "600-line size cap") || !strings.Contains(skill, "never decide it yourself") {
+		t.Error("spec-edit SKILL.md does not summarize the size cap as a stop")
+	}
+}
+
+// The cap is spec discipline, not batch machinery, so spec-only inherits it whole.
+func TestSizeCapShippedSpecOnly(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude", "--spec-only"); r.code != 0 {
+		t.Fatalf("init --spec-only exit %d: %s", r.code, r.stderr)
+	}
+	assertSizeCapShipped(t, tmp)
+}
+
+// The waiver marker shares specflow's `<!-- specflow:… -->` comment shape with the region markers
+// (specflow:start/end) and the composition tags (specflow:full-only/spec-only), all of which are
+// matched by token. This asserts specflow:size-ok is inert to all of them, on the two surfaces that
+// can actually parse it. (A waiver on a real spec file can't collide with anything: `spec/**` is
+// user-owned, so no specflow command ever parses it — the exposure is entirely in managed files.)
+//
+//	inside a region — the shipped procedure carries the literal as its example, so a false start/end
+//	                  match would truncate or duplicate the region on every upgrade.
+//	outside a region — a waiver placed above a managed file's region must survive upgrade untouched,
+//	                  the same guarantee any other user text outside the markers gets.
+func TestSizeOkMarkerDoesNotCollideWithSpecflowMarkers(t *testing.T) {
+	for _, mode := range []string{"full", "spec-only"} {
+		t.Run(mode, func(t *testing.T) {
+			tmp := newRepo(t)
+			args := []string{"init", "--agents=claude"}
+			if mode == "spec-only" {
+				args = append(args, "--spec-only")
+			}
+			if r := run(t, tmp, args...); r.code != 0 {
+				t.Fatalf("init exit %d: %s", r.code, r.stderr)
+			}
+
+			proc := filepath.Join(tmp, "specflow/procedures/spec-edit.md")
+			before := read(t, proc)
+			if !strings.Contains(before, "specflow:size-ok") {
+				t.Fatal("spec-edit.md does not carry the size-ok example — nothing to collide")
+			}
+			if composeTag.MatchString(before) {
+				t.Error("rendered spec-edit.md carries leftover composition tags")
+			}
+			// Exactly one region: a size-ok line mistaken for a start/end marker would change these.
+			if got := strings.Count(before, "specflow:start"); got != 1 {
+				t.Errorf("spec-edit.md has %d specflow:start markers, want 1", got)
+			}
+			if got := strings.Count(before, "specflow:end"); got != 1 {
+				t.Errorf("spec-edit.md has %d specflow:end markers, want 1", got)
+			}
+
+			// Put a waiver above a managed file's region. A token that collided with specflow:start
+			// would make extractRegion open the region here, so upgrade would eat the line.
+			ag := filepath.Join(tmp, "AGENTS.md")
+			waiver := "<!-- specflow:size-ok - user approved this file over 600 lines on " +
+				"2026-01-31 14:05 UTC; next check at 800. -->\n"
+			if err := os.WriteFile(ag, []byte(waiver+read(t, ag)), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			up := run(t, tmp, "upgrade")
+			if up.code != 0 {
+				t.Fatalf("upgrade exit %d: %s", up.code, up.stderr)
+			}
+			// A colliding token would open the region at the waiver, which changes the region hash
+			// and sends AGENTS.md down the drift path — text preserved, but silently un-upgradable
+			// from here on. That degradation is the failure this asserts against, not just text loss.
+			if strings.Contains(up.stdout, "region(s) edited since install") {
+				t.Errorf("upgrade flagged drift after a size-ok waiver:\n%s", up.stdout)
+			}
+			if exists(ag + ".specflow-new") {
+				t.Error("upgrade wrote a drift sidecar for AGENTS.md after a size-ok waiver")
+			}
+			if got := read(t, proc); got != before {
+				t.Error("upgrade rewrote spec-edit.md — the size-ok example perturbed region parsing")
+			}
+			// The region must still open *after* the waiver, not at it. (A count of start markers
+			// would be the wrong assertion here: AGENTS.md names the token in its own prose.)
+			got := read(t, ag)
+			if !strings.HasPrefix(got, waiver+"<!-- specflow:start") {
+				t.Errorf("upgrade did not preserve the size-ok waiver above the region, got:\n%.200s", got)
+			}
+			if !strings.Contains(got, "## File ownership") {
+				t.Error("upgrade lost the AGENTS.md region content")
+			}
+			if r := run(t, tmp, "verify"); r.code != 0 {
+				t.Fatalf("verify exit %d after a size-ok waiver: %s", r.code, r.stdout+r.stderr)
+			}
+		})
+	}
+}
