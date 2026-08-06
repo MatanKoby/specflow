@@ -28,47 +28,13 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > convergence that delivers newly-shipped non-managed adapter files to existing installs.
 > **`v0.1.3`** (patch, unreleased) ships **SL** (spec-only mode no longer names the queue/claim
 > machinery it omits, plus the `verify` mode-consistency check and an `upgrade` repair path for
-> existing installs).
-> **Pick next: Batch SZ** (spec-file 600-line hard cap — unblocked by SL).
-> **Post-v0.1 queue below:** **Batch SZ** (size cap) ·
+> existing installs) and **SZ** (the spec-file 600-line cap is now a stop-and-ask, with a
+> `specflow:size-ok` waiver that re-asks every +200 lines).
+> **Pick next: Batch 4** (README badges + file-map).
+> **Post-v0.1 queue below:**
 > **Batch 4** (badges + file-map) · **Batch
 > W** (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · Homebrew tap.
-
----
-
-## Batch SZ — spec-file 600-line hard cap
-
-**Goal.** Turn the size watch from a never-firing nudge into an enforced stop. Design ref:
-`spec/architecture.md` → *Spec organization*; the gate shape is cross-referenced from
-`spec/workflow.md` → *Work-admission gates*.
-
-**Why.** `spec-edit.md` currently says "consider whether the next bite of content wants its own
-file" past ~600 lines (~20k tokens). It has never fired: this repo's largest spec file is 177 lines.
-The token gloss is also wrong — at the corpus's 68 chars/line, 600 lines is roughly 10–11k tokens,
-not 20k.
-
-### Deliverables
-- Rewrite the **Size watch** section of `templates/base/specflow/procedures/spec-edit.md`: hard cap,
-  stop-and-ask (headlines + single-concern claim + the verbatim read-cost warning), never ask the
-  user for a number, `specflow:size-ok` first-line waiver with UTC timestamp, +200 threshold
-  advance, `archive.md` / `research/` exempt. Drop the incorrect token gloss.
-- Mirror into this repo's own `specflow/procedures/spec-edit.md` (dogfood install).
-- Update the `spec-edit` SKILL.md trigger text if its size-watch summary goes stale.
-- Confirm `specflow:size-ok` cannot collide with the region (`specflow:start\b`) or composition
-  (`specflow:full-only:`) regexes in `internal/kit/kit.go`.
-
-### Files this batch creates/edits
-- `templates/base/specflow/procedures/spec-edit.md`, `specflow/procedures/spec-edit.md`,
-  `templates/agents/claude/.claude/skills/spec-edit/SKILL.md`.
-
-### Verification
-- Marker-collision test for `specflow:size-ok` against the region + composition regexes.
-- `go test ./...` green; `specflow verify` clean on this repo after the dogfood mirror.
-
-**Dependency: satisfied.** Shared the `spec-edit` SKILL.md and procedure template with **SL**, which
-has landed (`3b265e0`). Note that SKILL.md now carries `specflow:full-only` markers around its
-queue-persistence sentence — keep them intact when editing the size-watch summary.
 
 ---
 

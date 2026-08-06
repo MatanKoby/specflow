@@ -10,6 +10,17 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch SZ — spec-file 600-line hard cap
+Turned the size rule in `spec-edit.md` from a nudge that had never fired (largest spec file here:
+177 lines) into an enforced stop, and dropped its "~20k tokens" gloss, which overstated the real
+figure by about 2x. Before an edit crosses a file's current limit the agent stops and asks the user,
+presenting the section headlines, a single-concern claim, and the read-cost warning verbatim; it
+never asks for a number. A *keep* is recorded as a `specflow:size-ok` first line with a UTC
+timestamp and the next threshold, advancing +200 each time. `archive.md` and `research/` are exempt.
+Mirrored into the dogfood procedure and the `spec-edit` SKILL.md. Key commit `f9fa57b`, dogfood
+`02e6a41`. Follow-up: `upgrade` still won't refresh a non-managed adapter file whose content merely
+went stale in full mode (SL's repair only fires on a spec-only leak), so the stub was hand-mirrored.
+
 ## Batch SL — spec-only mode leaks queue/batch language
 Fixed a user-reported 0.1.2 defect where `init --spec-only` generated files pointing agents at
 `BUILD_QUEUE.md`, `CLAIMS.md`, `claim-batch`, and `finish-batch` — none of which the mode installs.
