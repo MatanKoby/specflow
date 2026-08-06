@@ -10,11 +10,11 @@
   "kitVersion": "0.1.2",
   "managed": {
     "AGENTS.md": "a728495df9551eff1126949d1e79f189c4ae2e8d3f4ab8a032f9a79368966b85",
-    "CLAUDE.md": "623ebe15c457cc8a159f56246d910b23dd0ed59593201146cc0fcae488182a61",
+    "CLAUDE.md": "3a9f2128ae6131b207a40ec43c1002c1d40b666bd90d866cad3339b52426e28d",
     "specflow/procedures/claim-batch.md": "7b2972b38d3de5f8acb1189cdfc74737b99605536ea89c1bb05e46b3447e3bf7",
     "specflow/procedures/finish-batch.md": "518b973f2429daf6c6e84ef5a4cf579451a2250bdcca4d21d3596ec5e59f412c",
     "specflow/procedures/spec-edit.md": "b0f7be26caff933b1b50d36ad8cfa38f356b4c10688b02eee92f126b6a3ef08d"
   },
   "schemaVersion": 1,
-  "upgradedAt": "2026-07-12"
+  "upgradedAt": "2026-08-06"
 }
