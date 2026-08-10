@@ -19,6 +19,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch 4 — README badges + file-map
+- Owner: claude
+- Started: 2026-08-10 05:11
+
 ## Completed
 
 ### Batch SZ — spec-file 600-line hard cap
