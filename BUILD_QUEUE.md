@@ -30,29 +30,14 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > machinery it omits, plus the `verify` mode-consistency check and an `upgrade` repair path for
 > existing installs) and **SZ** (the spec-file 600-line cap is now a stop-and-ask, with a
 > `specflow:size-ok` waiver that re-asks every +200 lines).
-> **Pick next: Batch 4** (README badges + file-map).
+> **`v0.1.4`** (patch) ships **4** (README rewrite: badges, file-map, and an agent-executable
+> install section).
+> **Pick next:** no un-blocked batch — every remaining entry is `[NOT READY]`. Unblock **Batch W**
+> (needs the profile→dimension mapping in `open-questions.md`) or **Batch NB** (needs a design pass)
+> before claiming.
 > **Post-v0.1 queue below:**
-> **Batch 4** (badges + file-map) · **Batch
-> W** (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
+> **Batch W** (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · Homebrew tap.
-
----
-
-## Batch 4 — README badges + file-map
-
-**Goal.** Make the repo legible at a glance and the file-contract obvious to a newcomer.
-
-### Deliverables
-- CI + license badges (a release/version badge once published).
-- A **pretty, simple file-map** in the README: each file specflow creates, what it does, and the
-  flow the agent follows over them (spec → queue → claim → build). Directed by the user.
-- **Deferred:** an animated demo (GIF/asciinema) — design the visual first before producing it.
-
-### Files this batch creates/edits
-- `README.md`.
-
-### Verification
-- Render check; links resolve; a new reader can follow the file-map without prior context.
 
 ---
 

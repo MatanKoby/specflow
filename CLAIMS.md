@@ -19,11 +19,52 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch 4 — README badges + file-map
 - Owner: claude
 - Started: 2026-08-10 05:11
+- Finished: 2026-08-10 07:09
+- Commit: 041f1bc
 
-## Completed
+**What shipped.** A full README rewrite, directed by the user ahead of a public launch post. Three
+badges (CI, auto-tracking release, MIT). New structure: centered hero (badges + nav + a hand-written
+ASCII `specflow init` console demo) → causal-chain pitch → five **Why** blocks → Install → Quick
+start → How it works (four prose steps + a mermaid flowchart showing two agents claiming in
+parallel) → file map → Agents → Who it's for → two `<details>` blocks (upgrade/status/verify,
+spec-only) → How it differs → For AI agents.
+
+**File-map deliverable.** An annotated file tree with `[owner]` tags per path, followed by the
+existing ownership table. Tree for orientation, table for the contract.
+
+**Agent-accessibility (user-added scope).** The README is now executable by an agent told "install
+specflow here": (1) an HTML comment as the **first thing in the raw file** pointing agents at the
+right section (invisible when rendered); (2) a `## For AI agents` section with seven ordered
+imperative steps — confirm git repo, install binary, **ask the user which agents + which mode rather
+than guessing**, run `init` non-interactively, show the diff and commit as `meta: install specflow`,
+relay the Claude-Code handoff hook block with its rationale, then read `AGENTS.md` before any work;
+(3) step 7 states plainly that the README is the pitch and `AGENTS.md` is the protocol, so an agent
+does not try to work from the README.
+
+**Verified, not assumed.** Ran a real `init --agents=claude,cursor` into a temp repo, which corrected
+two drafted-from-memory errors: the install writes **16 files, not 11**, and `init` creates only
+`spec/README.md` (no `architecture.md` / `research/`), so the tree now shows the near-empty `spec/`
+and frames that as intentional. `--version`, `add-agent`, `status`, and `verify` output were each
+confirmed before being described; the hook JSON is copied from live `init` output. Anchors, code
+fences, and `go vet` / `go test` all check.
+
+**Positioning choices.** Lead is continuity ("your agents forget between sessions; specflow makes
+that not matter"), with token savings as the third Why block and its "where the spec covers the
+ground" condition stated inline. Added an explicit *honest about enforcement* callout (the protocol
+is written guidelines, nothing executable checks it — Batch E territory). No em dashes, per the
+user's global writing rule.
+
+**Follow-ups deferred.** (1) The animated demo (GIF/asciinema) stays deferred as the batch specified
+— the ASCII console block is the designed visual standing in for it. (2) The *How it differs*
+paragraph (Spec Kit / Kiro / OpenSpec / BMAD) was written from
+`spec/research/2026-07-competitive-landscape.md` and **not re-verified against those projects' current
+behavior**; worth a check before the launch post. (3) A 1280x640 GitHub social-preview image was
+recommended to the user and not produced.
 
 ### Batch SZ — spec-file 600-line hard cap
 - Owner: claude

@@ -10,6 +10,21 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch 4 — README badges + file-map
+Rewrote `README.md` ahead of a public launch post, directed by the user. Three badges (CI,
+auto-tracking release, MIT); a centered hero with an ASCII `specflow init` console demo standing in
+for the still-deferred animated GIF; five **Why** blocks led by continuity ("your agents forget; the
+repo doesn't") with token savings third and its spec-coverage condition stated inline; a mermaid
+flowchart of spec → queue → claim → build showing two agents claiming in parallel; and the batch's
+file-map deliverable as an annotated tree with `[owner]` tags plus the ownership table. User-added
+scope: the README is now **agent-executable** — an HTML comment at the top of the raw file routes an
+agent to a `## For AI agents` section of seven ordered steps (ask the user which agents and which
+mode rather than guessing, `init` never commits, relay the Claude-Code handoff hook block, read
+`AGENTS.md` before any work). Drafted claims were checked against a live `init` in a temp repo, which
+corrected the file count (16, not 11) and the `spec/` contents (only `README.md` at install). Key
+commit `041f1bc`. Follow-ups: the *How it differs* competitor paragraph is unverified against those
+projects' current behavior, and a 1280x640 social-preview image was recommended but not produced.
+
 ## Batch SZ — spec-file 600-line hard cap
 Turned the size rule in `spec-edit.md` from a nudge that had never fired (largest spec file here:
 177 lines) into an enforced stop, and dropped its "~20k tokens" gloss, which overstated the real
