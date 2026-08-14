@@ -19,6 +19,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch PR — Ledger pruning (`prune-ledgers`, the fourth procedure)
+- Owner: claude
+- Started: 2026-08-14 11:03
+
 ## Completed
 
 ### Batch 4 — README badges + file-map
