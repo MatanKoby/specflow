@@ -137,7 +137,9 @@ func TestInitWritesFilesAndStamp(t *testing.T) {
 		"AGENTS.md", "BUILD_QUEUE.md", "specflow/history/BUILD_QUEUE_DONE.md", "CLAIMS.md", "specflow/history/CLAIMS_DONE.md",
 		"spec/README.md", "specflow/config.json",
 		"specflow/procedures/claim-batch.md", "specflow/procedures/finish-batch.md", "specflow/procedures/spec-edit.md",
-		"CLAUDE.md", ".claude/skills/claim-batch/SKILL.md", ".cursor/rules/specflow.mdc",
+		"specflow/procedures/prune-ledgers.md",
+		"CLAUDE.md", ".claude/skills/claim-batch/SKILL.md", ".claude/skills/prune-ledgers/SKILL.md",
+		".cursor/rules/specflow.mdc",
 	} {
 		if !exists(filepath.Join(tmp, f)) {
 			t.Errorf("missing %s", f)
@@ -607,7 +609,9 @@ var (
 	specOnlyOmitted = []string{
 		"BUILD_QUEUE.md", "CLAIMS.md",
 		"specflow/procedures/claim-batch.md", "specflow/procedures/finish-batch.md",
+		"specflow/procedures/prune-ledgers.md",
 		".claude/skills/claim-batch/SKILL.md", ".claude/skills/finish-batch/SKILL.md",
+		".claude/skills/prune-ledgers/SKILL.md",
 		".claude/hooks/specflow-handoff-reminder.sh",
 		"specflow/history/BUILD_QUEUE_DONE.md", "specflow/history/CLAIMS_DONE.md",
 	}
@@ -1373,6 +1377,7 @@ func TestAgentsMdContentSections(t *testing.T) {
 		"specflow/procedures/spec-edit.md",
 		"specflow/procedures/claim-batch.md",
 		"specflow/procedures/finish-batch.md",
+		"specflow/procedures/prune-ledgers.md",
 	} {
 		if !strings.Contains(ag, p) {
 			t.Errorf("AGENTS.md does not reference the procedure path %q", p)
@@ -1791,5 +1796,70 @@ func TestSizeOkMarkerDoesNotCollideWithSpecflowMarkers(t *testing.T) {
 				t.Fatalf("verify exit %d after a size-ok waiver: %s", r.code, r.stdout+r.stderr)
 			}
 		})
+	}
+}
+
+// TestPruneLedgersProcedureShipped: the retention rule is the whole point of the procedure, so the
+// number and the "count, not a budget" framing are asserted literally. A silent drift here (5 to some
+// other number, or a rewrite into a byte budget) would leave two agents pruning the same ledger to
+// different results, which is exactly what the count exists to prevent.
+func TestPruneLedgersProcedureShipped(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+
+	proc := read(t, filepath.Join(tmp, "specflow/procedures/prune-ledgers.md"))
+	for _, want := range []string{
+		"keep the 5 most recent completed entries",
+		"specflow/history/CLAIMS_DONE.md",
+		"count, not a line or byte budget",
+		"catch-up pass",
+		"Never touch `## In progress`",
+		"meta: prune ledgers",
+	} {
+		if !strings.Contains(proc, want) {
+			t.Errorf("prune-ledgers.md missing %q", want)
+		}
+	}
+	// Pruning must stay mechanical. A stop-and-ask here would put a prompt in front of every
+	// batch finish, and the archive is lossless, so there is nothing for the user to decide.
+	if !strings.Contains(proc, "never gated behind a stop-and-ask") {
+		t.Error("prune-ledgers.md no longer states that pruning is not gated behind a stop-and-ask")
+	}
+
+	// finish-batch must delegate, not restate: one copy of the rules, reachable by every agent.
+	fin := read(t, filepath.Join(tmp, "specflow/procedures/finish-batch.md"))
+	if !strings.Contains(fin, "specflow/procedures/prune-ledgers.md") {
+		t.Error("finish-batch.md does not delegate to prune-ledgers.md")
+	}
+
+	// The Claude skill is a thin trigger. If the rules migrate into it, pruning silently becomes
+	// Claude-only and every other agent stops pruning.
+	skill := read(t, filepath.Join(tmp, ".claude/skills/prune-ledgers/SKILL.md"))
+	if !strings.Contains(skill, "specflow/procedures/prune-ledgers.md") {
+		t.Error("prune-ledgers SKILL.md does not point at the procedure")
+	}
+	if len(strings.Split(skill, "\n")) > 30 {
+		t.Errorf("prune-ledgers SKILL.md is %d lines; it is a trigger, not a copy of the procedure",
+			len(strings.Split(skill, "\n")))
+	}
+}
+
+// TestPruneLedgersOmittedFromSpecOnly: prune-ledgers operates on BUILD_QUEUE.md and CLAIMS.md, which
+// a spec-only install does not have, so shipping it would point the agent at machinery that isn't
+// there: the exact class of defect Batch SL fixed.
+func TestPruneLedgersOmittedFromSpecOnly(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude", "--spec-only"); r.code != 0 {
+		t.Fatalf("init --spec-only exit %d: %s", r.code, r.stderr)
+	}
+	for _, p := range []string{
+		"specflow/procedures/prune-ledgers.md",
+		".claude/skills/prune-ledgers/SKILL.md",
+	} {
+		if exists(filepath.Join(tmp, p)) {
+			t.Errorf("spec-only install shipped %s", p)
+		}
 	}
 }

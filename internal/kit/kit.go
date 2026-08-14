@@ -97,14 +97,18 @@ func renderBody(s, mode string) string {
 func renderFile(content []byte, mode string) []byte { return []byte(renderBody(string(content), mode)) }
 
 // specOnlyOmits reports whether a repo-relative file belongs to the batch/claim machinery that
-// spec-only mode leaves out: the queue, the claims ledger, their history archives, the claim/finish
-// procedures, the claim-batch/finish-batch skills, and the finish-batch handoff hook (for any agent).
+// spec-only mode leaves out: the queue, the claims ledger, their history archives, the
+// claim/finish/prune procedures, their skills, and the finish-batch handoff hook (for any agent).
 // Everything else — AGENTS.md, spec/, the spec-edit procedure + skill, the stamp, agent instruction
 // files — installs in both modes.
+//
+// prune-ledgers is full-only for the same reason claim/finish are: it operates on BUILD_QUEUE.md and
+// CLAIMS.md, neither of which a spec-only install has.
 func specOnlyOmits(rel string) bool {
 	switch rel {
 	case "BUILD_QUEUE.md", "CLAIMS.md",
-		"specflow/procedures/claim-batch.md", "specflow/procedures/finish-batch.md":
+		"specflow/procedures/claim-batch.md", "specflow/procedures/finish-batch.md",
+		"specflow/procedures/prune-ledgers.md":
 		return true
 	}
 	if strings.HasPrefix(rel, "specflow/history/") {
@@ -114,14 +118,16 @@ func specOnlyOmits(rel string) bool {
 	if strings.Contains(rel, ".claude/hooks/specflow-handoff-reminder.sh") {
 		return true
 	}
-	return strings.Contains(rel, "skills/claim-batch/") || strings.Contains(rel, "skills/finish-batch/")
+	return strings.Contains(rel, "skills/claim-batch/") ||
+		strings.Contains(rel, "skills/finish-batch/") ||
+		strings.Contains(rel, "skills/prune-ledgers/")
 }
 
 // QueueTokens are the queue/claim identifiers that only exist in a full install. A spec-only repo
 // has none of the files or skills they name, so a generated file mentioning one is pointing the
 // agent at machinery that isn't there. Shared by Verify's mode-consistency check and the
 // composition tests so the two can't drift apart.
-var QueueTokens = []string{"BUILD_QUEUE", "CLAIMS.md", "claim-batch", "finish-batch"}
+var QueueTokens = []string{"BUILD_QUEUE", "CLAIMS.md", "claim-batch", "finish-batch", "prune-ledgers"}
 
 // ModeLeaks returns the QueueTokens present in content that the given install mode omits. Full mode
 // omits nothing, so it always returns nil.

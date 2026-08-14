@@ -2,7 +2,8 @@
 
 Execution-state ledger, managed by coding agents. Records who is working on what and the recent
 completion log. The user does not normally edit this. Procedures:
-`specflow/procedures/claim-batch.md` and `specflow/procedures/finish-batch.md`.
+`specflow/procedures/claim-batch.md`, `specflow/procedures/finish-batch.md`, and
+`specflow/procedures/prune-ledgers.md`.
 
 Entry format:
 
@@ -21,4 +22,5 @@ Entry format:
 
 ## Completed
 
-<!-- Recent finishes, newest first. Older entries archived to specflow/history/CLAIMS_DONE.md. -->
+<!-- Recent finishes, newest first. Bounded working set: the 5 newest stay here and
+     prune-ledgers moves the rest to specflow/history/CLAIMS_DONE.md. -->

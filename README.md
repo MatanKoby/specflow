@@ -168,13 +168,13 @@ your-repo/
 │                                architecture.md, api.md, and the rest
 │                                appear as you decide things
 ├── specflow/
-│   ├── procedures/              claim-batch · spec-edit · finish-batch  [specflow]
+│   ├── procedures/              claim-batch · spec-edit · finish-batch · prune-ledgers  [specflow]
 │   ├── config.json              your choices and the version stamp
 │   └── history/                 completed batches, retired claims       [agents]
 │
 └── one adapter per agent you picked                          [specflow region]
     ├── CLAUDE.md                points Claude Code at AGENTS.md
-    ├── .claude/skills/          the three procedures, auto-triggering
+    ├── .claude/skills/          the four procedures, auto-triggering
     ├── .claude/hooks/           the opt-in end-of-batch handoff backstop
     └── .cursor/rules/           points Cursor at AGENTS.md
 ```
@@ -185,7 +185,7 @@ work on, one subject at a time.
 | Path | Role | Owner |
 |---|---|---|
 | `AGENTS.md` | The full protocol every agent reads first | specflow (refreshed on upgrade) |
-| `specflow/procedures/*.md` | The three procedures (claim / spec-edit / finish) | specflow (refreshed on upgrade) |
+| `specflow/procedures/*.md` | The four procedures (claim / spec-edit / finish / prune) | specflow (refreshed on upgrade) |
 | `specflow/config.json` | Config + state (agents, mode, versions, region hashes) | specflow |
 | `BUILD_QUEUE.md` + `specflow/history/BUILD_QUEUE_DONE.md` | Work declaration + completed history | you |
 | `CLAIMS.md` + `specflow/history/CLAIMS_DONE.md` | Execution-state ledger | agents |
@@ -327,7 +327,7 @@ Merge into `.claude/settings.json` (commit it, so the whole team's agents get th
 ```
 
 **7. Read `AGENTS.md` before doing any work.** It is the full protocol and it is the single source of
-truth, not this README. The three procedures live in `specflow/procedures/`. Do not claim a batch or
+truth, not this README. The four procedures live in `specflow/procedures/`. Do not claim a batch or
 edit anything under `spec/` before reading the matching procedure.
 
 **Upgrading an existing install** is `specflow upgrade`, then relay step 6 again if the user is on
