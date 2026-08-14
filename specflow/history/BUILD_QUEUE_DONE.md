@@ -10,6 +10,20 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch PR — Ledger pruning (`prune-ledgers`, the fourth procedure)
+Closed the gap that let `CLAIMS.md` grow without bound: `finish-batch` appended every completed
+entry and no procedure ever wrote to `specflow/history/CLAIMS_DONE.md`, so the archive shipped with
+its 206-byte header untouched in every install. New `specflow/procedures/prune-ledgers.md` keeps the
+**5** newest `## Completed` entries and moves older ones there verbatim, never touching
+`## In progress`; retention is a count rather than a byte budget so pruning cuts on an entry
+boundary and two agents reach the same result (measured on a 26-entry host install: 35 to 126 lines
+per entry, median 61). Includes a catch-up pass for installs predating it and a narrow
+`BUILD_QUEUE.md` sweep for completed/dissolved/absorbed sections. `finish-batch` delegates as step
+**4a** (numbered, not renumbered, so the "step-6 handoff" references survive); the rules live in the
+procedure and the Claude skill stays a thin trigger so pruning does not become Claude-only. Go side:
+`specOnlyOmits` + `kit.QueueTokens`. Key commit `dd7a1e9`. Follow-up deferred: nothing enforces
+pruning until Batch E, where `verify --batch` is the natural home for a retention check.
+
 ## Batch 4 — README badges + file-map
 Rewrote `README.md` ahead of a public launch post, directed by the user. Three badges (CI,
 auto-tracking release, MIT); a centered hero with an ASCII `specflow init` console demo standing in

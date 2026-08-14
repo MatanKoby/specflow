@@ -31,54 +31,14 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > existing installs) and **SZ** (the spec-file 600-line cap is now a stop-and-ask, with a
 > `specflow:size-ok` waiver that re-asks every +200 lines).
 > **`v0.1.4`** (patch) ships **4** (README rewrite: badges, file-map, and an agent-executable
-> install section).
-> **Pick next: Batch PR** (ledger pruning — the `prune-ledgers` procedure + skill, and the Go/doc
-> wiring for a fourth procedure). The only un-blocked entry; everything else is `[NOT READY]`.
-> Unblock **Batch W** (needs the profile→dimension mapping in `open-questions.md`) or **Batch NB**
-> (needs a design pass) before claiming either.
+> install section) and **PR** (ledger pruning: the `prune-ledgers` procedure + skill that keeps
+> `CLAIMS.md` to its 5 newest completed entries, archiving the rest).
+> **Pick next:** no un-blocked batch — every remaining entry is `[NOT READY]`. Unblock **Batch W**
+> (needs the profile→dimension mapping in `open-questions.md`) or **Batch NB** (needs a design pass)
+> before claiming.
 > **Post-v0.1 queue below:**
-> **Batch PR** (ledger pruning) · **Batch W** (workflow config) · **Batch NB** (`--new-batch`) ·
-> **Batch E** (enforcement — research-first) · **Batch P** (npm-wrapper front-end) · Homebrew tap.
-
----
-
-## Batch PR — Ledger pruning (`prune-ledgers`, the fourth procedure)
-
-**Goal.** `CLAIMS.md` grows without bound: `finish-batch` appends every completed entry to
-`## Completed` and nothing ever moves to `specflow/history/CLAIMS_DONE.md`. The archive file ships,
-`AGENTS.md` documents it, and no procedure writes to it — the only "archive when it grows long"
-sentence lives *inside* `CLAIMS_DONE.md`, which agents never open, and carries no threshold. Two
-independent long-running installs confirm it: specflow's own ledger is 18 entries / 36 KB and a host
-install reached 26 entries / 1,789 lines / 125 KB, both with a 206-byte untouched archive header.
-
-Ship a fourth procedure that prunes both ledgers, delegated to from `finish-batch` and runnable by
-hand. Design + rationale: `spec/architecture.md` → *Ledger lifecycle*.
-
-**Rules.** `CLAIMS.md` keeps the **5** most recent `## Completed` entries; older ones move to
-`CLAIMS_DONE.md`, newest at top, unedited. Retention is a count, not a byte budget (entries measured
-35–126 lines, median 61). No stop-and-ask — archiving is lossless and `claim-batch` already resolves
-dependencies against either location. Must handle a **catch-up pass** (an overgrown ledger archives
-many entries in one run). Queue side: `finish-batch` keeps its own step-4 deletion; pruning only
-sweeps sections for batches already in `## Completed` or marked dissolved/absorbed.
-
-**Cross-agent invariant.** The rules live in the **procedure** (`architecture.md` → *Cross-agent
-model*); the Claude skill stays a thin trigger. Pruning must not become Claude-only.
-
-### Files this batch creates/edits
-- `specflow/procedures/prune-ledgers.md` + `templates/base/` twin (new) · `finish-batch.md`
-  delegation (both copies) · `.claude/skills/prune-ledgers/SKILL.md` +
-  `templates/agents/claude/` twin (new).
-- Go: `internal/kit/` (file list + spec-only carve-out), stamp `managed` map so `upgrade` refreshes
-  the new procedure, `verify` Tier 1 presence check, `cmd/specflow/main_test.go` path enumerations
-  (lines ~137, ~612).
-- Docs: `AGENTS.md` + `templates/base/` twin (file table, procedure list) · `CLAIMS.md` header note
-  + template · "three procedures" → four in `README.md` (3 spots), `CLAUDE.md` + template, and the
-  bob / copilot / antigravity agent stubs · `spec/README.md` index line.
-
-### Verification
-- `go test ./...` green; init into a temp repo lists four procedures; `verify` passes.
-- Upgrade an install whose procedures are clean → the new procedure appears.
-- Dogfood: run it on this repo's own `CLAIMS.md` (18 entries → 5 kept, 13 archived).
+> **Batch W** (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
+> **Batch P** (npm-wrapper front-end) · Homebrew tap.
 
 ---
 
