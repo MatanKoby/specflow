@@ -17,8 +17,9 @@ the procedure in `specflow/procedures/spec-edit.md`.
 ## Files
 
 - **`architecture.md`**: what specflow is: the CLI + `templates/` layout, `init`/`upgrade`, the
-  ownership split, the host-repo file-contract, spec organization + the 600-line cap,
-  versioning/stamp, distribution, the SaaS frontier.
+  ownership split, the host-repo file-contract, the ledger lifecycle (how `BUILD_QUEUE.md` and
+  `CLAIMS.md` stay bounded), spec organization + the 600-line cap, versioning/stamp, distribution,
+  the SaaS frontier.
 - **`workflow.md`**: the git/autonomy policy model: four orthogonal config dimensions, the profile
   on-ramps, the `config.md` rendering, and the `init` setup flow.
 - **`adoption.md`**: bringing specflow onto existing, unspecced code (brownfield): incremental
