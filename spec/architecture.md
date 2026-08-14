@@ -48,6 +48,45 @@ overwrite text authored by a user or another agent**, in any file. They write on
 marker-delimited region; everything outside is preserved. `init` additionally **never writes without
 consent and never commits** (see below).
 
+## Ledger lifecycle — the active state files stay bounded
+
+`BUILD_QUEUE.md` and `CLAIMS.md` are read on every batch, so both are **bounded working sets**, not
+growing logs. Each has a matching archive under `specflow/history/`. Mechanics live in
+`specflow/procedures/prune-ledgers.md`.
+
+The two are bounded by different rules, because they answer different questions:
+
+- **`BUILD_QUEUE.md` — zero retention, enforced at finish.** A done batch is not queue content at
+  all: `finish-batch` deletes its section outright and collapses it to a one-paragraph summary in
+  `BUILD_QUEUE_DONE.md`. That stays in `finish-batch.md` rather than moving here, because removing a
+  finished batch is part of *completing* it, not deferrable housekeeping. Pruning only sweeps up what
+  leaked past: sections for batches already in `CLAIMS.md` `## Completed`, and batches dissolved or
+  absorbed into another.
+- **`CLAIMS.md` — retention of 5, enforced by pruning.** Recent completions *are* live claims
+  content: an agent reads back a few entries for continuity. The **5** most recent completed entries
+  stay; older ones move to `CLAIMS_DONE.md`, newest at top, unedited.
+
+Retention is a **count, not a line or byte budget.** Measured across 26 completed entries in a
+long-running install, entries ran 35 to 126 lines (median 61) — a 3.6x spread, so a byte budget
+would keep a nondeterministic number of batches and could sever an entry mid-record. Entries are
+self-contained, so cutting on an entry boundary matters more than an exact ceiling. A count is also
+deterministic: two agents prune to the same result.
+
+Pruning is **not** gated behind a stop-and-ask, unlike the spec-file cap below. That cap asks
+because splitting a spec file is lossy and needs judgment about concerns. Archiving a claim is
+lossless and mechanical — the entry moves one file away, unedited — and dependency resolution
+already accepts either location: `claim-batch` resolves a dependency against `CLAIMS.md`
+`## Completed` **or** `CLAIMS_DONE.md`. An ask with no judgment behind it is just a prompt.
+
+Pruning is its own procedure, not a step inlined into `finish-batch.md`, for two reasons: a ledger
+that is already overgrown needs a **catch-up pass** that archives many entries at once, unrelated to
+any batch finishing; and the user may want to run it by hand. `finish-batch` therefore *delegates*
+to it. Per the cross-agent rule above, the rules live in the **procedure** (every agent reads it) and
+the Claude skill stays a thin trigger — pruning must not become a Claude-only feature.
+
+Both archives are append-only institutional memory, reference-only, and never rewritten — the same
+posture as `spec/archive.md`, and likewise exempt from any size cap.
+
 ## Spec organization — concern-per-file and the 600-line cap
 
 `spec/` is organized concern-per-file, with sub-folders and a per-folder `README.md` index as it
