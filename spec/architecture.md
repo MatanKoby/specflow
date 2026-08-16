@@ -248,6 +248,13 @@ ported to Go — see `BUILD_QUEUE.md`. Decided 2026-06-21.)
   cross-compiles per OS/arch (macOS arm64/x64, Linux x64/arm64, Windows x64), attaches archives +
   checksums to the release, and can update a Homebrew tap / Scoop manifest in the same run. GitHub
   Releases *is* the registry — no npm/PyPI account needed to host the binary.
+- **The tag publishes.** `release.draft: false` — a pushed tag goes straight to a public release,
+  no draft to approve. Through v0.1.4 it drafted instead, which meant the release *copy* gated the
+  *binaries*: twice a release was hand-written in the UI rather than published from the draft,
+  shipping zero assets while `install.sh` resolved `releases/latest` and 404'd for every user. Notes
+  are editable after the fact; a missing archive is not. Because the push is therefore irreversibly
+  public, the human checkpoint moves to the decision to tag — the agent needs the user's explicit
+  approval for every release (`CLAIMS.md` → *Releases need the user's approval*). Decided 2026-08-16.
 - **Install front-ends.** v1 ships two, both resolving to the same release binary: a `curl … | sh`
   script that detects OS/arch, and **Homebrew** (`brew install`) for macOS/Linux. Deferred post-v1
   (see `open-questions.md` → Distribution): an **npm wrapper** so `npx specflow` still works for the
