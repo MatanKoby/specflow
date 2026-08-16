@@ -33,12 +33,47 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > **`v0.1.4`** (patch) ships **4** (README rewrite: badges, file-map, and an agent-executable
 > install section) and **PR** (ledger pruning: the `prune-ledgers` procedure + skill that keeps
 > `CLAIMS.md` to its 5 newest completed entries, archiving the rest).
-> **Pick next:** no un-blocked batch — every remaining entry is `[NOT READY]`. Unblock **Batch W**
-> (needs the profile→dimension mapping in `open-questions.md`) or **Batch NB** (needs a design pass)
-> before claiming.
+> **Pick next: Batch RD** — the only un-blocked entry; everything else is `[NOT READY]`. Unblock
+> **Batch W** (needs the profile→dimension mapping in `open-questions.md`) or **Batch NB** (needs a
+> design pass) before claiming either of those.
 > **Post-v0.1 queue below:**
-> **Batch W** (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
-> **Batch P** (npm-wrapper front-end) · Homebrew tap.
+> **Batch RD** (release auto-publish) · **Batch W** (workflow config) · **Batch NB** (`--new-batch`) ·
+> **Batch E** (enforcement — research-first) · **Batch P** (npm-wrapper front-end) · Homebrew tap.
+
+---
+
+## Batch RD — Release auto-publish, and the user approves every release
+
+**Goal.** Remove the manual publish step that has now broken two releases, and record that cutting a
+release is the user's call, not the agent's.
+
+**Why.** `.goreleaser.yaml` sets `release: draft: true`, so a `v*` tag builds the archives into a
+*draft* the user must publish by hand. Twice (v0.1.3, v0.1.4) a release was instead created directly
+in the GitHub UI, which produces a published release carrying **zero assets** while the real draft
+sits unpublished beside it. `install.sh` resolves `releases/latest` and downloads
+`specflow_<ver>_<os>_<arch>.tar.gz` from whatever it finds, so both times the public `curl … | sh`
+install 404'd until it was noticed and repaired by hand. v0.1.1 has no release at all for the same
+reason. The manual gate puts the release *copy* in front of the *binaries*; inverting that is the
+fix, since a body can be edited after publish but a missing archive breaks installs immediately.
+
+**Scope.**
+- Flip `release.draft` to `false` so a pushed tag publishes the archives directly, and rewrite the
+  comment above it to say why (and that the body is edited after the fact, not before).
+- Record the counterpart rule: **the agent never cuts a release without the user's explicit
+  approval each time.** Auto-publish removes the human checkpoint from the *pipeline*, so the
+  checkpoint moves earlier, to the decision to tag at all. Per the user, this goes in `CLAIMS.md`.
+- Note the auto-publish behavior in `spec/architecture.md` → artifact host, which currently
+  describes the tag→GoReleaser→release flow without saying draft or published.
+
+**Not in scope.** Changelog prettification (`release.header`, `changelog.groups`) — the generated
+body is two clean `batch-*:` lines today. Backfilling a v0.1.1 release.
+
+### Files this batch creates/edits
+- `.goreleaser.yaml` · `CLAIMS.md` · `spec/architecture.md`.
+
+### Verification
+- `goreleaser check` passes.
+- Confirm on the next tag push that the release appears published with 6 assets and no manual step.
 
 ---
 
