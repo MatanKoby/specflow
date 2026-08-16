@@ -33,8 +33,12 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > **`v0.1.4`** (patch) ships **4** (README rewrite: badges, file-map, and an agent-executable
 > install section) and **PR** (ledger pruning: the `prune-ledgers` procedure + skill that keeps
 > `CLAIMS.md` to its 5 newest completed entries, archiving the rest).
-> **`v0.1.5`** (unreleased) so far ships **RD** (a pushed tag publishes the release directly; the
-> agent needs the user's approval to cut one).
+> **Current release: `v0.1.4`. No version is pending.** **RD** (a pushed tag publishes the release
+> directly; the agent needs the user's approval to cut one) landed after v0.1.4 but is **repo-internal
+> and ships nothing to users**: it touched `.goreleaser.yaml` plus this repo's own ledgers and spec,
+> no `templates/`, no Go source, no `install.sh`. So the binary and the installed kit are unchanged
+> and there is nothing for `specflow upgrade` to deliver. Don't open a new version line for a batch
+> until it changes something a user installs.
 > **Pick next:** no un-blocked batch — every remaining entry is `[NOT READY]`. Unblock **Batch W**
 > (needs the profile→dimension mapping in `open-questions.md`) or **Batch NB** (needs a design pass)
 > before claiming.
