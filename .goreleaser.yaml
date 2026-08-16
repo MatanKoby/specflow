@@ -64,7 +64,12 @@ changelog:
       - "^docs:"
 
 release:
-  # A pushed tag produces a DRAFT release — review the artifacts, then publish from the
-  # GitHub UI. Flip to `draft: false` once the pipeline is trusted for hands-off releases.
-  draft: true
+  # A pushed tag PUBLISHES the release directly, archives attached. This was `draft: true`
+  # through v0.1.4, which put the release copy in front of the binaries: twice a release was
+  # written by hand in the GitHub UI instead, publishing an asset-less release while the real
+  # draft sat unpublished, and `install.sh` (which resolves `releases/latest`) 404'd for
+  # everyone until someone noticed. A body can be edited after publish; a missing archive
+  # breaks installs the moment the tag lands. So the notes are a follow-up edit now, and the
+  # human checkpoint moved earlier — see CLAIMS.md → "Releases need the user's approval".
+  draft: false
   prerelease: auto
