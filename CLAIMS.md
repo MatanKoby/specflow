@@ -35,11 +35,41 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch RD — Release auto-publish, and the user approves every release
 - Owner: claude
 - Started: 2026-08-16 13:05
+- Finished: 2026-08-16 13:10
+- Commit: e279fb9
 
-## Completed
+**What shipped.** `.goreleaser.yaml` `release.draft` flipped `true` → `false`, so a pushed `v*` tag
+now publishes a public release with its archives attached and no manual step. Plus the counterpart
+rule at the top of this file (*Releases need the user's approval*) and the decision recorded in
+`spec/architecture.md` → artifact host.
+
+**Why.** The draft gate put the release *copy* in front of the *binaries*. v0.1.3 and v0.1.4 were
+both created by hand in the GitHub UI instead of published from GoReleaser's draft, so each shipped
+a release with **zero assets** while the real draft sat unpublished beside it. `install.sh:55`
+resolves `releases/latest` and downloads `specflow_<ver>_<os>_<arch>.tar.gz` from it, so the public
+`curl … | sh` install 404'd both times until it was noticed and repaired by hand. v0.1.1 has no
+release at all for the same reason. A body can be edited after publish; a missing archive cannot.
+
+**The trade, and where the checkpoint went.** Auto-publish means the release notes are GoReleaser's
+generated commit list (the `^meta:`/`^spec:`/`^docs:` filters leave just the `batch-*:` lines — two
+of them for v0.1.4) rather than the user's prose, which is now an edit made after publishing. It
+also means a tag push is instantly public and effectively irreversible, so the human checkpoint did
+not disappear, it moved earlier: from "publish the draft" to "should we tag at all", which is the
+user's call every time.
+
+**Verification.** `goreleaser check` passes against `@latest` v2 — matching what the workflow's
+`version: "~> v2"` resolves to. (v2.5.0 rejects the config on `archives.formats`, a field added
+later; that is a stale-pin artifact, not a config defect.) `go test ./...` green, `specflow verify`
+clean on all 7 managed files.
+
+**Follow-ups deferred.** Changelog prettification (`release.header`, `changelog.groups`) — the
+generated body is adequate. Backfilling a v0.1.1 release. The end-to-end proof is the next tag push:
+confirm it lands published with 6 assets and no manual step.
 
 ### Batch PR — Ledger pruning (`prune-ledgers`, the fourth procedure)
 - Owner: claude
@@ -225,41 +255,3 @@ an existing spec-only install keeps its line 36 until the user edits it. Fixed a
 installs are clean. Design ref: `spec/architecture.md` → *Install modes*.
 
 **Follow-up.** Batch SZ (600-line cap) was unblocked by this batch and is next in the queue.
-
-### Batch CH — Claude Code batch-boundary hook (opt-in)
-- Owner: claude
-- Started: 2026-07-12 11:39
-- Finished: 2026-07-12 14:45
-- Commit: 7b3ffdc
-
-**What shipped.** The Claude-only deterministic backstop for the finish-batch step-6 handoff, on top
-of the portable FH text. (1) **Hook** `templates/agents/claude/.claude/hooks/specflow-handoff-reminder.sh`:
-a `PostToolUse(Bash)` script that gates cheaply on `git commit` in the command, then confirms via the
-landed **HEAD subject** `^meta: complete batch-` (matching the landed subject, not the command text,
-handles `-m`/`-F`/heredoc uniformly, proves the commit succeeded, and self-de-dups since the next
-commit is `meta: claim …`), and emits `{"decision":"block","reason":…}` to halt the agentic loop and
-feed the step-6 reminder back so the agent must act on it. Soft-deps on `jq`; **fails open** (exit 0)
-if jq is absent so it can never break a commit. (2) **CLI** (`cmd/specflow/main.go`): prints an
-opt-in paste-notice at the end of `init`/`add-agent` when the hook was just installed (claude + full
-mode), recommending committed `.claude/settings.json` (no auto-merge — JSON has no marker-merge
-path). (3) **Adapter relay** (`templates/agents/claude/CLAUDE.md`, full-only region): tells the agent
-to surface the hook-setup step on install/upgrade instead of burying it. (4) **spec-only omits** the
-hook (`internal/kit/kit.go` `specOnlyOmits`) — no batch boundary to backstop. (5) **`upgrade`
-extended** to place newly-shipped non-managed adapter files create-once (scoped to the `agents/`
-tree, so a user-deleted base file is never resurrected) — without this the backstop reached only
-fresh inits, never existing installs.
-
-**Manual prereq.** The hook is inert until registered in `.claude/settings.json`; the CLI/relay
-surface the exact block. Activating it in *this* repo is deferred as a user opt-in (see follow-up).
-
-**Verification.** `go test ./...` green, uncached (4 new tests: install+notice, add-agent incl.
-no-dupe-on-re-add, jq-gated script behavior asserting block-on-match / silent otherwise, and
-upgrade-adds-missing-hook incl. not-resurrecting a deleted base file). `go vet` + `gofmt` clean.
-Exercised end-to-end: the shipped script (block/silent cases), `init`/`add-agent`/`upgrade` across
-full + spec-only, and the embed-manifest test auto-covers the new file. Propagated to the dogfood
-install via `specflow upgrade` (0.1.0→0.1.1, refreshed CLAUDE.md + added the hook here; `verify`
-clean, no drift). Design ref: `spec/open-questions.md` → Quality / enforcement.
-
-**Follow-up (deferred).** Registering the hook in this repo's own `.claude/settings.json` to activate
-the backstop for agents working here — a user opt-in (committed vs local; loop-blocking behavior),
-not bundled into the batch.

@@ -7,6 +7,44 @@ Written by `specflow/procedures/prune-ledgers.md`, which keeps the 5 newest comp
 `CLAIMS.md` and moves everything older here. Don't hand-move entries; run the procedure (Claude:
 the `prune-ledgers` skill) so the retention rule stays consistent.
 
+### Batch CH — Claude Code batch-boundary hook (opt-in)
+- Owner: claude
+- Started: 2026-07-12 11:39
+- Finished: 2026-07-12 14:45
+- Commit: 7b3ffdc
+
+**What shipped.** The Claude-only deterministic backstop for the finish-batch step-6 handoff, on top
+of the portable FH text. (1) **Hook** `templates/agents/claude/.claude/hooks/specflow-handoff-reminder.sh`:
+a `PostToolUse(Bash)` script that gates cheaply on `git commit` in the command, then confirms via the
+landed **HEAD subject** `^meta: complete batch-` (matching the landed subject, not the command text,
+handles `-m`/`-F`/heredoc uniformly, proves the commit succeeded, and self-de-dups since the next
+commit is `meta: claim …`), and emits `{"decision":"block","reason":…}` to halt the agentic loop and
+feed the step-6 reminder back so the agent must act on it. Soft-deps on `jq`; **fails open** (exit 0)
+if jq is absent so it can never break a commit. (2) **CLI** (`cmd/specflow/main.go`): prints an
+opt-in paste-notice at the end of `init`/`add-agent` when the hook was just installed (claude + full
+mode), recommending committed `.claude/settings.json` (no auto-merge — JSON has no marker-merge
+path). (3) **Adapter relay** (`templates/agents/claude/CLAUDE.md`, full-only region): tells the agent
+to surface the hook-setup step on install/upgrade instead of burying it. (4) **spec-only omits** the
+hook (`internal/kit/kit.go` `specOnlyOmits`) — no batch boundary to backstop. (5) **`upgrade`
+extended** to place newly-shipped non-managed adapter files create-once (scoped to the `agents/`
+tree, so a user-deleted base file is never resurrected) — without this the backstop reached only
+fresh inits, never existing installs.
+
+**Manual prereq.** The hook is inert until registered in `.claude/settings.json`; the CLI/relay
+surface the exact block. Activating it in *this* repo is deferred as a user opt-in (see follow-up).
+
+**Verification.** `go test ./...` green, uncached (4 new tests: install+notice, add-agent incl.
+no-dupe-on-re-add, jq-gated script behavior asserting block-on-match / silent otherwise, and
+upgrade-adds-missing-hook incl. not-resurrecting a deleted base file). `go vet` + `gofmt` clean.
+Exercised end-to-end: the shipped script (block/silent cases), `init`/`add-agent`/`upgrade` across
+full + spec-only, and the embed-manifest test auto-covers the new file. Propagated to the dogfood
+install via `specflow upgrade` (0.1.0→0.1.1, refreshed CLAUDE.md + added the hook here; `verify`
+clean, no drift). Design ref: `spec/open-questions.md` → Quality / enforcement.
+
+**Follow-up (deferred).** Registering the hook in this repo's own `.claude/settings.json` to activate
+the backstop for agents working here — a user opt-in (committed vs local; loop-blocking behavior),
+not bundled into the batch.
+
 ### Batch RF — Ship the research-flow convention
 - Owner: claude
 - Started: 2026-07-11 20:49

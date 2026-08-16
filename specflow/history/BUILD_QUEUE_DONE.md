@@ -10,6 +10,22 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch RD — Release auto-publish, and the user approves every release
+Flipped `.goreleaser.yaml` `release.draft` to `false`, so a pushed `v*` tag now publishes a public
+release with its archives attached instead of a draft awaiting a manual click. The draft gate had put
+the release *copy* in front of the *binaries*: v0.1.3 and v0.1.4 were each created by hand in the
+GitHub UI rather than published from GoReleaser's draft, shipping releases with **zero assets** while
+the real drafts sat unpublished, and since `install.sh` resolves `releases/latest` the public
+`curl … | sh` install 404'd both times until repaired by hand (v0.1.1 has no release at all for the
+same reason). The trade is that release notes become GoReleaser's generated commit list, edited after
+publish rather than written before. Because a tag push is now instantly public and irreversible, the
+human checkpoint moved earlier rather than vanishing: the counterpart rule at the top of `CLAIMS.md`
+requires the user's explicit approval for every release, covering the version bumps, the tag, and the
+push. Decision recorded in `spec/architecture.md` → artifact host. Verified with `goreleaser check`
+against `@latest` v2, matching the workflow's `~> v2`. Key commit `e279fb9`. Follow-ups deferred:
+changelog prettification (`release.header`, `changelog.groups`), backfilling a v0.1.1 release, and
+the end-to-end proof that the next tag lands published with 6 assets.
+
 ## Batch PR — Ledger pruning (`prune-ledgers`, the fourth procedure)
 Closed the gap that let `CLAIMS.md` grow without bound: `finish-batch` appended every completed
 entry and no procedure ever wrote to `specflow/history/CLAIMS_DONE.md`, so the archive shipped with
