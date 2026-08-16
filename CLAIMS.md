@@ -5,6 +5,21 @@ completion log. The user does not normally edit this. Procedures:
 `specflow/procedures/claim-batch.md`, `specflow/procedures/finish-batch.md`, and
 `specflow/procedures/prune-ledgers.md`.
 
+## Releases need the user's approval
+
+**Never cut a release without Matan's explicit go-ahead, every single time.** "Cut a release" means
+any of: bumping the version in `cmd/specflow/main.go` or `specflow/config.json`, creating a `v*` tag,
+or pushing one. Approval for one release is never approval for the next.
+
+A pushed tag is now self-publishing (`.goreleaser.yaml` → `release.draft: false`): GoReleaser builds
+the archives and puts them straight on a public GitHub Release, and `install.sh` resolves
+`releases/latest`, so the push is immediately live for every user running `curl … | sh`. There is no
+draft to review and no undo worth the name. The checkpoint that used to sit at "publish the draft"
+now sits at "should we tag at all" — and it is the user's, not the agent's.
+
+Editing a published release's notes afterward is fine and expected; the generated body is a plain
+commit list.
+
 Entry format:
 
 ```
