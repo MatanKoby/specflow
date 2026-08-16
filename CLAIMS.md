@@ -20,6 +20,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch RD — Release auto-publish, and the user approves every release
+- Owner: claude
+- Started: 2026-08-16 13:05
+
 ## Completed
 
 ### Batch PR — Ledger pruning (`prune-ledgers`, the fourth procedure)
