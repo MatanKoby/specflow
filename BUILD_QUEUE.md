@@ -33,55 +33,18 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > **`v0.1.4`** (patch) ships **4** (README rewrite: badges, file-map, and an agent-executable
 > install section) and **PR** (ledger pruning: the `prune-ledgers` procedure + skill that keeps
 > `CLAIMS.md` to its 5 newest completed entries, archiving the rest).
-> **Current release: `v0.1.4`. No version is pending.** **RD** (a pushed tag publishes the release
-> directly; the agent needs the user's approval to cut one) landed after v0.1.4 but is **repo-internal
-> and ships nothing to users**: it touched `.goreleaser.yaml` plus this repo's own ledgers and spec,
-> no `templates/`, no Go source, no `install.sh`. So the binary and the installed kit are unchanged
-> and there is nothing for `specflow upgrade` to deliver. Don't open a new version line for a batch
-> until it changes something a user installs.
-> **Pick next: Batch CE**, then **Batch QV** (which depends on it). Both come from the turn-cost
-> analysis in `architecture.md` → *Context economy* and *Queue verbs*, and both change what users
-> install, so **a version line opens when CE ships** — the number is the user's call at tag time.
+> **Current release: `v0.1.4`. A version line is now open, unreleased.** **RD** (a pushed tag
+> publishes the release directly; the agent needs the user's approval to cut one) landed after v0.1.4
+> but is **repo-internal and ships nothing to users**, so it opened no version line: it touched
+> `.goreleaser.yaml` plus this repo's own ledgers and spec, no `templates/`, no Go source, no
+> `install.sh`. **CE** does ship (templates + Go source + a new `config.check` field), so the next tag
+> carries it, and **QV** if it lands first. The number is the user's call at tag time, as is the tag
+> itself. Don't open a new version line for a batch until it changes something a user installs.
+> **Pick next: Batch QV** — its dependency (Batch CE) is complete. Both come from the turn-cost
+> analysis in `architecture.md` → *Context economy* and *Queue verbs*.
 > **Post-v0.1 queue below:**
-> **Batch CE** (context economy + `config.check`) · **Batch QV** (queue verbs) · **Batch W**
-> (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
+> **Batch QV** (queue verbs) · **Batch W** (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · Homebrew tap.
-
----
-
-## Batch CE — Context economy + `config.check`
-
-**Spec:** `spec/architecture.md` → *Context economy — the read side of the ledger* and
-*Config & state* (`verify`).
-
-**Goal.** Cut the recurring per-batch context cost that the procedures currently cause. Measured on
-this repo, an eligibility check that needs 419 bytes of headings reads 17.2 KB when the agent `cat`s
-`CLAIMS.md`, and both ledgers are read 3 to 5 times per batch.
-
-1. **Read-shape steps in the procedures.** `claim-batch.md`, `finish-batch.md`, and
-   `prune-ledgers.md` name the cheap read inline (grep the headings, then slice the one section)
-   wherever they currently say only *what* state to check. `spec-edit.md` says the same for a
-   `spec/` file: headings first, then the matching section.
-2. **An economy section in `AGENTS.md`.** Batch independent reads into one turn; never re-read to
-   confirm your own write; read the batch's declared file list before opening anything else. Keep it
-   short: this text loads in every session in every install.
-3. **`config.check`.** A new `config` string: the repo's single check command. `init` asks for it
-   (skippable, empty when not configured), `status` shows it, and `finish-batch.md` says to run it
-   before the final commit *only* when it is set. specflow never validates or executes it.
-
-**Note.** Item 3 is worth zero in a repo with no check suite, and item 2 is advisory (specflow can
-ask an agent to batch its reads; it cannot enforce that). Item 1 is the deterministic one.
-
-### Files this batch creates/edits
-- `templates/base/specflow/procedures/{claim-batch,finish-batch,prune-ledgers,spec-edit}.md` ·
-  `templates/base/AGENTS.md` · `cmd/specflow/main.go` (init prompt + `status` row) ·
-  `internal/kit/kit.go` (stamp field) · `cmd/specflow/main_test.go` · the repo's own `AGENTS.md` +
-  `specflow/procedures/**` via self-hosted `upgrade`.
-
-### Verification
-- `go test ./...`; `init` into a temp repo with and without a verify answer, asserting the stamp and
-  that spec-only mode still omits the queue machinery; `status` renders the new row; the repo's own
-  managed regions refresh with no drift.
 
 ---
 

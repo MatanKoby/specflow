@@ -33,13 +33,54 @@ Entry format:
 
 ## In progress
 
-### Batch CE — Context economy + `config.check`
-- Owner: claude
-- Started: 2026-08-20 11:50
-
 <!-- One entry per actively claimed batch. -->
 
 ## Completed
+
+### Batch CE — Context economy + `config.check`
+- Owner: claude
+- Started: 2026-08-20 11:50
+- Finished: 2026-08-20 11:56
+- Commit: 25f419e
+
+**What shipped.** Three changes aimed at the recurring per-batch context cost, all of them reaching
+existing installs through `upgrade`:
+
+1. **Read-shape steps in all four procedures.** Wherever a procedure said *what* state to check, it
+   now also names the cheap read: `grep` the headings, then slice the one section by line number.
+   `claim-batch` carries the two greps for its eligibility checks, `finish-batch` and `prune-ledgers`
+   locate entries by line range, and `spec-edit` extends the read-the-index rule to inside a file.
+2. **`AGENTS.md` → *Working economically*.** Read by headings; batch independent reads into one turn;
+   never re-read to confirm your own write; run the one check command; read the batch's declared file
+   list first. The queue-specific bullets are wrapped `full-only`, so a spec-only install does not
+   get told about machinery it doesn't have.
+3. **`config.check`.** A new config string: the repo's single check command. `init` asks for it
+   (skippable) or takes `--check=`, `status` shows it, and `finish-batch` quotes it back before the
+   final commit. specflow never validates or executes it.
+
+**Why.** Instrumented over one long batch in a specflow-managed repo, file reads were 45% of tool
+calls and 88% of context spend, and the single biggest read was a `cat` of a 22 KB `CLAIMS.md` to
+answer a question its headings settle. Measured here: 419 bytes of headings against 17.2 KB for the
+whole file (41x), 224 bytes against 7.5 KB for the queue (33x), and both ledgers are read 3 to 5
+times per batch. Rationale in `spec/architecture.md` → *Context economy*.
+
+**Two decisions worth carrying.** The field is named `check`, not `verify`, because `specflow verify`
+already means install-integrity and an agent told to "run config.verify" would plausibly type the
+wrong command. And this is deliberately *not* a smaller `CLAIMS.md` retention: retention is a count
+of 5 for reasons already recorded under *Ledger lifecycle*, and the waste was the read shape, not
+the entry count.
+
+**Verification.** `go vet` + `go test ./...` green, including five new tests: `--check=` recorded and
+surfaced by `status`; the skipped answer stored as an empty string; a check command containing quotes
+and backslashes still producing valid JSON (the config template is text-substituted, so the value is
+`json.Marshal`-escaped); the interactive prompt; and a legacy install whose config has no `check` key
+at all, where `status` degrades to "not set". Rendered `AGENTS.md` checked in both modes (5 bullets
+full, 4 spec-only) with `specflow verify` clean in each. Self-hosted `upgrade` refreshed this repo's
+own managed files, `drift none`, and the repo now records its own check command.
+
+**Follow-ups deferred.** `upgrade` does not backfill `check` into installs that predate it: the key
+stays absent, which reads as "not set", and `status` prints the one-line hint on how to add it.
+Batch QV depends on this batch and is next.
 
 ### Batch RD — Release auto-publish, and the user approves every release
 - Owner: claude
@@ -218,44 +259,3 @@ stale still needs a hand-mirror (done here). Worth a batch if stub prose keeps c
 
 **Note.** The stub template was rewrapped so its inline composition markers sit at line ends —
 stripping them mid-line left a ragged short line in both rendered modes.
-
-### Batch SL — spec-only mode leaks queue/batch language
-- Owner: claude
-- Started: 2026-08-06 07:17
-- Finished: 2026-08-06 07:35
-- Commit: 3b265e0
-
-**What shipped.** The fix for a user-reported 0.1.2 defect: `init --spec-only` generated files that
-instructed agents to use `BUILD_QUEUE.md`, `CLAIMS.md`, `claim-batch`, and `finish-batch`, none of
-which the mode installs. (1) **Template gating** — the six templates with no mode markers now carry
-`specflow:full-only` / `specflow:spec-only` pairs with *replacement* spec-only wording, not
-deletion: the four adapter rule-files (cursor `.mdc` incl. its frontmatter `description:`, copilot,
-bob, antigravity), `.claude/skills/spec-edit/SKILL.md` (incl. its YAML `description:`, which loads
-into every session's skill listing), and `templates/base/spec/README.md`. (2) **`CLAUDE.md` guards
-widened** past the step-6 hook paragraph to the protocol description, "three procedures", and the
-claim/finish trigger bullets — it advertised the two skills `specOnlyOmits` had just skipped. (3)
-**Mode-consistency check** (`kit.ModeLeaks` + `kit.QueueTokens`, shared with the tests): baseline
-hashes are taken over the *rendered* region, so full-mode prose in a spec-only install matches its
-own hash and reported clean — hashes prove a region is unmodified, never that it is
-mode-appropriate. `verify` now scans managed regions for queue/claim tokens when the stamp records
-spec-only, and prints the mode it validated. (4) **`upgrade` made a complete fix path**
-(`staleAdapterFiles`): skill stubs and hooks are non-managed create-once files with no baseline, so
-upgrade previously left an existing spec-only repo with a wrong `spec-edit` stub forever. The repair
-keys off the mode leak itself, which proves the content is stale specflow text; full mode returns
-nil from `ModeLeaks`, so a customized stub is never touched.
-
-**Verification.** `go test ./...` uncached green, `go vet` + `gofmt` clean. Four new tests, written
-before the fix and observed failing across all six files: a whole-install walk (covers a new
-template the day it lands, rather than a hand-maintained file list), a `verify`-catches-leak test,
-a legacy-upgrade-repair test, and a full-mode-stub-untouched test guarding the repair from being
-destructive. A prose regex on the test side catches queue/claim wording that names no identifier
-(`spec/README.md`'s "claiming a batch: read the queue entry first"), which the token list cannot
-see. Exercised end-to-end against a **real v0.1.2 binary** built from `2951d78`: the new `verify`
-reports 6 problems where 0.1.2 said "All good", and `upgrade` then clears every specflow-owned file.
-Propagated to this repo's dogfood install (`upgrade` refreshed `CLAUDE.md`; `verify` clean).
-
-**Known residue, by contract.** `spec/README.md` is user-owned, so `upgrade` must never rewrite it;
-an existing spec-only install keeps its line 36 until the user edits it. Fixed at source, so new
-installs are clean. Design ref: `spec/architecture.md` → *Install modes*.
-
-**Follow-up.** Batch SZ (600-line cap) was unblocked by this batch and is next in the queue.

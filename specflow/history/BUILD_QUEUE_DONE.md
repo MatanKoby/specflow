@@ -10,6 +10,17 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch CE — Context economy + `config.check`
+Cut the protocol's recurring per-batch context cost. The four procedures now name the cheap read
+(grep the headings, slice the one section) wherever they say what state to check; `AGENTS.md` gained
+a *Working economically* section (batch independent reads, never re-read your own write, one check
+command), with its queue-specific bullets `full-only` so spec-only installs stay clean; and
+`config.check` records the repo's single check command, asked at `init` (skippable, or `--check=`),
+shown by `status`, quoted back by `finish-batch`, and never executed by specflow. Named `check`
+rather than `verify` to avoid colliding with the `specflow verify` command. Key commit `25f419e`.
+Measured basis: 41x on `CLAIMS.md`, 33x on `BUILD_QUEUE.md`, both read 3 to 5 times per batch.
+Follow-up: `upgrade` does not backfill `check` into older installs (absent reads as "not set").
+
 ## Batch RD — Release auto-publish, and the user approves every release
 Flipped `.goreleaser.yaml` `release.draft` to `false`, so a pushed `v*` tag now publishes a public
 release with its archives attached instead of a draft awaiting a manual click. The draft gate had put
