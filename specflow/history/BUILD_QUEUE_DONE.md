@@ -10,6 +10,18 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch AF — Adapter files upgrade like everything else
+**Batch AF — Adapter files upgrade like everything else.** Closed the create-once hole that froze
+every install's skill stubs and handoff hook at whatever shipped on install day: the marker-less
+adapter files are now managed as *whole* files on the same drift contract as a region (clean is
+replaced, edited is left alone with a `.specflow-new` sidecar), with a one-time adoption path that
+carries installs predating the tier across — identical to the template adopts silently, anything
+else is backed up to `.specflow-bak` first. `verify` covers the adapters instead of passing a
+deleted or mangled one clean, `status` gained a `stale` row that separates "you edited it" from
+"specflow moved and this file didn't", and the four skill stubs finally name the queue verbs
+v0.1.5 shipped into the procedures. Also fixed `normalizePath`, which stripped the leading dot from
+`.claude/`-style paths and hid them from the queue's overlap check. Commit `f5f578f`.
+
 ## Batch QV — Queue verbs (`next`, `claim`, `finish`)
 Shipped the three queue verbs. `specflow next [--json]` answers the whole eligibility section of
 `claim-batch.md` in one read-only call (tag, already-claimed, dependency, file overlap), `specflow

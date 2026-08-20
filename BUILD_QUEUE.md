@@ -40,69 +40,14 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > it touched `.goreleaser.yaml` plus this repo's own ledgers and spec. Don't open a new version line
 > for a batch until it changes something a user installs.
 > **Current release: `v0.1.5`. A version line is now open, unreleased.**
-> **Claimable now: Batch AF** (adapter files upgrade like everything else) — the create-once hole
-> that freezes the skill stubs and the handoff hook at whatever shipped on install day. It ships to
-> users, so the next tag carries it. The number is the user's call at tag time, as is the tag itself.
-> Every other batch below is `[NOT READY]`.
+> **AF** (the adapters — skill stubs and handoff hook — are managed as whole files, so a fix to one
+> finally reaches an install that already has it) landed after v0.1.5 and **ships to users**, so the
+> next tag carries it. The number is the user's call at tag time, as is the tag itself.
+> **Nothing is claimable right now** — every batch below is `[NOT READY]`, so the next move is the
+> user's: cut the tag, or promote one of them.
 > **Post-v0.1 queue below:**
 > **Batch W** (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · Homebrew tap.
-
----
-
-## Batch AF — Adapter files upgrade like everything else
-
-**Depends on:** none.
-
-**Goal.** Close the create-once hole in `upgrade`. Spec: `spec/architecture.md` → *init / upgrade*
-→ "Two managed tiers, one drift contract".
-
-`MANAGED` (`internal/kit/kit.go`) covers `AGENTS.md`, `specflow/procedures/`, and the per-agent
-instruction file — every one of them a file with a marker-wrapped region. The **adapters** have no
-region: the four Claude skill stubs and `.claude/hooks/specflow-handoff-reminder.sh` are wholly
-generated, and `upgrade` only ever *places* them when absent (`missingAdapterFiles`) or replaces
-them on a spec-only mode leak (`staleAdapterFiles`). So a repo installed months ago still runs the
-skill stubs and hook that shipped that day, and no number of upgrades will move them. This repo is
-the proof: its stubs predate the queue verbs that v0.1.5 shipped into the procedures.
-
-Five parts, in dependency order — 1 is the mechanism and 2–5 ride on it:
-
-1. **Whole-file management.** `init` records a SHA-256 of each rendered adapter file in the stamp's
-   `managed` map. `upgrade` then treats them like regions: clean → replace and re-record; drifted →
-   leave, write `.specflow-new`. Mode-leak replacement stays and still overrides drift.
-2. **One-time adoption for existing installs.** An adapter with no baseline (every install shipped
-   before this batch) is adopted on the next upgrade: byte-identical to the current template →
-   record the baseline silently; anything else → back up to `.specflow-bak`, then replace. This is
-   the part that makes the fix reach repos already using specflow, and it must be exercised by a
-   test that starts from a v0.1.5-shaped stamp (`managed` holding region entries only).
-3. **`verify` covers the adapters.** Today a deleted, truncated, or hand-edited stub or hook passes
-   clean — the loop walks `managedEntries` only, and the one extra pass (`staleAdapterFiles`)
-   `continue`s on an unreadable file. Missing → warning (that agent loses the trigger, specflow
-   still works); drifted → warning naming `.specflow-new`; otherwise OK.
-4. **`status` distinguishes stale from drift.** `status` reports `drift: none` off the region
-   hashes while a stub is versions behind. Add a **stale** list: files whose on-disk hash matches
-   their baseline but not the current template — i.e. exactly what `upgrade` would refresh — so the
-   summary stops claiming a repo is current when it isn't.
-5. **Teach the stubs the verbs.** Each `SKILL.md` carries an "In short:" summary, and a skill is
-   what an agent loads *before* the procedure, so that summary is what gets acted on. All four
-   describe hand-editing markdown only: `finish-batch`'s says "move the `CLAIMS.md` entry to
-   `## Completed` … delete the batch from `BUILD_QUEUE.md`" without mentioning that
-   `specflow finish <id> --commit <sha>` does all of it and prunes as well. One fast-path line per
-   stub, matching the wording the procedures already use. (Alone this reaches new installs only —
-   it needs 1 + 2 to land anywhere else, which is why it's in this batch and not its own.)
-
-### Files this batch creates/edits
-- `internal/kit/kit.go` · `cmd/specflow/main.go` · `cmd/specflow/main_test.go` ·
-  `templates/agents/claude/.claude/skills/{claim-batch,spec-edit,finish-batch,prune-ledgers}/SKILL.md`
-  · `.claude/skills/{claim-batch,spec-edit,finish-batch,prune-ledgers}/SKILL.md` (the dogfood copies)
-
-### Verification
-- `init` a temp repo, confirm the stamp's `managed` map now carries the five adapter paths.
-- Hand-build a v0.1.5-shaped install (region baselines only, old stub contents); `upgrade`; confirm
-  a pristine stub is replaced with no `.specflow-bak` and an edited one is backed up then replaced.
-- Edit a stub *after* it has a baseline; `upgrade`; confirm it is left alone with a `.specflow-new`
-  sidecar, and that `verify` and `status` both report it.
-- Delete a stub; `verify` warns. `go test ./...`.
 
 ---
 

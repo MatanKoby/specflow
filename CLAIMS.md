@@ -35,11 +35,50 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch AF — Adapter files upgrade like everything else
 - Owner: claude
 - Started: 2026-08-20 13:56
+- Finished: 2026-08-20 14:03
+- Commit: f5f578f
 
-## Completed
+**What shipped**
+- **The second managed tier.** `MANAGED` only ever covered files with a marker-wrapped region, so
+  the wholly-generated adapters — the four Claude `SKILL.md` stubs and
+  `.claude/hooks/specflow-handoff-reminder.sh` — were create-once: `upgrade` placed one when absent
+  and otherwise left it alone forever. `internal/kit/kit.go` now hashes each adapter *whole* into
+  the stamp's `managed` map (`adapterEntries` / `decideAdapter` / `adapterDecisions`), and both
+  tiers funnel through one `applyDecision`, so a region and an adapter in the same state are
+  written and reported identically.
+- **The one-time adoption.** Every install made before this has no adapter baselines at all. On the
+  next `upgrade` each adapter is compared to the current template: identical → record the baseline
+  silently; anything else → `.specflow-bak` then replace. That is what carries existing installs
+  across; from then on the normal clean/drift rules apply. Verified on this repo: `upgrade` adopted
+  all four stubs, the hook was already current, and the four backups were byte-identical to `HEAD`.
+- **`verify` and `status` read the same decisions.** `verify` now lists the adapters (a deleted,
+  truncated, or hand-mangled one used to pass clean); `status` gained a **stale** row, separating
+  "you edited it" from "specflow moved and this file didn't" — it printed the 4 behind stubs on this
+  repo before the upgrade and `none` after.
+- **The stubs learned the verbs.** A skill loads *before* the procedure, so its "In short:" is what
+  gets acted on, and all four described hand-editing markdown only. Each now names its verb
+  (`specflow claim`, `specflow finish`, and for `prune-ledgers` the fact that `specflow finish`
+  already does the `CLAIMS.md` half); `spec-edit`'s addition is `full-only`-gated so a spec-only
+  install still names no queue machinery.
+- **Drive-by fix.** `normalizePath` in `internal/kit/queue.go` trimmed a leading `.` along with
+  trailing prose punctuation, so `.claude/…`, `.github/…`, and `.cursor/…` compared as different
+  files and were invisible to `specflow next`'s overlap check. Caught by this batch's own file list.
+
+**Verification.** 10 new tests in `cmd/specflow/main_test.go` (init baselines the adapters; a stale
+adapter refreshes with no backup; a no-baseline install adopts, backing up only what differs; an
+edited adapter is untouched with a `.specflow-new` sidecar; a deleted one is caught by `verify` and
+restored by `upgrade`; each stub names its verb; the spec-only `spec-edit` stub names none; dotfile
+paths keep their leading dot). `gofmt`/`go vet`/`go test ./...` clean, and the whole flow was run
+end-to-end against this repo's own install.
+
+**Follow-up.** An existing install gets one `.specflow-bak` per adapter it didn't already match —
+expected and reported by `upgrade`, but worth a line in the release notes so users know to delete
+them.
 
 ### Batch QV — Queue verbs (`next`, `claim`, `finish`)
 - Owner: claude
@@ -224,49 +263,3 @@ honor-system until Batch E, and `verify --batch` is the natural home for a "CLAI
 check. (2) Host installs need `specflow upgrade` plus one manual `prune-ledgers` run to catch up;
 kapara has 21 entries to archive. (3) The kapara agent was never consulted: the message sat unread
 behind a cross-session approval gate, so the numbers here were read from its files directly.
-
-### Batch 4 — README badges + file-map
-- Owner: claude
-- Started: 2026-08-10 05:11
-- Finished: 2026-08-10 07:09
-- Commit: 041f1bc
-
-**What shipped.** A full README rewrite, directed by the user ahead of a public launch post. Three
-badges (CI, auto-tracking release, MIT). New structure: centered hero (badges + nav + a hand-written
-ASCII `specflow init` console demo) → causal-chain pitch → five **Why** blocks → Install → Quick
-start → How it works (four prose steps + a mermaid flowchart showing two agents claiming in
-parallel) → file map → Agents → Who it's for → two `<details>` blocks (upgrade/status/verify,
-spec-only) → How it differs → For AI agents.
-
-**File-map deliverable.** An annotated file tree with `[owner]` tags per path, followed by the
-existing ownership table. Tree for orientation, table for the contract.
-
-**Agent-accessibility (user-added scope).** The README is now executable by an agent told "install
-specflow here": (1) an HTML comment as the **first thing in the raw file** pointing agents at the
-right section (invisible when rendered); (2) a `## For AI agents` section with seven ordered
-imperative steps — confirm git repo, install binary, **ask the user which agents + which mode rather
-than guessing**, run `init` non-interactively, show the diff and commit as `meta: install specflow`,
-relay the Claude-Code handoff hook block with its rationale, then read `AGENTS.md` before any work;
-(3) step 7 states plainly that the README is the pitch and `AGENTS.md` is the protocol, so an agent
-does not try to work from the README.
-
-**Verified, not assumed.** Ran a real `init --agents=claude,cursor` into a temp repo, which corrected
-two drafted-from-memory errors: the install writes **16 files, not 11**, and `init` creates only
-`spec/README.md` (no `architecture.md` / `research/`), so the tree now shows the near-empty `spec/`
-and frames that as intentional. `--version`, `add-agent`, `status`, and `verify` output were each
-confirmed before being described; the hook JSON is copied from live `init` output. Anchors, code
-fences, and `go vet` / `go test` all check.
-
-**Positioning choices.** Lead is continuity ("your agents forget between sessions; specflow makes
-that not matter"), with token savings as the third Why block and its "where the spec covers the
-ground" condition stated inline. Added an explicit *honest about enforcement* callout (the protocol
-is written guidelines, nothing executable checks it — Batch E territory). No em dashes, per the
-user's global writing rule.
-
-**Follow-ups deferred.** (1) The animated demo (GIF/asciinema) stays deferred as the batch specified
-— the ASCII console block is the designed visual standing in for it. (2) The *How it differs*
-paragraph (Spec Kit / Kiro / OpenSpec / BMAD) was written from
-`spec/research/2026-07-competitive-landscape.md` and **not re-verified against those projects' current
-behavior**; worth a check before the launch post. (3) A 1280x640 GitHub social-preview image was
-recommended to the user and not produced.
-
