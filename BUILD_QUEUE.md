@@ -39,10 +39,10 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > v0.1.4 and v0.1.5 but is **repo-internal and ships nothing to users**, so it opened no version line:
 > it touched `.goreleaser.yaml` plus this repo's own ledgers and spec. Don't open a new version line
 > for a batch until it changes something a user installs.
-> **Current release: `v0.1.5`. A version line is now open, unreleased.**
-> **AF** (the adapters — skill stubs and handoff hook — are managed as whole files, so a fix to one
-> finally reaches an install that already has it) landed after v0.1.5 and **ships to users**, so the
-> next tag carries it. The number is the user's call at tag time, as is the tag itself.
+> **`v0.1.6`** (patch) ships **AF** (the adapters — the skill stubs and the handoff hook — are
+> managed as whole files, so a fix to one finally reaches an install that already has it, carried
+> across by a one-time adoption on the next `upgrade`).
+> **Current release: `v0.1.6`. No version line is open.**
 > **Nothing is claimable right now** — every batch below is `[NOT READY]`, so the next move is the
 > user's: cut the tag, or promote one of them.
 > **Post-v0.1 queue below:**
