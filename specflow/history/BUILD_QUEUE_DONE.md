@@ -10,6 +10,19 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch RN — Authored release notes
+**Batch RN — Authored release notes.** The GitHub Release body is now written, not generated:
+`.github/release-notes/<tag>.md` is authored in the same commit as the version bump and passed to
+GoReleaser via `--release-notes`, so a pushed tag publishes it directly. Writing it in the release
+commit is the mechanism rather than a convention — the tag push is irreversible, so the notes are
+reviewed in the same diff as the bump, and editing a published body afterwards needs a GitHub API
+token that `git push` over SSH doesn't provide. A missing file falls back to the generated changelog
+with a job-summary warning and never fails the job. The house style (action first, then what changes
+on disk, then behavior changes an agent may be parsing) is specced in `architecture.md` →
+Distribution and keyed to the real reader: an agent deciding whether a repo it maintains needs
+`specflow upgrade`. `v0.1.6`'s notes are backfilled as the worked example; its published release
+keeps the generated body. Repo-internal — no version line. Commit `26b2cbc`.
+
 ## Batch AF — Adapter files upgrade like everything else
 **Batch AF — Adapter files upgrade like everything else.** Closed the create-once hole that froze
 every install's skill stubs and handoff hook at whatever shipped on install day: the marker-less

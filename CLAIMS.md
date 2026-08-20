@@ -40,11 +40,42 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch RN — Authored release notes
 - Owner: claude
 - Started: 2026-08-20 16:43
+- Finished: 2026-08-20 16:46
+- Commit: 26b2cbc
 
-## Completed
+**What shipped**
+- **`.github/workflows/release.yml`** gained a `Resolve release notes` step: it maps the pushed tag
+  to `.github/release-notes/<tag>.md` and, when that file exists, runs GoReleaser with
+  `--release-notes=<path>`. Confirmed against the real GoReleaser v2 binary that the flag exists and
+  "will skip GoReleaser changelog generation", so the authored body replaces the commit list rather
+  than sitting beside it.
+- **The fallback is the default branch**, not an error branch: no notes file → the exact args the
+  workflow ran before, plus a `⚠` line in the job summary. Neither branch can fail the job. A
+  release that ships no archives is far worse than one with a plain body, and that failure mode
+  (v0.1.3, v0.1.4) is the reason `draft: false` exists in the first place.
+- **`CLAIMS.md` → *Releases need the user's approval*** now states that `meta: release vX.Y.Z`
+  covers the notes file as well as the version bump, and why a missed file stays missed (fixing a
+  published body needs an API token; `git push` over SSH doesn't provide one).
+- **`.github/release-notes/v0.1.6.md`** backfilled as the worked example, in the shape the spec
+  specifies. The published v0.1.6 release keeps its generated body — the user explicitly didn't want
+  it updated.
+- **Scope addition:** a comment in `.goreleaser.yaml` above `changelog:` marking that block as the
+  fallback path, since `--release-notes` bypasses it entirely and the config otherwise reads as
+  live on every release.
+
+**Verification.** Both workflow branches simulated locally against real `GITHUB_OUTPUT` /
+`GITHUB_STEP_SUMMARY` files: present → `release --clean --release-notes=.github/release-notes/v0.1.6.md`;
+absent → `release --clean` plus the warning. Both YAML files parse. `act` isn't available here, so
+the job itself is unproven until the next tag — the first real test is the next release.
+
+**Follow-up.** The notes file is a convention the workflow can't enforce at commit time (it only
+sees the tag). If a release ever ships with the generated body again, the next lever is a `ci.yml`
+check on `meta: release` commits.
 
 ### Batch AF — Adapter files upgrade like everything else
 - Owner: claude
@@ -216,59 +247,3 @@ clean on all 7 managed files.
 generated body is adequate. Backfilling a v0.1.1 release. The end-to-end proof is the next tag push:
 confirm it lands published with 6 assets and no manual step.
 
-### Batch PR — Ledger pruning (`prune-ledgers`, the fourth procedure)
-- Owner: claude
-- Started: 2026-08-14 11:03
-- Finished: 2026-08-14 11:33
-- Commit: dd7a1e9
-
-**What shipped.** A fourth procedure, `specflow/procedures/prune-ledgers.md`, plus its thin Claude
-skill. `CLAIMS.md` had no pruning mechanism at all: `finish-batch` appended each completed entry to
-`## Completed` and nothing ever reached `specflow/history/CLAIMS_DONE.md`. The archive shipped and
-`AGENTS.md` documented it, but no procedure wrote to it. The only "archive when it grows long"
-sentence lived *inside* `CLAIMS_DONE.md`, a file agents are told is reference-only and never open,
-and it carried no threshold. So this was a missing step, not a skipped one, and no agent was at
-fault for the bloat.
-
-**The rule.** `## Completed` keeps its **5** newest entries; older ones move verbatim to
-`CLAIMS_DONE.md`, newest at top. `## In progress` is never touched (a stale claim is a handoff
-question, not something to archive). Retention is a **count, not a byte budget**, so pruning always
-cuts on an entry boundary and two agents pruning independently reach the same result. Includes a
-**catch-up pass** for installs that predate the procedure, and a `BUILD_QUEUE.md` sweep for sections
-whose batch is already completed, dissolved, or absorbed.
-
-**Grounded in real data, not a guess.** The first draft of the spec hard-coded N=5 on assumption and
-the user stopped it. Measured against a long-running host install (`agents/kapara`): 26 completed
-entries, 1,789 lines, 125 KB of `CLAIMS.md`, against a 206-byte untouched archive header, byte-for-
-byte the same failure as this repo's own 18-entry ledger. Entry lengths there ran 35 to 126 lines,
-median 61: a 3.6x spread, which is what settled count over byte budget. That install's queue was
-healthy (549 lines of `BUILD_QUEUE_DONE.md` prove `finish-batch` step 4 is followed), so the sweep
-is deliberately narrow.
-
-**Design choices worth keeping.** (1) A separate procedure rather than an inlined finish-batch step,
-because an overgrown ledger needs a many-entry catch-up unrelated to any batch finishing, and the
-user wanted to run it by hand. (2) `finish-batch` delegates as **step 4a**, not a renumber:
-"step-6 handoff" is a named concept across the Claude hook, the spec, and the README, and
-renumbering would break every reference. (3) Rules live in the **procedure**, skill stays a thin
-trigger, per the cross-agent invariant. Putting them in the skill would silently make pruning
-Claude-only. (4) No stop-and-ask, unlike the spec 600-line cap: archiving is lossless and mechanical,
-and `claim-batch` already resolves dependencies against either location.
-
-**Go side.** `prune-ledgers` joins `specOnlyOmits` (procedure + skill) and `kit.QueueTokens` so a
-mode leak is caught. `MANAGED` already covers `specflow/procedures` as a directory, so `upgrade`
-picked the new file up with no change there.
-
-**Verified against the real CLI, not assumed.** Built and ran it on this repo: `upgrade --dry-run`
-first flagged the hand-edited copies as drifted (correct behavior, since their baselines no longer
-matched), so the root copies were removed and rewritten by `upgrade`, which recorded the new
-baseline hash. `verify` now lists four procedures. `go test ./...` uncached green, `gofmt`/`go vet`
-clean. Two new tests lock the retention number, the no-stop-and-ask framing, the delegation, the
-thin-trigger skill (with a line-count ceiling), and the spec-only omission. Dogfooded immediately:
-this entry's own finish ran step 4a and archived 13 entries, taking `CLAIMS.md` from 18 completed
-entries (~520 lines) to 5 (245 lines).
-
-**Follow-ups deferred.** (1) Nothing enforces pruning. Like the rest of the protocol it is
-honor-system until Batch E, and `verify --batch` is the natural home for a "CLAIMS over retention"
-check. (2) Host installs need `specflow upgrade` plus one manual `prune-ledgers` run to catch up;
-kapara has 21 entries to archive. (3) The kapara agent was never consulted: the message sat unread
-behind a cross-session approval gate, so the numbers here were read from its files directly.
