@@ -246,6 +246,36 @@ check** therefore scans managed regions for queue/claim tokens whenever the stam
   - **Pre-marker file** (an install predating markers) → migrated: backed up to `<file>.specflow-bak`,
     then rewritten with markers.
 
+  **Two managed tiers, one drift contract.** The rules above govern files that carry *both*
+  generated and human text (`AGENTS.md`, the agent instruction files, the procedures), so only the
+  marker-wrapped region is specflow's. The **adapters** — the Claude skill stubs and the
+  finish-batch handoff hook — are wholly generated: they carry no markers because there is no user
+  prose to protect. They were **create-once** through v0.1.5, and that was a defect: a corrected
+  skill stub or hook never reached a repo that already had the file, so every existing install sat
+  on whatever shipped the day it was installed, no matter how many times it upgraded. They are now
+  managed as **whole files** — the same contract, with the hash taken over the entire rendered file
+  instead of a region:
+  - **Clean file** (hash matches the recorded baseline) → replaced with the current version; the
+    baseline is re-recorded.
+  - **Drifted file** (hash differs — the user edited it) → left untouched; the fresh version is
+    written to `<file>.specflow-new`, exactly as for a drifted region.
+  - **No baseline** (an install predating whole-file management) → **one-time adoption**: a file
+    already identical to the current version is adopted silently, and any other is backed up to
+    `<file>.specflow-bak` and replaced. This is the only way an existing install can converge —
+    without a baseline there is nothing to distinguish a stale copy from an edited one, and the
+    backup means the choice costs the user nothing. From that upgrade on, the file has a baseline
+    and the two rules above apply normally.
+
+  Mode consistency still overrides both: an adapter naming machinery its mode omits is replaced
+  regardless of drift, because the leak itself proves the content is stale specflow text.
+
+  `verify` and `status` read the same baselines. `verify` covers the adapters alongside the region
+  files — a deleted, truncated, or hand-mangled skill stub or hook is reported, where before it
+  passed clean. `status` separates two things a single "drift" line used to conflate: **drifted**
+  (you edited it — `upgrade` will not touch it) and **stale** (specflow moved and this file didn't
+  — `upgrade` will refresh it). Without that split a stamp matching the binary reads as "everything
+  is current" while a skill stub is several versions behind.
+
 ## Config & state — one file
 
 **One** machine file, in specflow's own folder (**not** the repo root): `specflow/config.json`
@@ -256,7 +286,10 @@ written by `init`, updated by later calls (`add-agent`, lever/mode changes):
   (`agent` | `user`), `push` (`agent` | `user`), `check` (the repo's single check command, or
   empty when not configured).
 - **internal** — `kitVersion`, `schemaVersion`, `initializedAt`, `upgradedAt`, and the `managed`
-  map (per managed file → SHA-256 of its rendered region) that powers the drift detection above.
+  map (per managed file → SHA-256 of its rendered region, or of the **whole** rendered file for the
+  marker-less adapters) that powers the drift detection above. The two kinds of entry never collide
+  because the file sets are disjoint: a path is either region-managed or whole-file-managed, and
+  which one it is comes from the kit, not the stamp.
 
 **`check` is the repo's one check command**, asked at `init` and skippable; empty means not
 configured, and the procedures then say nothing about it. It is named `check` rather than `verify`
