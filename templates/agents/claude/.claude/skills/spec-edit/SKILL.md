@@ -16,4 +16,10 @@ When persisting a design decision, update `spec/` (`spec:` commit) **and** `BUIL
 (`meta:` commit) — never put claim state in the queue.<!-- specflow:full-only:end --><!-- specflow:spec-only:start -->
 When persisting a design decision, write it to `spec/` in a `spec:` commit — the user must have
 approved it first.<!-- specflow:spec-only:end -->
-If the decision surfaced mid-execution, surface it to the user before persisting.
+If the decision surfaced mid-execution, surface it to the user before persisting.<!-- specflow:full-only:start -->
+
+**Use the CLI when it's installed:** the queue side of a decision has no verb — `specflow next`,
+`claim`, and `finish` operate on batches, not on batch *definitions* — so revising or adding a
+batch section in `BUILD_QUEUE.md` is a hand edit, in the declared shape the queue's other sections
+demonstrate (`## Batch <id> — <title>`, an optional `**Depends on:**` line, and a
+`### Files this batch creates/edits` list, which is what `specflow next` reads).<!-- specflow:full-only:end -->

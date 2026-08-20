@@ -10,6 +10,11 @@
   "kit": "specflow",
   "kitVersion": "0.1.5",
   "managed": {
+    ".claude/hooks/specflow-handoff-reminder.sh": "9fea5b4f18baca779901fa4d93b2f90794aded84f8fc322d24d05f3e3558ead9",
+    ".claude/skills/claim-batch/SKILL.md": "f0d812557db00a00df93e074afb4c1af172470dd7b629b6ebeb115e22ad4d863",
+    ".claude/skills/finish-batch/SKILL.md": "fb449c94b3440f55c8fedd708aeccbe10d1e148f92c058fa38b9a95660e83ec9",
+    ".claude/skills/prune-ledgers/SKILL.md": "c11aa076d48e65c1da8e605474e89b8ee267a66f340eae2a01ca6947a23640ae",
+    ".claude/skills/spec-edit/SKILL.md": "8385c8138be067b6347114cdf8e73b3ffa6d542d059792b70965f7f4b06cfe9a",
     "AGENTS.md": "9339ebcb7d5419ae38128eedeb0d5d27c1c512d16ede2bfa5008d5bcbacd81e4",
     "CLAUDE.md": "409621d57e5cfb93c52b3aa118c9cc4c06dcae4a4b69f1f6cb1fb8c252838693",
     "specflow/procedures/claim-batch.md": "dfbd9e0e107fc6b9cebc95820a60bc03037af60b01cfc5a58850a672f511f3af",

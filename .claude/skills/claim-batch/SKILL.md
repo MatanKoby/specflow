@@ -13,3 +13,8 @@ In short: `git pull --ff-only` → pick an eligible, dependency-satisfied, non-o
 add a `## In progress` entry to `CLAIMS.md` → commit `meta: claim batch-N (claude)` and push →
 recover from any push race with fetch+reset (claim commit) **without force-pushing**. Then do the
 work with `batch-N:` commits, and invoke `finish-batch` when done.
+
+**Use the CLI when it's installed:** `specflow next` answers the whole eligibility section in one
+read-only call (tag, already-claimed, dependency, and file-overlap checks, with a reason for every
+blocked batch), and `specflow claim <N>` writes the entry in the exact shape, refusing anything
+`next` wouldn't offer. Neither commits — the `meta: claim` commit is still yours.

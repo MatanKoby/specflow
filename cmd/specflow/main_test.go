@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,6 +14,13 @@ import (
 
 	"github.com/MatanKoby/specflow/internal/kit"
 )
+
+// sha256Hex mirrors the whole-file baseline the kit records for an adapter, so a test can forge a
+// stamp that claims a given content is what specflow installed.
+func sha256Hex(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
+}
 
 // The tests build the real binary once, then drive it against temp repos and assert observable
 // behavior — the Go port of the original Node smoke suite.
@@ -2005,6 +2014,16 @@ func TestParseQueueDeclaredShape(t *testing.T) {
 			wantID: "NB", wantTag: "MANUAL", files: []string{"proc/one.md", "proc/two.md"},
 		},
 		{
+			// Trailing punctuation is prose; a leading dot is path. Trimming both ends made every
+			// dotfile tree — `.claude/`, `.github/`, `.cursor/`, where specflow's own adapters live —
+			// compare as a different file, silently defeating the overlap check.
+			name: "dotfile paths keep their leading dot",
+			queue: "## Batch AF — Adapters\n\n" +
+				"### Files this batch creates/edits\n- `.claude/skills/{a,b}/SKILL.md` · `.github/x.yml`.\n",
+			wantID: "AF",
+			files:  []string{".claude/skills/a/SKILL.md", ".claude/skills/b/SKILL.md", ".github/x.yml"},
+		},
+		{
 			name:    "missing file list is unparseable",
 			queue:   "## Batch 9 — No files declared\n\nSome prose, no declared list.\n",
 			wantID:  "9",
@@ -2337,6 +2356,229 @@ func TestVerbHelpDescribesTheDivisionOfLabor(t *testing.T) {
 		}
 		if !strings.Contains(r.stdout, "specflow "+c.cmd) || !strings.Contains(r.stdout, c.want) {
 			t.Errorf("%s --help did not mention %q:\n%s", c.cmd, c.want, r.stdout)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Batch AF — the adapters (skill stubs, handoff hook) are managed as whole files
+// ---------------------------------------------------------------------------
+
+// adapterRels are the wholly-generated files a full claude install places that carry no marker
+// region. Before whole-file management they were create-once: a fix to one never reached a repo
+// that already had it.
+var adapterRels = []string{
+	".claude/skills/claim-batch/SKILL.md",
+	".claude/skills/spec-edit/SKILL.md",
+	".claude/skills/finish-batch/SKILL.md",
+	".claude/skills/prune-ledgers/SKILL.md",
+	".claude/hooks/specflow-handoff-reminder.sh",
+}
+
+// editStampManaged rewrites the stamp's managed map through fn — the way a test forges an install
+// made by an older kit.
+func editStampManaged(t *testing.T, dir string, fn func(m map[string]any)) {
+	t.Helper()
+	p := filepath.Join(dir, "specflow/config.json")
+	var stamp map[string]any
+	if err := json.Unmarshal([]byte(read(t, p)), &stamp); err != nil {
+		t.Fatal(err)
+	}
+	m, _ := stamp["managed"].(map[string]any)
+	if m == nil {
+		m = map[string]any{}
+	}
+	fn(m)
+	stamp["managed"] = m
+	b, _ := json.MarshalIndent(stamp, "", "  ")
+	mustWrite(t, p, string(b)+"\n")
+}
+
+// dropAdapterBaselines forges a pre-v0.1.6 stamp: region baselines only, no adapter entries. This is
+// the state every existing install is in, and the one the adoption path has to handle.
+func dropAdapterBaselines(t *testing.T, dir string) {
+	t.Helper()
+	editStampManaged(t, dir, func(m map[string]any) {
+		for _, rel := range adapterRels {
+			delete(m, rel)
+		}
+	})
+}
+
+func TestInitBaselinesAdapterFiles(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	m := stampManaged(t, tmp)
+	for _, rel := range adapterRels {
+		if _, ok := m[rel]; !ok {
+			t.Errorf("stamp records no baseline for %s — upgrade can't tell pristine from edited", rel)
+		}
+	}
+}
+
+// The defect this batch exists for: specflow ships a corrected stub, and an install that already
+// has the file must actually receive it.
+func TestUpgradeRefreshesStaleAdapter(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	stub := filepath.Join(tmp, ".claude/skills/finish-batch/SKILL.md")
+	fresh := read(t, stub)
+	old := "---\nname: finish-batch\ndescription: old.\n---\n\nIn short: hand-edit the ledgers.\n"
+	mustWrite(t, stub, old)
+	// Baseline says the old content is what specflow put there — i.e. the user never touched it.
+	editStampManaged(t, tmp, func(m map[string]any) {
+		m[".claude/skills/finish-batch/SKILL.md"] = sha256Hex(old)
+	})
+
+	if r := run(t, tmp, "status"); !strings.Contains(r.stdout, "stale") || !strings.Contains(r.stdout, "finish-batch") {
+		t.Errorf("status did not report the stale stub:\n%s", r.stdout)
+	}
+	if r := run(t, tmp, "upgrade"); r.code != 0 {
+		t.Fatalf("upgrade exit %d: %s", r.code, r.stderr)
+	}
+	if got := read(t, stub); got != fresh {
+		t.Errorf("upgrade left the stale stub in place:\n%s", got)
+	}
+	if exists(stub + ".specflow-bak") {
+		t.Error("a provably pristine stub was backed up — nothing was at risk")
+	}
+	if r := run(t, tmp, "status"); !strings.Contains(r.stdout, "stale") || !strings.Contains(r.stdout, "none") {
+		t.Errorf("status still reports staleness after upgrade:\n%s", r.stdout)
+	}
+}
+
+// An install made before whole-file management has no adapter baselines at all. A pristine copy is
+// adopted silently; anything else is replaced but backed up first, because specflow cannot prove it
+// wrote the content and must never destroy what it didn't.
+func TestUpgradeAdoptsAdaptersWithNoBaseline(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	pristine := filepath.Join(tmp, ".claude/skills/claim-batch/SKILL.md")
+	pristineWant := read(t, pristine)
+	legacy := filepath.Join(tmp, ".claude/skills/finish-batch/SKILL.md")
+	legacyWant := read(t, legacy)
+	legacyOld := "---\nname: finish-batch\ndescription: shipped by an older kit.\n---\n\nIn short: hand-edit.\n"
+	mustWrite(t, legacy, legacyOld)
+	dropAdapterBaselines(t, tmp)
+
+	if r := run(t, tmp, "verify"); !strings.Contains(r.stdout, "predates whole-file management") {
+		t.Errorf("verify said nothing about the un-baselined adapters:\n%s", r.stdout)
+	}
+	if r := run(t, tmp, "upgrade"); r.code != 0 {
+		t.Fatalf("upgrade exit %d: %s", r.code, r.stderr)
+	}
+	if got := read(t, legacy); got != legacyWant {
+		t.Errorf("the older kit's stub survived the upgrade:\n%s", got)
+	}
+	if got := read(t, legacy+".specflow-bak"); got != legacyOld {
+		t.Errorf("the replaced copy was not preserved:\n%s", got)
+	}
+	if got := read(t, pristine); got != pristineWant {
+		t.Errorf("adoption rewrote an already-current stub:\n%s", got)
+	}
+	if exists(pristine + ".specflow-bak") {
+		t.Error("an already-current stub was backed up — there was nothing to preserve")
+	}
+	// Adoption is one-time: every adapter now carries a baseline.
+	m := stampManaged(t, tmp)
+	for _, rel := range adapterRels {
+		if _, ok := m[rel]; !ok {
+			t.Errorf("%s still has no baseline after the adoption upgrade", rel)
+		}
+	}
+	if r := run(t, tmp, "verify"); r.code != 0 || strings.Contains(r.stdout, "predates whole-file management") {
+		t.Errorf("verify still unhappy after adoption:\n%s", r.stdout)
+	}
+}
+
+// The other half of the contract: once a file has a baseline, an edit to it is the user's and is
+// never overwritten — the same protection a drifted region gets.
+func TestUpgradeProtectsEditedAdapter(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	hook := filepath.Join(tmp, ".claude/hooks/specflow-handoff-reminder.sh")
+	mine := read(t, hook) + "\n# my own tweak\n"
+	mustWrite(t, hook, mine)
+
+	if r := run(t, tmp, "status"); !strings.Contains(r.stdout, "specflow-handoff-reminder.sh") {
+		t.Errorf("status did not report the edited hook as drift:\n%s", r.stdout)
+	}
+	if r := run(t, tmp, "verify"); !strings.Contains(r.stdout, "specflow-handoff-reminder.sh") {
+		t.Errorf("verify did not report the edited hook:\n%s", r.stdout)
+	}
+	if r := run(t, tmp, "upgrade"); r.code != 0 {
+		t.Fatalf("upgrade exit %d: %s", r.code, r.stderr)
+	}
+	if got := read(t, hook); got != mine {
+		t.Errorf("upgrade clobbered an edited hook:\n%s", got)
+	}
+	if !exists(hook + ".specflow-new") {
+		t.Error("no .specflow-new sidecar written for the drifted hook")
+	}
+}
+
+// Before this batch a deleted or truncated stub passed verify clean.
+func TestVerifyCatchesDeletedAdapter(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	stub := filepath.Join(tmp, ".claude/skills/prune-ledgers/SKILL.md")
+	if err := os.Remove(stub); err != nil {
+		t.Fatal(err)
+	}
+	r := run(t, tmp, "verify")
+	if !strings.Contains(r.stdout, "prune-ledgers") || !strings.Contains(r.stdout, "missing") {
+		t.Errorf("verify passed clean with a deleted skill stub:\n%s", r.stdout)
+	}
+	if r := run(t, tmp, "upgrade"); r.code != 0 {
+		t.Fatalf("upgrade exit %d: %s", r.code, r.stderr)
+	}
+	if !exists(stub) {
+		t.Error("upgrade did not restore the deleted stub")
+	}
+}
+
+// A skill is what an agent loads *before* the procedure, so the stub's summary is what gets acted
+// on. Each one must name the verb that does the work, or the agent hand-edits markdown a CLI call
+// would have done correctly.
+func TestSkillStubsNameTheirVerb(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	for stub, verb := range map[string]string{
+		"claim-batch":   "specflow claim",
+		"finish-batch":  "specflow finish",
+		"prune-ledgers": "specflow finish",
+		"spec-edit":     "specflow next",
+	} {
+		got := read(t, filepath.Join(tmp, ".claude/skills/"+stub+"/SKILL.md"))
+		if !strings.Contains(got, verb) {
+			t.Errorf("%s stub never mentions %q:\n%s", stub, verb, got)
+		}
+	}
+}
+
+// The spec-only rendering of the one stub that ships in both modes must still name no queue verbs —
+// they operate on machinery a spec-only install doesn't have.
+func TestSpecOnlySpecEditStubNamesNoVerbs(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude", "--spec-only"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	got := read(t, filepath.Join(tmp, ".claude/skills/spec-edit/SKILL.md"))
+	for _, tok := range append(kit.QueueTokens, "specflow next", "specflow claim", "specflow finish") {
+		if strings.Contains(got, tok) {
+			t.Errorf("spec-only spec-edit stub names %q:\n%s", tok, got)
 		}
 	}
 }

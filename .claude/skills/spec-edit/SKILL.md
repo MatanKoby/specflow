@@ -15,3 +15,9 @@ and ask the user to split or keep; never decide it yourself, and never ask them 
 When persisting a design decision, update `spec/` (`spec:` commit) **and** `BUILD_QUEUE.md`
 (`meta:` commit) — never put claim state in the queue.
 If the decision surfaced mid-execution, surface it to the user before persisting.
+
+**Use the CLI when it's installed:** the queue side of a decision has no verb — `specflow next`,
+`claim`, and `finish` operate on batches, not on batch *definitions* — so revising or adding a
+batch section in `BUILD_QUEUE.md` is a hand edit, in the declared shape the queue's other sections
+demonstrate (`## Batch <id> — <title>`, an optional `**Depends on:**` line, and a
+`### Files this batch creates/edits` list, which is what `specflow next` reads).

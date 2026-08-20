@@ -196,9 +196,13 @@ func expandBraces(p string) []string {
 	return out
 }
 
-// normalizePath makes two spellings of the same file compare equal for the overlap check.
+// normalizePath makes two spellings of the same file compare equal for the overlap check. Trailing
+// punctuation is prose, not path ("… edits `foo.go`."); a *leading* dot is not — trimming both ends
+// turned `.claude/skills/…` into `claude/skills/…`, which quietly made every dotfile path (the
+// `.claude/`, `.github/`, `.cursor/` trees specflow's own adapters live in) invisible to the
+// overlap check.
 func normalizePath(p string) string {
-	p = strings.TrimSpace(strings.Trim(strings.TrimSpace(p), "`.,"))
+	p = strings.TrimRight(strings.Trim(strings.TrimSpace(p), "`"), "`.,")
 	p = strings.TrimPrefix(p, "./")
 	return strings.TrimSuffix(p, "/")
 }

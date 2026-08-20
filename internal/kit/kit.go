@@ -184,8 +184,18 @@ func extractRegion(content string) (regionParts, bool) {
 	}, true
 }
 
-func hashRegion(region string) string {
-	sum := sha256.Sum256([]byte(region))
+// hashRegion is the baseline for a *region*-managed file: the bytes between the markers, which are
+// the only part of that file specflow owns.
+func hashRegion(region string) string { return sha256hex(region) }
+
+// hashFile is the baseline for an *adapter*: a wholly-generated file with no markers, where every
+// byte is specflow's, so the whole rendered file is the unit of comparison. The two hash kinds never
+// collide in the stamp's managed map because the file sets are disjoint — which one a path gets is
+// decided by the kit (managedEntries vs adapterEntries), never by the stamp.
+func hashFile(content string) string { return sha256hex(content) }
+
+func sha256hex(s string) string {
+	sum := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -388,9 +398,13 @@ func fillStamp(targetDir, version string, agentKeys []string, mode, check string
 	return os.WriteFile(p, []byte(s), 0o644)
 }
 
-// computeManaged returns the baseline hash of each managed file's region as currently on disk (the
-// base set plus the installed agents' instruction files). Stored in the stamp so a later upgrade can
-// tell a pristine region (safe to refresh) from a hand-edited one (drift).
+// computeManaged returns the on-disk baseline hash of every file specflow manages, in both tiers:
+// the region hash for the marker-wrapped files (the base set plus the installed agents' instruction
+// files), and the whole-file hash for the marker-less adapters (skill stubs, handoff hook). Stored
+// in the stamp so a later upgrade can tell a pristine file (safe to refresh) from a hand-edited one
+// (drift) — for the adapters that distinction did not exist until whole-file management landed,
+// which is why upgrade carries a one-time adoption path for installs whose stamp has no adapter
+// entries.
 func computeManaged(targetDir string, tpl fs.FS, agentKeys []string, mode string) (map[string]string, error) {
 	entries, err := managedEntries(tpl, agentKeys, mode)
 	if err != nil {
@@ -405,6 +419,17 @@ func computeManaged(targetDir string, tpl fs.FS, agentKeys []string, mode string
 		if parts, ok := extractRegion(string(b)); ok {
 			m[e.rel] = hashRegion(parts.region)
 		}
+	}
+	adapters, err := adapterEntries(tpl, agentKeys, mode)
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range adapters {
+		b, err := os.ReadFile(destPath(targetDir, f.rel))
+		if err != nil {
+			continue // absent (e.g. the user removed it at the review step) — no baseline to record
+		}
+		m[f.rel] = hashFile(string(b))
 	}
 	return m, nil
 }
@@ -749,59 +774,20 @@ func upgradeDecisions(targetDir string, tpl fs.FS, stamp map[string]any) ([]relD
 	return out, nil
 }
 
-// missingAdapterFiles returns the installed agents' non-managed adapter files (e.g. the Claude
-// step-6 handoff hook) that `init` would place but that are absent here — the create-once files a
-// newer kit shipped after this repo was installed. Managed-region files are handled by the region
-// upgrade (a missing one is recreated via upAdd); base files are never recreated (a user may have
-// deleted them deliberately), so this is scoped to the agents/ tree only. Create-once: present files
-// are left untouched.
-func missingAdapterFiles(targetDir string, tpl fs.FS, stamp map[string]any) ([]placedFile, error) {
-	agents := installedAgents(stamp)
-	mode := modeOf(stamp)
-	files, err := initFiles(tpl, agents, mode)
-	if err != nil {
-		return nil, err
-	}
-	entries, err := managedEntries(tpl, agents, mode)
-	if err != nil {
-		return nil, err
-	}
-	managed := map[string]bool{}
-	for _, e := range entries {
-		managed[e.rel] = true
-	}
-	var out []placedFile
-	for _, f := range files {
-		if !strings.HasPrefix(f.src, "agents/") {
-			continue // base files aren't recreated on upgrade
-		}
-		if managed[f.rel] {
-			continue // region files are handled by the managed-region upgrade
-		}
-		if _, err := os.Stat(destPath(targetDir, f.rel)); err == nil {
-			continue // create-once: already present
-		}
-		out = append(out, f)
-	}
-	return out, nil
-}
-
-// staleAdapterFiles returns the non-managed adapter files that are present but name machinery the
-// install's mode omits — a skill stub left behind by a kit that shipped un-gated prose.
+// adapterEntries returns the installed agents' *adapter* files: the wholly-generated files under
+// agents/<key>/ that carry no marker region — the Claude skill stubs and the finish-batch handoff
+// hook. They hold no user prose, so there is nothing for markers to protect and specflow manages
+// them as whole files instead (see decideAdapter).
 //
-// These files are create-once and carry no baseline, so upgrade normally can't tell a pristine copy
-// from a user-edited one and leaves them alone. A mode leak resolves that: no user would write
-// "propagation to BUILD_QUEUE.md" into a repo that has no queue, so the leak itself proves the
-// content is stale specflow text and is safe to replace. Without this, an existing spec-only install
-// keeps a wrong `spec-edit` skill forever — and its YAML description loads into every session.
-func staleAdapterFiles(targetDir string, tpl fs.FS, stamp map[string]any) ([]placedFile, error) {
-	agents := installedAgents(stamp)
-	mode := modeOf(stamp)
-	files, err := initFiles(tpl, agents, mode)
+// Base files are deliberately excluded: a user may have deleted BUILD_QUEUE.md or a spec file on
+// purpose, and recreating those on every upgrade would fight them. An agent's own instruction file
+// is excluded too — it *is* region-managed, and handled by the region path.
+func adapterEntries(tpl fs.FS, agentKeys []string, mode string) ([]placedFile, error) {
+	files, err := initFiles(tpl, agentKeys, mode)
 	if err != nil {
 		return nil, err
 	}
-	entries, err := managedEntries(tpl, agents, mode)
+	entries, err := managedEntries(tpl, agentKeys, mode)
 	if err != nil {
 		return nil, err
 	}
@@ -811,18 +797,161 @@ func staleAdapterFiles(targetDir string, tpl fs.FS, stamp map[string]any) ([]pla
 	}
 	var out []placedFile
 	for _, f := range files {
-		if !strings.HasPrefix(f.src, "agents/") || managed[f.rel] {
-			continue
-		}
-		b, err := os.ReadFile(destPath(targetDir, f.rel))
-		if err != nil {
-			continue // absent — missingAdapterFiles handles placement
-		}
-		if len(ModeLeaks(mode, string(b))) > 0 {
+		if strings.HasPrefix(f.src, "agents/") && !managed[f.rel] {
 			out = append(out, f)
 		}
 	}
 	return out, nil
+}
+
+// adapterState classifies one adapter file against its baseline and the current template. Each
+// caller maps it to its own vocabulary: upgrade to a write, verify to a warning or problem, status
+// to drifted-vs-stale.
+type adapterState int
+
+const (
+	adOK          adapterState = iota // byte-identical to the current template — nothing to do
+	adMissing                         // absent (a newer kit shipped it, or someone deleted it)
+	adRefreshable                     // matches its baseline but not the template — specflow moved, this file didn't
+	adAdoptable                       // no baseline: installed before whole-file management, one-time adoption due
+	adLeaking                         // names machinery this install mode omits — stale specflow text by proof
+	adEdited                          // differs from its baseline — the user's edit, never overwritten
+)
+
+// adapterDecision is one adapter's state plus the two contents every caller needs.
+type adapterDecision struct {
+	state    adapterState
+	rendered string // the current template, rendered for this install's mode
+	current  string // what is on disk ("" when adMissing)
+}
+
+// decideAdapter classifies one adapter file, touching nothing. The order of the checks is the whole
+// contract:
+//
+//  1. Absent → the kit added it after this repo was installed.
+//  2. Already identical to the template → nothing to do. This is also how a pre-management install's
+//     untouched copy is adopted: it needs a baseline recorded, not a rewrite.
+//  3. Matches its baseline → provably pristine, safe to replace outright.
+//  4. Names machinery this mode omits → the leak proves the content is stale specflow text, not
+//     something a user wrote (nobody types "BUILD_QUEUE.md" into a repo that has no queue).
+//  5. No baseline at all → an install predating whole-file management. There is nothing to compare
+//     against, so it is replaced *with a backup* — the only way such an install can ever converge,
+//     at no cost to the user.
+//  6. Otherwise the hash differs from a baseline we do have: the user edited it. Never overwritten.
+func decideAdapter(dest, rel, rendered, mode string, baseline map[string]string) (adapterDecision, error) {
+	d := adapterDecision{rendered: rendered}
+	db, err := os.ReadFile(dest)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return d, err
+		}
+		d.state = adMissing
+		return d, nil
+	}
+	d.current = string(db)
+	switch base, hasBase := baseline[rel]; {
+	case hashFile(d.current) == hashFile(rendered):
+		d.state = adOK
+	case hasBase && base != "" && hashFile(d.current) == base:
+		d.state = adRefreshable
+	case len(ModeLeaks(mode, d.current)) > 0:
+		d.state = adLeaking
+	case !hasBase || base == "":
+		d.state = adAdoptable
+	default:
+		d.state = adEdited
+	}
+	return d, nil
+}
+
+// adapterDecisions classifies every adapter file for the install described by stamp. Shared by
+// Upgrade, PlanUpgrade, Verify, and Status so none of them can disagree about a file's state.
+func adapterDecisions(targetDir string, tpl fs.FS, stamp map[string]any) ([]relAdapter, error) {
+	mode := modeOf(stamp)
+	baseline := baselineMap(stamp)
+	files, err := adapterEntries(tpl, installedAgents(stamp), mode)
+	if err != nil {
+		return nil, err
+	}
+	var out []relAdapter
+	for _, f := range files {
+		srcb, err := fs.ReadFile(tpl, f.src)
+		if err != nil {
+			return nil, err
+		}
+		d, err := decideAdapter(destPath(targetDir, f.rel), f.rel, string(renderFile(srcb, mode)), mode, baseline)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, relAdapter{rel: f.rel, dec: d})
+	}
+	return out, nil
+}
+
+// relAdapter pairs an adapter file with its decision.
+type relAdapter struct {
+	rel string
+	dec adapterDecision
+}
+
+// asUpgrade maps an adapter decision onto the same six-way upgrade action the region path uses, so
+// one apply loop serves both tiers. adAdoptable and adLeaking both back up before replacing: neither
+// can be proven pristine, and the hard invariant is that upgrade never destroys text it can't prove
+// it wrote.
+func (d adapterDecision) asUpgrade() upgradeDecision {
+	h := hashFile(d.rendered)
+	switch d.state {
+	case adMissing:
+		return upgradeDecision{action: upAdd, updated: d.rendered, newHash: h}
+	case adRefreshable:
+		return upgradeDecision{action: upRefresh, updated: d.rendered, newHash: h}
+	case adAdoptable, adLeaking:
+		return upgradeDecision{action: upMigrate, updated: d.rendered, backup: d.current, newHash: h}
+	case adEdited:
+		return upgradeDecision{action: upDrift, updated: d.rendered}
+	default: // adOK — record the baseline (which is how adoption of a pristine copy happens)
+		return upgradeDecision{action: upNoop, newHash: h}
+	}
+}
+
+// applyDecision performs the writes one upgrade decision implies and records the outcome. Both
+// managed tiers funnel through it, so a region and an adapter in the same state are always reported
+// and written the same way.
+func applyDecision(targetDir, rel string, d upgradeDecision, next map[string]string, res *UpgradeResult) error {
+	dest := destPath(targetDir, rel)
+	switch d.action {
+	case upSkip:
+		// brownfield file specflow never owned — leave it, don't record a baseline.
+	case upNoop:
+		next[rel] = d.newHash
+	case upAdd:
+		if err := writeFile(dest, []byte(d.updated)); err != nil {
+			return err
+		}
+		next[rel] = d.newHash
+		res.Added = append(res.Added, rel)
+	case upMigrate:
+		if err := os.WriteFile(dest+".specflow-bak", []byte(d.backup), 0o644); err != nil {
+			return err
+		}
+		if err := os.WriteFile(dest, []byte(d.updated), 0o644); err != nil {
+			return err
+		}
+		next[rel] = d.newHash
+		res.Migrated = append(res.Migrated, rel)
+	case upDrift:
+		if err := os.WriteFile(dest+".specflow-new", []byte(d.updated), 0o644); err != nil {
+			return err
+		}
+		res.Drifted = append(res.Drifted, rel)
+	case upRefresh:
+		if err := os.WriteFile(dest, []byte(d.updated), 0o644); err != nil {
+			return err
+		}
+		next[rel] = d.newHash
+		res.Refreshed = append(res.Refreshed, rel)
+	}
+	return nil
 }
 
 // Upgrade refreshes specflow's managed region in each managed file to the installed kit version,
@@ -855,80 +984,22 @@ func Upgrade(targetDir string, tpl fs.FS, version string) (UpgradeResult, error)
 		return res, err
 	}
 	for _, rd := range decisions {
-		rel, d := rd.rel, rd.dec
-		dest := destPath(targetDir, rel)
-		switch d.action {
-		case upSkip:
-			// brownfield file specflow never owned — leave it, don't record a baseline.
-		case upNoop:
-			next[rel] = d.newHash
-		case upAdd:
-			if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-				return res, err
-			}
-			if err := os.WriteFile(dest, []byte(d.updated), 0o644); err != nil {
-				return res, err
-			}
-			next[rel] = d.newHash
-			res.Added = append(res.Added, rel)
-		case upMigrate:
-			if err := os.WriteFile(dest+".specflow-bak", []byte(d.backup), 0o644); err != nil {
-				return res, err
-			}
-			if err := os.WriteFile(dest, []byte(d.updated), 0o644); err != nil {
-				return res, err
-			}
-			next[rel] = d.newHash
-			res.Migrated = append(res.Migrated, rel)
-		case upDrift:
-			if err := os.WriteFile(dest+".specflow-new", []byte(d.updated), 0o644); err != nil {
-				return res, err
-			}
-			res.Drifted = append(res.Drifted, rel)
-		case upRefresh:
-			if err := os.WriteFile(dest, []byte(d.updated), 0o644); err != nil {
-				return res, err
-			}
-			next[rel] = d.newHash
-			res.Refreshed = append(res.Refreshed, rel)
+		if err := applyDecision(targetDir, rd.rel, rd.dec, next, &res); err != nil {
+			return res, err
 		}
 	}
 
-	// Place non-managed adapter files a newer kit added (e.g. the Claude handoff hook) — create-once,
-	// not baselined (init doesn't baseline these either).
-	missing, err := missingAdapterFiles(targetDir, tpl, stamp)
+	// The adapters (skill stubs, handoff hook) carry no markers, so they're managed as whole files on
+	// the same contract — including the one-time adoption that finally carries installs made before
+	// this tier existed.
+	adapters, err := adapterDecisions(targetDir, tpl, stamp)
 	if err != nil {
 		return res, err
 	}
-	for _, f := range missing {
-		srcb, err := fs.ReadFile(tpl, f.src)
-		if err != nil {
+	for _, ra := range adapters {
+		if err := applyDecision(targetDir, ra.rel, ra.dec.asUpgrade(), next, &res); err != nil {
 			return res, err
 		}
-		dest := destPath(targetDir, f.rel)
-		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-			return res, err
-		}
-		if err := os.WriteFile(dest, renderFile(srcb, modeOf(stamp)), 0o644); err != nil {
-			return res, err
-		}
-		res.Added = append(res.Added, f.rel)
-	}
-
-	// Replace non-managed adapter files whose content names machinery this mode omits.
-	stale, err := staleAdapterFiles(targetDir, tpl, stamp)
-	if err != nil {
-		return res, err
-	}
-	for _, f := range stale {
-		srcb, err := fs.ReadFile(tpl, f.src)
-		if err != nil {
-			return res, err
-		}
-		if err := os.WriteFile(destPath(targetDir, f.rel), renderFile(srcb, modeOf(stamp)), 0o644); err != nil {
-			return res, err
-		}
-		res.Refreshed = append(res.Refreshed, f.rel)
 	}
 
 	stamp["kitVersion"] = version
@@ -983,12 +1054,21 @@ func PlanUpgrade(targetDir string, tpl fs.FS, version string) (UpgradePlan, erro
 			plan.Drift = append(plan.Drift, rd.rel)
 		}
 	}
-	missing, err := missingAdapterFiles(targetDir, tpl, stamp)
+	adapters, err := adapterDecisions(targetDir, tpl, stamp)
 	if err != nil {
 		return plan, err
 	}
-	for _, f := range missing {
-		plan.Add = append(plan.Add, f.rel)
+	for _, ra := range adapters {
+		switch ra.dec.asUpgrade().action {
+		case upRefresh:
+			plan.Refresh = append(plan.Refresh, ra.rel)
+		case upAdd:
+			plan.Add = append(plan.Add, ra.rel)
+		case upMigrate:
+			plan.Migrate = append(plan.Migrate, ra.rel)
+		case upDrift:
+			plan.Drift = append(plan.Drift, ra.rel)
+		}
 	}
 	return plan, nil
 }
@@ -1150,6 +1230,33 @@ func parseInProgress(section string) []ClaimLine {
 	return out
 }
 
+// staleFiles lists the managed files `upgrade` would rewrite because specflow moved on: a clean
+// region whose template changed, an adapter matching its baseline but not the current template, and
+// an adapter with no baseline at all (an install predating whole-file management). Files the *user*
+// changed are excluded — those are drift, and upgrade leaves them alone.
+//
+// This is what lets `status` stop reporting a repo as current on the strength of a matching version
+// stamp: the stamp says which kit last ran, not whether every file it manages actually moved.
+func staleFiles(targetDir string, tpl fs.FS, stamp map[string]any, adapters []relAdapter) ([]string, error) {
+	decisions, err := upgradeDecisions(targetDir, tpl, stamp)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, rd := range decisions {
+		if rd.dec.action == upRefresh || rd.dec.action == upMigrate {
+			out = append(out, rd.rel)
+		}
+	}
+	for _, ra := range adapters {
+		switch ra.dec.state {
+		case adRefreshable, adAdoptable, adLeaking:
+			out = append(out, ra.rel)
+		}
+	}
+	return out, nil
+}
+
 // StatusReport is a read-only snapshot of a specflow install, for `specflow status`.
 type StatusReport struct {
 	Installed     bool
@@ -1163,7 +1270,8 @@ type StatusReport struct {
 	HasQueue      bool        // BUILD_QUEUE.md present (full mode)
 	UndoneBatches int         // count of un-done batches; -1 when there's no queue (spec-only)
 	InProgress    []ClaimLine // active claims from CLAIMS.md
-	Drifted       []string    // managed files whose region no longer matches its baseline
+	Drifted       []string    // managed files the user edited — `upgrade` will not touch them
+	Stale         []string    // managed files specflow has moved on from — `upgrade` will refresh them
 }
 
 // Status assembles a read-only snapshot of the install: versions, mode, agents, commit/push levers,
@@ -1192,9 +1300,14 @@ func Status(targetDir string, tpl fs.FS, version string) (StatusReport, error) {
 
 	}
 
-	// Drift: a managed region whose current hash differs from the recorded baseline (same test the
-	// upgrade/verify paths use). Missing files / missing baselines aren't drift — they're a verify
-	// concern, kept out of this orientation summary.
+	// Two different things a single "drift" line used to conflate. **Drifted**: you edited it, so
+	// `upgrade` will leave it alone. **Stale**: specflow moved and this file didn't, so `upgrade`
+	// will refresh it. Without the split, a stamp matching the binary reads as "everything is
+	// current" while a skill stub sits several versions behind — which is exactly what happened to
+	// the adapters while they were create-once.
+	//
+	// Missing files / missing baselines aren't drift — they're a verify concern, kept out of this
+	// orientation summary.
 	baseline := baselineMap(stamp)
 	entries, err := managedEntries(tpl, rep.Agents, rep.Mode)
 	if err != nil {
@@ -1212,6 +1325,18 @@ func Status(targetDir string, tpl fs.FS, version string) (StatusReport, error) {
 		if base := baseline[e.rel]; base != "" && hashRegion(parts.region) != base {
 			rep.Drifted = append(rep.Drifted, e.rel)
 		}
+	}
+	adapters, err := adapterDecisions(targetDir, tpl, stamp)
+	if err != nil {
+		return rep, err
+	}
+	for _, ra := range adapters {
+		if ra.dec.state == adEdited {
+			rep.Drifted = append(rep.Drifted, ra.rel)
+		}
+	}
+	if rep.Stale, err = staleFiles(targetDir, tpl, stamp, adapters); err != nil {
+		return rep, err
 	}
 
 	// Queue + claims live at the repo root in full mode; spec-only installs have neither.
@@ -1301,14 +1426,26 @@ func Verify(targetDir string, tpl fs.FS, version string) (VerifyReport, error) {
 		}
 	}
 
-	// Non-managed adapter files (skill stubs, hooks) have no region to hash, so the loop above never
-	// sees them — but a stale one is exactly as misleading to an agent as a stale region.
-	stale, err := staleAdapterFiles(targetDir, tpl, stamp)
+	// The adapters (skill stubs, hooks) have no region to hash, so the loop above never sees them —
+	// but a deleted or mangled one is exactly as misleading to an agent as a broken region, and it
+	// used to pass clean. They are Tier 3: losing one costs that agent its trigger, not the install.
+	adapters, err := adapterDecisions(targetDir, tpl, stamp)
 	if err != nil {
 		return rep, err
 	}
-	for _, f := range stale {
-		rep.Problems = append(rep.Problems, f.rel+" names batch/claim machinery this spec-only install doesn't have — run `specflow upgrade`")
+	for _, ra := range adapters {
+		switch ra.dec.state {
+		case adMissing:
+			rep.Warnings = append(rep.Warnings, ra.rel+" missing — that trigger won't fire (`specflow upgrade` restores it)")
+		case adLeaking:
+			rep.Problems = append(rep.Problems, ra.rel+" names batch/claim machinery this spec-only install doesn't have — run `specflow upgrade`")
+		case adEdited:
+			rep.Warnings = append(rep.Warnings, ra.rel+" edited since install (drift) — `upgrade` won't refresh it")
+		case adAdoptable:
+			rep.Warnings = append(rep.Warnings, ra.rel+" predates whole-file management — the next `upgrade` adopts it (your copy is kept as .specflow-bak)")
+		default:
+			rep.OK = append(rep.OK, ra.rel)
+		}
 	}
 	return rep, nil
 }

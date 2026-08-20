@@ -13,5 +13,9 @@ top of `specflow/history/CLAIMS_DONE.md` (never touch `## In progress`) → swee
 sections whose batch is already completed, dissolved, or absorbed, leaving `[NOT READY]` /
 `[DEFERRED]` / `[MANUAL]` alone → commit `meta: prune ledgers (N claims entries archived)`.
 
+**`specflow finish` already applies the `CLAIMS.md` half** as part of completing a batch, so after
+that verb the only thing left here is the `BUILD_QUEUE.md` sweep, which has no verb and is done by
+hand.
+
 An install that predates this procedure may be many entries over: archive them all in one
 catch-up pass. Lossless and mechanical, so no stop-and-ask.

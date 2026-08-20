@@ -236,11 +236,12 @@ func upgradeUsage() {
 %s
   specflow upgrade
 
-Refreshes only specflow's marker-delimited regions in AGENTS.md, the procedures,
-and each installed agent's instruction file. %s: text outside the markers is
-preserved; a region you edited (drift) is left untouched and the fresh version is
-written alongside as %s. Your queue, claims, and spec are never
-touched, and upgrade never commits.
+Refreshes specflow's marker-delimited regions in AGENTS.md, the procedures, and
+each installed agent's instruction file, plus the wholly-generated adapter files
+(skill stubs, hooks), which are managed as whole files. %s: text
+outside the markers is preserved, and any managed file you edited (drift) is left
+untouched with the fresh version written alongside as %s. Your
+queue, claims, and spec are never touched, and upgrade never commits.
 
   --dry-run    preview what would refresh / add / migrate / skip, and exit
   -h, --help   show this help
@@ -507,10 +508,10 @@ func cmdUpgrade(args []string) error {
 		fmt.Println(dim("  added:     " + strings.Join(res.Added, ", ")))
 	}
 	if len(res.Migrated) > 0 {
-		fmt.Println(yellow("  migrated to managed-region format (previous saved as *.specflow-bak): " + strings.Join(res.Migrated, ", ")))
+		fmt.Println(yellow("  adopted into specflow's managed set (your previous copy saved as *.specflow-bak): " + strings.Join(res.Migrated, ", ")))
 	}
 	if len(res.Drifted) > 0 {
-		fmt.Println(yellow(fmt.Sprintf("\n  ⚠ %d managed region(s) edited since install — left untouched:", len(res.Drifted))))
+		fmt.Println(yellow(fmt.Sprintf("\n  ⚠ %d managed file(s) edited since install — left untouched:", len(res.Drifted))))
 		for _, f := range res.Drifted {
 			fmt.Println(dim("    · " + f + "  → new version written to " + f + ".specflow-new (reconcile, then re-run upgrade)"))
 		}
@@ -776,7 +777,14 @@ func cmdStatus(args []string) error {
 	if len(rep.Drifted) == 0 {
 		row("drift", green("none"))
 	} else {
-		row("drift", yellow(fmt.Sprintf("⚠ %d region(s) edited since install", len(rep.Drifted)))+dim(" — "+strings.Join(rep.Drifted, ", ")))
+		row("drift", yellow(fmt.Sprintf("⚠ %d file(s) edited since install", len(rep.Drifted)))+dim(" — "+strings.Join(rep.Drifted, ", ")))
+	}
+	// Drift and staleness are different questions: one asks whether *you* changed a file, the other
+	// whether *specflow* did. A repo can be clean on the first and behind on the second.
+	if len(rep.Stale) == 0 {
+		row("stale", green("none"))
+	} else {
+		row("stale", yellow(fmt.Sprintf("⚠ %d file(s) behind this binary", len(rep.Stale)))+dim(" — run `specflow upgrade`: "+strings.Join(rep.Stale, ", ")))
 	}
 	fmt.Println("")
 	return nil
