@@ -2186,6 +2186,11 @@ func TestFinishRoundTripAndPrune(t *testing.T) {
 	}
 	mustWrite(t, claimsPath, body+filler.String())
 
+	// A pre-existing archive entry: both archives are newest-first, so the pruned entry must land
+	// above it rather than at the end of the file.
+	archivePath := filepath.Join(tmp, "specflow/history/CLAIMS_DONE.md")
+	mustWrite(t, archivePath, read(t, archivePath)+"\n### Batch OLD — Archived earlier\n- Owner: claude\n- Commit: 000aaa1\n")
+
 	run(t, tmp, "claim", "A")
 	sum := filepath.Join(tmp, "sum.md")
 	done := filepath.Join(tmp, "done.md")
@@ -2219,7 +2224,10 @@ func TestFinishRoundTripAndPrune(t *testing.T) {
 		t.Errorf("Completed holds %d entries, want the retention bound of %d", n, kit.CompletedRetention)
 	}
 	// The oldest filler moved verbatim to the archive.
-	archive := read(t, filepath.Join(tmp, "specflow/history/CLAIMS_DONE.md"))
+	archive := read(t, archivePath)
+	if i, j := strings.Index(archive, "Batch F"+fmt.Sprint(kit.CompletedRetention)), strings.Index(archive, "Batch OLD"); i < 0 || j < 0 || i > j {
+		t.Errorf("archived entry was not placed above the older one (newest-first):\n%s", archive)
+	}
 	if !strings.Contains(archive, "### Batch F"+fmt.Sprint(kit.CompletedRetention)) || !strings.Contains(archive, fmt.Sprintf("- Commit: aaa000%d", kit.CompletedRetention)) {
 		t.Errorf("oldest entry was not archived verbatim:\n%s", archive)
 	}

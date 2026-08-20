@@ -44,6 +44,8 @@ var (
 	qAnyH2Re     = regexp.MustCompile(`^##\s`)
 	qAnyHeadRe   = regexp.MustCompile(`^#{1,6}\s`)
 	qBraceRe     = regexp.MustCompile(`^([^{]*)\{([^{}]*)\}(.*)$`)
+	// Both archives are newest-first, so a new block goes above the first existing entry heading.
+	qArchiveEntryRe = regexp.MustCompile(`^#{2,6}\s`)
 )
 
 // Tags that exclude a batch from claiming. Any *other* tag is exclusionary too (AGENTS.md: "any tag
@@ -691,7 +693,9 @@ func prependArchive(path string, block []string) error {
 			inComment = true
 			continue
 		}
-		if qAnyH2Re.MatchString(l) {
+		// Any heading below the file's h1 title starts the entries: BUILD_QUEUE_DONE.md files them
+		// as `## Batch …`, CLAIMS_DONE.md as the `### Batch …` entry copied out of CLAIMS.md.
+		if qArchiveEntryRe.MatchString(l) {
 			at = i
 			break
 		}
