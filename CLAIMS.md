@@ -35,6 +35,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch RN — Authored release notes
+- Owner: claude
+- Started: 2026-08-20 16:43
+
 ## Completed
 
 ### Batch AF — Adapter files upgrade like everything else
