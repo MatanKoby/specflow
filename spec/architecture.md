@@ -42,6 +42,9 @@ requirement is that every agent honors the same protocol.
 | `spec/**` | user (content) | untouched |
 | per-agent instruction files (`CLAUDE.md`, `.github/copilot-instructions.md`, `.cursor/rules/…`, …) | **specflow** (a marker-wrapped region) + user (content outside) | region refreshed — **never user text** |
 
+The `upgrade` column is about `init` / `upgrade` only. Three later verbs (`next`, `claim`,
+`finish`) do write the state files on the agent's behalf: see *Queue verbs* below.
+
 **specflow owns the mechanism; the host owns content and state.** Hard invariant: **both `init` (when
 it injects into a file that already exists) and `upgrade` are non-destructive — they never remove or
 overwrite text authored by a user or another agent**, in any file. They write only specflow's own
@@ -86,6 +89,31 @@ the Claude skill stays a thin trigger — pruning must not become a Claude-only 
 
 Both archives are append-only institutional memory, reference-only, and never rewritten — the same
 posture as `spec/archive.md`, and likewise exempt from any size cap.
+
+## Context economy — the read side of the ledger
+
+The lifecycle above bounds what the state files *hold*. This bounds what an agent *reads out of*
+them, a separate cost and a larger one. Instrumented over one long batch in a specflow-managed repo,
+file reads were 45% of all tool calls and 88% of context spend, and the biggest single read was a
+`cat` of `CLAIMS.md` to answer a question the headings alone settle.
+
+Three rules, written into the **procedures** rather than left to agent judgment, because "read less"
+only becomes actionable when the procedure names the cheap read:
+
+- **Slice, never `cat`.** Eligibility questions (is Batch N claimed? which batches are un-done?) are
+  answered by headings. Measured on this repo: `grep -E '^###|^- Owner:' CLAIMS.md` returns 419 bytes
+  against 17.2 KB for the whole file (41x), and `grep '^## Batch' BUILD_QUEUE.md` returns 224 bytes
+  against 7.5 KB (33x). Both ledgers are read 3 to 5 times per batch (claim, finish, prune), so
+  full-reading them is the largest recurring context cost in the protocol. Read headings first, then
+  slice the one section you need. The same applies to a `spec/` file: its `#` headings, then the
+  matching section.
+- **One check command, not three.** See `config.verify` under *Config & state*.
+- **Batch independent reads, and never re-read to confirm your own write.** A failed edit reports an
+  error; a `grep` that confirms it worked buys nothing.
+
+This is deliberately **not** a smaller retention count. Retention is a count of 5 for the reasons
+given above, and entries at that size are what a resuming agent needs. The waste was reading 17 KB
+to answer a 400-byte question, not keeping 5 entries.
 
 ## Spec organization — concern-per-file and the 600-line cap
 
@@ -225,9 +253,19 @@ check** therefore scans managed regions for queue/claim tokens whenever the stam
 written by `init`, updated by later calls (`add-agent`, lever/mode changes):
 
 - **`config`** — the user's choices: `agents`, `mode` (`full` | `spec-only`), `commit`
-  (`agent` | `user`), `push` (`agent` | `user`).
+  (`agent` | `user`), `push` (`agent` | `user`), `verify` (the repo's single check command, or
+  empty when not configured).
 - **internal** — `kitVersion`, `schemaVersion`, `initializedAt`, `upgradedAt`, and the `managed`
   map (per managed file → SHA-256 of its rendered region) that powers the drift detection above.
+
+**`verify` is the repo's one check command**, asked at `init` and skippable. Empty means not
+configured, and the procedures then say nothing about it. It exists because every repo has a check
+triple that specflow currently has no place to name: an agent that does not know the repo runs the
+type-checker, then the linter, then the tests as three separate calls, and rediscovers that split on
+every batch forever. One recorded string (`npm run verify`, `make check`, `cargo test`) collapses the
+finish-batch check to a single call. specflow neither validates nor runs it: it is a string the
+procedures quote back, so a wrong value costs one failed command and is fixed by editing
+`config.json`, not by a migration.
 
 Living under `specflow/` keeps the repo root clean — the convention good tools follow (a dedicated
 folder, not yet another root dotfile). A human-readable mirror (`specflow/config.md`) is planned with
@@ -235,6 +273,51 @@ Batch W. Procedure prose is *instructions, not data*, so a refresh replaces spec
 (never user/agent text) with no migration; `schemaVersion` gates the rare case where the **format**
 changes — no migration runner until a format actually breaks. *(The rename + `config` block is a
 scheduled code change, folded into the v0.1 work.)*
+
+## Queue verbs — the CLI as the agent's hands
+
+`init` and `upgrade` never touch the state files. Three separate verbs do, on the agent's behalf and
+only when the agent asks:
+
+- **`specflow next [--json]`** — read-only. Prints the batches claimable *right now*: no exclusionary
+  tag, absent from `CLAIMS.md`, dependencies satisfied, and no file overlap with anything in
+  progress. That is the whole eligibility section of `claim-batch.md`, which an agent otherwise
+  answers with 6 to 9 reads across two files.
+- **`specflow claim <N>`** — writes the `## In progress` entry (heading, `Owner` from
+  `config.agents`, `Started` in UTC) at the top of `CLAIMS.md`.
+- **`specflow finish <N> --commit <sha>`** — moves the entry to the top of `## Completed` with
+  `Finished` and `Commit`, appends the agent's summary (`--summary-file`, or stdin), deletes the
+  batch section from `BUILD_QUEUE.md`, appends the agent's one-paragraph summary to
+  `BUILD_QUEUE_DONE.md`, and prunes `CLAIMS.md` to its 5 newest completed entries.
+
+**The division of labor: the CLI owns placement, format, and timestamps; the agent owns every word of
+prose.** No verb composes a sentence a human will read, and **no verb commits** — committing stays
+with the `commit` / `push` levers and the procedures.
+
+The stronger argument is not turns saved but **format determinism**. Entries are hand-written today
+by whichever agent holds the batch, in whatever shape it infers from the neighbors, while
+`internal/kit/kit.go` parses them back with regexes to power `status`, `verify`, and pruning. A verb
+makes the shape machine-guaranteed across Claude, Cursor, Copilot, and anything added later, which is
+what makes those parsers trustworthy rather than best-effort.
+
+**This is a positioning change, made deliberately.** The output stays plain markdown plus git,
+readable and editable by hand, and the verbs stay **optional**: the procedures keep every manual step,
+so an agent (or a person with an editor) can still do all of it, and a repo whose agent never calls
+the CLI behaves exactly as before. What changes is that specflow is no longer only a scaffolder of
+text. Batch NB (`--new-batch`) already assumed this, since it writes `spec/` and appends to the queue.
+Decided 2026-08-20.
+
+### Declared batch fields
+
+`next` cannot answer the overlap check while "Files this batch creates/edits" is a prose convention
+that batches follow when they remember to. Each batch section in `BUILD_QUEUE.md` therefore declares
+a fixed shape, which the shipped template demonstrates: the heading
+(`## Batch <id> [TAG] — <title>`), an optional `**Depends on:** Batch X[, Batch Y]` line, and a
+`### Files this batch creates/edits` list. Everything else in the section stays free prose.
+
+Parsing is line-oriented and forgiving, and **fails loudly rather than silently**: a batch missing a
+declared field is reported by `next` as unparseable, never quietly treated as claimable. The queue
+remains user-owned and hand-editable, so the parser must never be the reason a user's edit is lost.
 
 ## Distribution
 
