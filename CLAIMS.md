@@ -35,11 +35,55 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch QV — Queue verbs (`next`, `claim`, `finish`)
 - Owner: claude
 - Started: 2026-08-20 12:47
+- Finished: 2026-08-20 12:58
+- Commit: a7df418
 
-## Completed
+**What shipped**
+- **`internal/kit/queue.go`** (new, 500 lines): the declared-batch-shape parser plus the three verbs.
+  `ParseQueue` reads the heading (`## Batch <id> [TAG] — <title>`, backticked or bare tag), the
+  optional `**Depends on:**` line (parenthetical rationale ignored, "none" understood), and the
+  `### Files this batch creates/edits` list (backticked paths, `dir/{a,b}.md` brace-expanded). A
+  batch missing the file list, or sharing its id with another section, comes back with `Problem` set
+  and is never offered as claimable. `ParseClaims` errors out if either `##` section heading is
+  missing, which is what keeps a hand edit from being rewritten.
+- **`specflow next [--json]`** — read-only. Applies the whole Eligibility section of
+  `claim-batch.md` in one call, in the order the procedure states it: tag → unparseable → already
+  claimed → dependency → file overlap with an in-progress batch. Blocked batches print with the
+  reason; the JSON form carries id, title, files, and reason.
+- **`specflow claim <id> [--as <agent>]`** — writes the In-progress entry (heading, Owner from
+  `config.agents`, `Started` in UTC) and refuses any batch `next` would not offer. `--as` is
+  required only when several agents are wired.
+- **`specflow finish <id> --commit <sha> [--summary-file <path>] [--done-file <path>]`** — does
+  steps 2, 3, 4, and 4a of `finish-batch.md`: entry to the top of `## Completed` with
+  Finished/Commit/summary, batch section deleted from `BUILD_QUEUE.md`, paragraph filed in
+  `BUILD_QUEUE_DONE.md`, `## Completed` pruned to its 5 newest with the overflow moved verbatim to
+  `CLAIMS_DONE.md`. Every edit is computed in memory first, so a parse failure writes nothing.
+- **No verb commits**, and no verb writes prose: `--summary-file` (or `-` for stdin) and
+  `--done-file` carry the agent's words, and the CLI owns only placement, format, and timestamps.
+  Omitting either flag still moves the batch and names what the agent owes by hand.
+- **Procedures name the verbs as the fast path** (`claim-batch.md` Eligibility + Claim,
+  `finish-batch.md` step 1, `prune-ledgers.md` When-to-run), with every manual step kept intact so
+  non-CLI agents and hand edits work exactly as before. The queue template documents the declared
+  shape.
+
+**Verification.** `test -z "$(gofmt -l cmd internal)" && go vet ./... && go test ./...` green.
+Nine new tests: table-driven parser cases (tag forms, dependency forms, brace expansion, missing
+file list, empty file list, duplicate ids), the eligibility and overlap rules, the JSON shape,
+claim's refusals, a full `next` → `claim` → `finish` round trip asserting the prune boundary at 5
+and verbatim archiving, an unparseable-ledger case asserting nothing is rewritten, and a check that
+no verb creates a commit. This batch was itself finished with `specflow finish`, which is how the archive-ordering bug fixed in
+`a7df418` was caught: both archives are newest-first, and the pruned entry was landing at the end.
+
+**Deviation from the declared file list.** The parser landed in a new `internal/kit/queue.go` rather
+than in `kit.go`, which is already 1314 lines. No other batch was in progress, so nothing raced.
+
+**Follow-up.** `next` reports Batch P as unparseable (no declared file list). That is user-owned
+queue prose and P is `[NOT READY]`, so it was left alone.
 
 ### Batch CE — Context economy + `config.check`
 - Owner: claude
@@ -222,44 +266,3 @@ paragraph (Spec Kit / Kiro / OpenSpec / BMAD) was written from
 behavior**; worth a check before the launch post. (3) A 1280x640 GitHub social-preview image was
 recommended to the user and not produced.
 
-### Batch SZ — spec-file 600-line hard cap
-- Owner: claude
-- Started: 2026-08-06 10:14
-- Finished: 2026-08-06 11:03
-- Commit: 02e6a41
-
-**What shipped.** The size rule in `spec-edit.md` was a nudge ("consider whether the next bite of
-content wants its own file") that had never fired: this repo's largest spec file is 177 lines. Its
-"~20k tokens" gloss was also about double the real figure (600 lines is roughly 10-11k tokens at
-this corpus's 68 chars/line). Rewrote it as a **hard cap**: before an edit crosses the file's
-current limit the agent stops and asks the user, presenting the file's **section headlines**, a
-**single-concern** claim, and the read-cost warning **verbatim** ("The bigger a spec file is, the
-more I read when I need even just a small chunk from it, so it's best the file is small in advance.
-But, you're the boss."). It never asks the user to pick a number. A *keep* is recorded as a
-`<!-- specflow:size-ok … -->` **first line** of the file with a UTC timestamp and the next
-threshold, which advances **+200** each time (600 → 800 → 1000), so a waiver silences one threshold
-and never the rule. **`archive.md` and `research/` are exempt** — both grow monotonically by design
-and have no concern to split off, so the ask would have no good answer. Mirrored into this repo's
-dogfood procedure and into the `spec-edit` SKILL.md (description + body), whose summary loads into
-every Claude session. Design ref: `spec/architecture.md` → *Spec organization*.
-
-**Verification.** `go test ./...` uncached green, `go vet` + `gofmt` clean. Three new tests, two of
-them asserting the shipped procedure carries all four parts of the ask in both install modes (the
-warning matched word-for-word over whitespace-normalized text, since a paraphrase would drop the
-"you're the boss" that makes it a question rather than a lecture) and that the superseded nudge
-wording and token gloss are gone. The **marker-collision test** proves `specflow:size-ok` is inert
-to the region (`specflow:start\b`) and composition (`specflow:full-only:`) regexes on the two
-surfaces that can actually parse it: inside a region (the procedure ships the literal as its
-example) and above one (a waiver on a managed file). Confirmed it bites by swapping in the
-near-miss token `specflow:start-ok`, which **does** match `specflow:start\b` (the `\b` fires before
-the hyphen) and silently pushes AGENTS.md onto the drift path. A first draft of that test put the
-waiver on `spec/architecture.md` and was **vacuous** — `spec/**` is user-owned, so no specflow
-command ever parses it; the exposure is entirely in managed files.
-
-**Known gap, surfaced not fixed.** `upgrade` refreshed the managed procedure here but **not** the
-`spec-edit` skill stub: non-managed adapter files are create-once, and SL's `staleAdapterFiles`
-repair only fires on a spec-only mode leak. So a *full*-mode install whose stub content merely went
-stale still needs a hand-mirror (done here). Worth a batch if stub prose keeps changing.
-
-**Note.** The stub template was rewrapped so its inline composition markers sit at line ends —
-stripping them mid-line left a ragged short line in both rendered modes.

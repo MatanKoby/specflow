@@ -7,6 +7,48 @@ Written by `specflow/procedures/prune-ledgers.md`, which keeps the 5 newest comp
 `CLAIMS.md` and moves everything older here. Don't hand-move entries; run the procedure (Claude:
 the `prune-ledgers` skill) so the retention rule stays consistent.
 
+### Batch SZ — spec-file 600-line hard cap
+- Owner: claude
+- Started: 2026-08-06 10:14
+- Finished: 2026-08-06 11:03
+- Commit: 02e6a41
+
+**What shipped.** The size rule in `spec-edit.md` was a nudge ("consider whether the next bite of
+content wants its own file") that had never fired: this repo's largest spec file is 177 lines. Its
+"~20k tokens" gloss was also about double the real figure (600 lines is roughly 10-11k tokens at
+this corpus's 68 chars/line). Rewrote it as a **hard cap**: before an edit crosses the file's
+current limit the agent stops and asks the user, presenting the file's **section headlines**, a
+**single-concern** claim, and the read-cost warning **verbatim** ("The bigger a spec file is, the
+more I read when I need even just a small chunk from it, so it's best the file is small in advance.
+But, you're the boss."). It never asks the user to pick a number. A *keep* is recorded as a
+`<!-- specflow:size-ok … -->` **first line** of the file with a UTC timestamp and the next
+threshold, which advances **+200** each time (600 → 800 → 1000), so a waiver silences one threshold
+and never the rule. **`archive.md` and `research/` are exempt** — both grow monotonically by design
+and have no concern to split off, so the ask would have no good answer. Mirrored into this repo's
+dogfood procedure and into the `spec-edit` SKILL.md (description + body), whose summary loads into
+every Claude session. Design ref: `spec/architecture.md` → *Spec organization*.
+
+**Verification.** `go test ./...` uncached green, `go vet` + `gofmt` clean. Three new tests, two of
+them asserting the shipped procedure carries all four parts of the ask in both install modes (the
+warning matched word-for-word over whitespace-normalized text, since a paraphrase would drop the
+"you're the boss" that makes it a question rather than a lecture) and that the superseded nudge
+wording and token gloss are gone. The **marker-collision test** proves `specflow:size-ok` is inert
+to the region (`specflow:start\b`) and composition (`specflow:full-only:`) regexes on the two
+surfaces that can actually parse it: inside a region (the procedure ships the literal as its
+example) and above one (a waiver on a managed file). Confirmed it bites by swapping in the
+near-miss token `specflow:start-ok`, which **does** match `specflow:start\b` (the `\b` fires before
+the hyphen) and silently pushes AGENTS.md onto the drift path. A first draft of that test put the
+waiver on `spec/architecture.md` and was **vacuous** — `spec/**` is user-owned, so no specflow
+command ever parses it; the exposure is entirely in managed files.
+
+**Known gap, surfaced not fixed.** `upgrade` refreshed the managed procedure here but **not** the
+`spec-edit` skill stub: non-managed adapter files are create-once, and SL's `staleAdapterFiles`
+repair only fires on a spec-only mode leak. So a *full*-mode install whose stub content merely went
+stale still needs a hand-mirror (done here). Worth a batch if stub prose keeps changing.
+
+**Note.** The stub template was rewrapped so its inline composition markers sit at line ends —
+stripping them mid-line left a ragged short line in both rendered modes.
+
 ### Batch SL — spec-only mode leaks queue/batch language
 - Owner: claude
 - Started: 2026-08-06 07:17

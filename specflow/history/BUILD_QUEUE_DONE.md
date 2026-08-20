@@ -10,6 +10,16 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch QV — Queue verbs (`next`, `claim`, `finish`)
+Shipped the three queue verbs. `specflow next [--json]` answers the whole eligibility section of
+`claim-batch.md` in one read-only call (tag, already-claimed, dependency, file overlap), `specflow
+claim <id>` writes the In-progress entry, and `specflow finish <id> --commit <sha>` moves the entry
+to `## Completed`, deletes the batch from the queue, files both archive paragraphs, and prunes to
+the 5 newest. Batch sections now have a declared shape the parser reads, and a batch missing a field
+is reported unparseable rather than offered. The CLI owns placement, format, and timestamps; the
+agent still writes every word of prose (`--summary-file`, `--done-file`), and no verb commits. The
+procedures name the verbs as the fast path while keeping every manual step. Key commits `80df6c4`, `2346480`, `a7df418`.
+
 ## Batch CE — Context economy + `config.check`
 Cut the protocol's recurring per-batch context cost. The four procedures now name the cheap read
 (grep the headings, slice the one section) wherever they say what state to check; `AGENTS.md` gained

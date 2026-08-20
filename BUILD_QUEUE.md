@@ -37,55 +37,15 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > publishes the release directly; the agent needs the user's approval to cut one) landed after v0.1.4
 > but is **repo-internal and ships nothing to users**, so it opened no version line: it touched
 > `.goreleaser.yaml` plus this repo's own ledgers and spec, no `templates/`, no Go source, no
-> `install.sh`. **CE** does ship (templates + Go source + a new `config.check` field), so the next tag
-> carries it, and **QV** if it lands first. The number is the user's call at tag time, as is the tag
-> itself. Don't open a new version line for a batch until it changes something a user installs.
-> **Pick next: Batch QV** — its dependency (Batch CE) is complete. Both come from the turn-cost
-> analysis in `architecture.md` → *Context economy* and *Queue verbs*.
+> `install.sh`. **CE** and **QV** both ship (templates, Go source, the new `config.check` field, and
+> the three queue verbs), so the next tag carries them. The number is the user's call at tag time, as
+> is the tag itself. Don't open a new version line for a batch until it changes something a user
+> installs.
+> **Nothing is claimable right now** — every remaining batch below is `[NOT READY]`, so the next move
+> is the user's: cut the tag, or promote one of them.
 > **Post-v0.1 queue below:**
-> **Batch QV** (queue verbs) · **Batch W** (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
+> **Batch W** (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · Homebrew tap.
-
----
-
-## Batch QV — Queue verbs (`next`, `claim`, `finish`)
-
-**Depends on:** Batch CE (both edit `cmd/specflow/main.go`, `internal/kit/kit.go`, the procedures,
-and `main_test.go`; CE also settles the procedure wording these verbs then shortcut).
-
-**Spec:** `spec/architecture.md` → *Queue verbs — the CLI as the agent's hands* + *Declared batch
-fields*.
-
-**Goal.** Move the deterministic file surgery out of agent turns and make the ledger format
-machine-guaranteed for every agent, not just the one that wrote the last entry.
-
-1. **Declared batch fields.** Parse the fixed shape out of `BUILD_QUEUE.md` (heading + id + tag,
-   optional `**Depends on:**`, `### Files this batch creates/edits`). Forgiving and line-oriented;
-   a batch missing a field is reported unparseable, never silently claimable.
-2. **`specflow next [--json]`** — read-only eligibility: tag, not already claimed, dependencies
-   satisfied (`CLAIMS.md` `## Completed` **or** `CLAIMS_DONE.md`), no file overlap with anything in
-   progress.
-3. **`specflow claim <N>`** — write the `## In progress` entry (Owner from `config.agents`, `Started`
-   in UTC).
-4. **`specflow finish <N> --commit <sha> [--summary-file <path>]`** — move the entry to `## Completed`
-   with `Finished` + `Commit` + the agent's summary, delete the batch from `BUILD_QUEUE.md`, append
-   the agent's paragraph to `BUILD_QUEUE_DONE.md`, prune `CLAIMS.md` to its 5 newest.
-5. **Procedures reference the verbs as the fast path**, keeping every manual step so non-CLI agents
-   and hand edits still work.
-
-**Constraints.** No verb commits (the `commit` / `push` levers own that). No verb writes prose a
-human reads. Never lose a user's hand edit: unparseable input stops with a message rather than
-rewriting the file.
-
-### Files this batch creates/edits
-- `cmd/specflow/main.go` · `internal/kit/kit.go` · `cmd/specflow/main_test.go` ·
-  `templates/base/BUILD_QUEUE.md` (demonstrate the declared shape) ·
-  `templates/base/specflow/procedures/{claim-batch,finish-batch,prune-ledgers}.md`.
-
-### Verification
-- Table-driven parser tests over malformed queues (missing fields, unknown tags, duplicate ids).
-- Round-trip on a temp repo: `next` → `claim` → `finish` and assert both ledgers plus both archives
-  match what the procedures describe by hand, including the prune boundary at 5.
 
 ---
 
