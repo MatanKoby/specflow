@@ -43,13 +43,13 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > analysis in `architecture.md` → *Context economy* and *Queue verbs*, and both change what users
 > install, so **a version line opens when CE ships** — the number is the user's call at tag time.
 > **Post-v0.1 queue below:**
-> **Batch CE** (context economy + `config.verify`) · **Batch QV** (queue verbs) · **Batch W**
+> **Batch CE** (context economy + `config.check`) · **Batch QV** (queue verbs) · **Batch W**
 > (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · Homebrew tap.
 
 ---
 
-## Batch CE — Context economy + `config.verify`
+## Batch CE — Context economy + `config.check`
 
 **Spec:** `spec/architecture.md` → *Context economy — the read side of the ledger* and
 *Config & state* (`verify`).
@@ -65,7 +65,7 @@ this repo, an eligibility check that needs 419 bytes of headings reads 17.2 KB w
 2. **An economy section in `AGENTS.md`.** Batch independent reads into one turn; never re-read to
    confirm your own write; read the batch's declared file list before opening anything else. Keep it
    short: this text loads in every session in every install.
-3. **`config.verify`.** A new `config` string: the repo's single check command. `init` asks for it
+3. **`config.check`.** A new `config` string: the repo's single check command. `init` asks for it
    (skippable, empty when not configured), `status` shows it, and `finish-batch.md` says to run it
    before the final commit *only* when it is set. specflow never validates or executes it.
 

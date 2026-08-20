@@ -1,6 +1,7 @@
 {
   "config": {
     "agents": "claude",
+    "check": "test -z \"$(gofmt -l cmd internal)\" && go vet ./... && go test ./...",
     "commit": "agent",
     "mode": "full",
     "push": "agent"
@@ -9,13 +10,13 @@
   "kit": "specflow",
   "kitVersion": "0.1.4",
   "managed": {
-    "AGENTS.md": "43f8af27c9632705f8da6ae6c0b76799d5493804e782143ec62009926d7553e9",
+    "AGENTS.md": "9339ebcb7d5419ae38128eedeb0d5d27c1c512d16ede2bfa5008d5bcbacd81e4",
     "CLAUDE.md": "409621d57e5cfb93c52b3aa118c9cc4c06dcae4a4b69f1f6cb1fb8c252838693",
-    "specflow/procedures/claim-batch.md": "7b2972b38d3de5f8acb1189cdfc74737b99605536ea89c1bb05e46b3447e3bf7",
-    "specflow/procedures/finish-batch.md": "19fa8d33b6ebcdbf24135050e393c340d584b779f1e14c8593152f42067a0816",
-    "specflow/procedures/prune-ledgers.md": "089b333e6f35202dd53bf797411ccc22fab1d1ec8e34d458833b34a8b2d1f971",
-    "specflow/procedures/spec-edit.md": "28b7372db069b40cb6be4809dc44d836ae09cd4a8e39170b29f5ce851fbe03e2"
+    "specflow/procedures/claim-batch.md": "9bc330411eccc992e1fda5fe4999d3cb6c272074b812028276f87d9b39bc679d",
+    "specflow/procedures/finish-batch.md": "a2c65ce3bcbbaf1d9b1712f16d86f8c3029e9a621378177130daeb05d7657e77",
+    "specflow/procedures/prune-ledgers.md": "33b2e129c520c82abdb6c42b2d1ce116f6a7871a5a9cac9a689da68dc58172f9",
+    "specflow/procedures/spec-edit.md": "15e99555f6db5c9a810c188860b4cada26cc46a5bc501b7d9cdcf4fa8d04dee2"
   },
   "schemaVersion": 1,
-  "upgradedAt": "2026-08-14"
+  "upgradedAt": "2026-08-20"
 }

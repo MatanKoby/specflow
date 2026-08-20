@@ -11,6 +11,8 @@ Open the relevant index **first** — don't read the whole spec:
 
 - Start at `spec/README.md` for the file map.
 - When a sub-folder has its own `README.md`, open that before reading individual files in it.
+- **Inside a file, read by heading too**: `grep -n '^#' spec/architecture.md`, then slice the one
+  section you need. Spec files run to hundreds of lines and a given change usually touches one.
 
 Pick the **single** file whose concern matches the change. If the change naturally crosses
 multiple files, that's a signal the concern might be miscarved — **flag it to the user before

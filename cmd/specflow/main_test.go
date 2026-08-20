@@ -240,8 +240,9 @@ func TestInitBrownfieldInjectsAndPreserves(t *testing.T) {
 func TestInitInteractiveDeclineInjection(t *testing.T) {
 	tmp := newRepo(t)
 	mustWrite(t, filepath.Join(tmp, "AGENTS.md"), "# mine\nkeep me\n")
-	// stdin: Enter (default Claude) for the agent pick, then "n" to decline injection.
-	r := runStdin(t, tmp, "\nn\n", "init")
+	// stdin: Enter (default Claude) for the agent pick, Enter to skip the check command, then "n"
+	// to decline injection.
+	r := runStdin(t, tmp, "\n\nn\n", "init")
 	if r.code != 0 {
 		t.Fatalf("init exit %d: %s", r.code, r.stderr)
 	}
@@ -1078,6 +1079,110 @@ func setStampVersion(t *testing.T, dir, v string) {
 	stamp["kitVersion"] = v
 	b, _ := json.MarshalIndent(stamp, "", "  ")
 	mustWrite(t, p, string(b)+"\n")
+}
+
+// TestInitCheckFlagRecorded covers --check=: the value lands in config.check verbatim and status
+// surfaces it, so an agent has one command to run instead of rediscovering the repo's check parts.
+func TestInitCheckFlagRecorded(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude", "--check=npm run verify"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	var stamp map[string]any
+	json.Unmarshal([]byte(read(t, filepath.Join(tmp, "specflow/config.json"))), &stamp)
+	cfg, _ := stamp["config"].(map[string]any)
+	if got, _ := cfg["check"].(string); got != "npm run verify" {
+		t.Errorf("config.check = %q, want %q", got, "npm run verify")
+	}
+	if r := run(t, tmp, "status"); !strings.Contains(r.stdout, "npm run verify") {
+		t.Errorf("status did not surface the check command:\n%s", r.stdout)
+	}
+}
+
+// TestInitCheckOptional: skipping the prompt is a supported answer, not a half-configured install.
+// The key is present and empty, and status says so rather than pretending a check exists.
+func TestInitCheckOptional(t *testing.T) {
+	tmp := newRepo(t)
+	// Non-interactive with no --check at all.
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	var stamp map[string]any
+	if err := json.Unmarshal([]byte(read(t, filepath.Join(tmp, "specflow/config.json"))), &stamp); err != nil {
+		t.Fatalf("config.json is not valid JSON: %v", err)
+	}
+	cfg, _ := stamp["config"].(map[string]any)
+	got, ok := cfg["check"].(string)
+	if !ok || got != "" {
+		t.Errorf("config.check = %#v, want an empty string", cfg["check"])
+	}
+	if r := run(t, tmp, "status"); !strings.Contains(r.stdout, "not set") {
+		t.Errorf("status should report an unset check:\n%s", r.stdout)
+	}
+}
+
+// TestInitCheckEscapesJSON guards the stamp against a check command containing quotes or
+// backslashes — the template is text-substituted, so an unescaped value would produce a
+// config.json that every later command fails to parse.
+func TestInitCheckEscapesJSON(t *testing.T) {
+	tmp := newRepo(t)
+	cmdStr := `sh -c "make check && echo \"ok\""`
+	if r := run(t, tmp, "init", "--agents=claude", "--check="+cmdStr); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	var stamp map[string]any
+	if err := json.Unmarshal([]byte(read(t, filepath.Join(tmp, "specflow/config.json"))), &stamp); err != nil {
+		t.Fatalf("config.json is not valid JSON after a quoted check command: %v", err)
+	}
+	cfg, _ := stamp["config"].(map[string]any)
+	if got, _ := cfg["check"].(string); got != cmdStr {
+		t.Errorf("config.check = %q, want %q", got, cmdStr)
+	}
+	// status must still work on that install.
+	if r := run(t, tmp, "status"); r.code != 0 {
+		t.Fatalf("status exit %d on an install with a quoted check: %s", r.code, r.stderr)
+	}
+}
+
+// TestInitCheckPromptedInteractively drives the prompt itself: agent pick, then the check answer.
+func TestInitCheckPromptedInteractively(t *testing.T) {
+	tmp := newRepo(t)
+	r := runStdin(t, tmp, "\nmake check\n", "init")
+	if r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	if !strings.Contains(r.stdout, "check command") {
+		t.Errorf("init never asked for the check command:\n%s", r.stdout)
+	}
+	var stamp map[string]any
+	json.Unmarshal([]byte(read(t, filepath.Join(tmp, "specflow/config.json"))), &stamp)
+	cfg, _ := stamp["config"].(map[string]any)
+	if got, _ := cfg["check"].(string); got != "make check" {
+		t.Errorf("config.check = %q, want %q", got, "make check")
+	}
+}
+
+// TestStatusCheckMissingKey covers an install predating config.check: the key is absent, not empty.
+// Status must degrade to "not set" rather than erroring, since upgrade doesn't rewrite the config.
+func TestStatusCheckMissingKey(t *testing.T) {
+	tmp := newRepo(t)
+	if r := run(t, tmp, "init", "--agents=claude"); r.code != 0 {
+		t.Fatalf("init exit %d: %s", r.code, r.stderr)
+	}
+	p := filepath.Join(tmp, "specflow/config.json")
+	var stamp map[string]any
+	json.Unmarshal([]byte(read(t, p)), &stamp)
+	cfg, _ := stamp["config"].(map[string]any)
+	delete(cfg, "check")
+	b, _ := json.MarshalIndent(stamp, "", "  ")
+	mustWrite(t, p, string(b))
+	r := run(t, tmp, "status")
+	if r.code != 0 {
+		t.Fatalf("status exit %d on a pre-check install: %s", r.code, r.stderr)
+	}
+	if !strings.Contains(r.stdout, "not set") {
+		t.Errorf("status should report an unset check for a legacy install:\n%s", r.stdout)
+	}
 }
 
 func TestStatusFreshInstall(t *testing.T) {

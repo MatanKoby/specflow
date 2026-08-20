@@ -33,7 +33,7 @@ Entry format:
 
 ## In progress
 
-### Batch CE — Context economy + `config.verify`
+### Batch CE — Context economy + `config.check`
 - Owner: claude
 - Started: 2026-08-20 11:50
 

@@ -26,6 +26,9 @@ ask them to pick the retention number.
 Count the `### Batch …` entries under `## Completed`. If there are **more than 5**, move every entry
 past the newest 5 into `specflow/history/CLAIMS_DONE.md`.
 
+`grep -nE '^## |^###|^- Finished:' CLAIMS.md` gives you the count, the ordering, and the line range
+of every entry in one call. Slice from there; don't read the file whole to count its headings.
+
 - **Order.** `## Completed` is newest-first, so the entries to move are the ones at the **bottom**.
   If the ordering has drifted, sort by `Finished:` before counting.
 - **Move, never rewrite.** Copy each entry verbatim, including its `Owner` / `Started` / `Finished` /

@@ -115,7 +115,13 @@ specflow init --agents=claude,cursor   # non-interactive
 specflow init --all                    # every supported agent
 specflow init --spec-only              # spec discipline only, no queue or claims
 specflow init --dry-run                # preview, writes nothing
+specflow init --check='make check'     # record the repo's one check command
 ```
+
+`init` asks for a **check command**: the single command that type-checks, lints, and tests this
+repo. Agents run it before finishing a batch, so recording it once beats an agent rediscovering
+three separate commands on every batch. It is optional (press Enter to skip), never validated, and
+never run by specflow itself; change it any time in `specflow/config.json`.
 
 Then review `git diff`, commit the install as its own commit, and point your agent at the protocol:
 
@@ -221,7 +227,7 @@ spec an area just before you work it, and the coverage grows to fit what you act
 <summary><b>Upgrade, status, and verify</b></summary>
 
 ```bash
-specflow status      # version, mode, agents, levers, queue depth, active claims, drift
+specflow status      # version, mode, agents, levers, check command, queue depth, claims, drift
 specflow upgrade     # refresh the managed mechanism, bump the stamp
 specflow verify      # check install integrity, file by file
 specflow add-agent copilot

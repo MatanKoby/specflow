@@ -7,6 +7,7 @@
     "agents": "{{AGENTS}}",
     "mode": "{{MODE}}",
     "commit": "agent",
-    "push": "agent"
+    "push": "agent",
+    "check": "{{CHECK}}"
   }
 }

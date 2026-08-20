@@ -150,6 +150,17 @@ func confirm(prompt string) bool {
 	}
 }
 
+// askCheck collects the repo's single check command, stored as config.check. It is optional by
+// design: an empty answer records "" and the procedures then stay silent about checking. The value
+// is never validated or executed here — a wrong string costs one failed command later, which is
+// cheaper than blocking init on a command that may not be installed yet.
+func askCheck() string {
+	fmt.Println(bold("\nWhat is this repo's check command?") + dim("  (the one command that type-checks / lints / tests)"))
+	fmt.Println(dim("  Agents run it before finishing a batch, so one command beats three separate ones."))
+	fmt.Print("\ne.g. " + cyan("npm run verify") + dim(", ") + cyan("make check") + dim(", ") + cyan("cargo test") + " — or Enter to skip: ")
+	return strings.TrimSpace(readLine())
+}
+
 func pickAgents(preset string) []string {
 	if preset != "" {
 		var valid, bad []string
@@ -283,10 +294,15 @@ func cmdInit(args []string) error {
 	if err != nil {
 		return err
 	}
-	preset := ""
+	preset, check := "", ""
+	checkGiven := false
 	for _, a := range args {
 		if strings.HasPrefix(a, "--agents=") {
 			preset = strings.TrimPrefix(a, "--agents=")
+		}
+		// --check= is answerable as empty ("--check=") to skip the prompt non-interactively.
+		if strings.HasPrefix(a, "--check=") {
+			check, checkGiven = strings.TrimSpace(strings.TrimPrefix(a, "--check=")), true
 		}
 	}
 	if preset == "" && hasFlag(args, "--all") {
@@ -322,6 +338,9 @@ func cmdInit(args []string) error {
 	}
 	if len(agentKeys) == 0 {
 		fmt.Println(yellow("\nNo agents selected. Writing the universal AGENTS.md base only.\n"))
+	}
+	if interactive && !checkGiven {
+		check = askCheck()
 	}
 	modeLabel := ""
 	if mode == "spec-only" {
@@ -364,7 +383,7 @@ func cmdInit(args []string) error {
 			dim("  ("+contents+")."))
 	}
 
-	res, err := kit.ApplyInit(target, specflow.Templates(), version, agentKeys, mode, allowInject)
+	res, err := kit.ApplyInit(target, specflow.Templates(), version, agentKeys, mode, allowInject, check)
 	if err != nil {
 		return err
 	}
@@ -728,6 +747,11 @@ func cmdStatus(args []string) error {
 	}
 	row("agents", agents)
 	row("levers", "commit="+lever(rep.Commit)+"  push="+lever(rep.Push))
+	if rep.Check == "" {
+		row("check", dim("not set")+dim("  — add \"check\" to specflow/config.json so agents run one command"))
+	} else {
+		row("check", cyan(rep.Check))
+	}
 
 	if rep.HasQueue {
 		row("queue", fmt.Sprintf("%d un-done batch(es)", rep.UndoneBatches))
@@ -763,6 +787,7 @@ func usage() {
 
 %s
   specflow init [--agents=claude,cursor] [--all]   %s
+  specflow init --check='npm run verify'           %s
   specflow init --spec-only                        %s
   specflow add-agent <name>                        %s
   specflow status                                  %s
@@ -779,6 +804,7 @@ func usage() {
 		bold("specflow"), dim(version),
 		bold("Usage:"),
 		dim("scaffold into the current repo"),
+		dim("record the repo's check command (skips the prompt)"),
 		dim("spec discipline only — no queue/claim"),
 		dim("wire another agent into the repo"),
 		dim("summarize the install (read-only)"),

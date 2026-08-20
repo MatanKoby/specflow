@@ -370,8 +370,10 @@ func writeFile(dest string, content []byte) error {
 	return os.WriteFile(dest, content, 0o644)
 }
 
-// fillStamp substitutes the version/date/agents/mode placeholders in the freshly copied config template.
-func fillStamp(targetDir, version string, agentKeys []string, mode string) error {
+// fillStamp substitutes the version/date/agents/mode/check placeholders in the freshly copied
+// config template. check is the repo's single check command and is legitimately empty (the user
+// skipped the prompt, or init ran non-interactively without --check).
+func fillStamp(targetDir, version string, agentKeys []string, mode, check string) error {
 	p := configPath(targetDir)
 	b, err := os.ReadFile(p)
 	if err != nil {
@@ -382,6 +384,7 @@ func fillStamp(targetDir, version string, agentKeys []string, mode string) error
 	s = strings.Replace(s, "{{INIT_DATE}}", today(), 1)
 	s = strings.Replace(s, "{{AGENTS}}", strings.Join(agentKeys, ","), 1)
 	s = strings.Replace(s, "{{MODE}}", mode, 1)
+	s = strings.Replace(s, "{{CHECK}}", jsonEscape(check), 1)
 	return os.WriteFile(p, []byte(s), 0o644)
 }
 
@@ -427,6 +430,18 @@ func recordManaged(targetDir string, tpl fs.FS, agentKeys []string, mode string,
 		stamp[k] = v
 	}
 	return writeJSON(p, stamp)
+}
+
+// jsonEscape renders a string as a JSON string body (no surrounding quotes) so it can be
+// substituted into the config template's "{{CHECK}}" slot without breaking the file. A check
+// command legitimately contains quotes and backslashes (`sh -c "make check"`), and the template is
+// text-substituted rather than marshalled, so escaping here is what keeps the stamp valid JSON.
+func jsonEscape(s string) string {
+	b, err := json.Marshal(s)
+	if err != nil || len(b) < 2 {
+		return ""
+	}
+	return string(b[1 : len(b)-1])
 }
 
 func writeJSON(p string, v any) error {
@@ -569,9 +584,9 @@ type InitResult struct {
 
 // ApplyInit performs the init writes non-destructively and fills the stamp. allowInject gates the
 // injection of specflow's region into files that already exist (batched consent); when false those
-// files are left untouched and reported as Declined — everything else is still written. init never
-// commits.
-func ApplyInit(targetDir string, tpl fs.FS, version string, agentKeys []string, mode string, allowInject bool) (InitResult, error) {
+// files are left untouched and reported as Declined — everything else is still written. check is
+// recorded verbatim as config.check and may be empty. init never commits.
+func ApplyInit(targetDir string, tpl fs.FS, version string, agentKeys []string, mode string, allowInject bool, check string) (InitResult, error) {
 	var res InitResult
 	acts, err := classifyInit(targetDir, tpl, agentKeys, mode)
 	if err != nil {
@@ -617,7 +632,7 @@ func ApplyInit(targetDir string, tpl fs.FS, version string, agentKeys []string, 
 			res.SkipExisting = append(res.SkipExisting, a.rel)
 		}
 	}
-	if err := fillStamp(targetDir, version, agentKeys, mode); err != nil {
+	if err := fillStamp(targetDir, version, agentKeys, mode, check); err != nil {
 		return res, err
 	}
 	if err := recordManaged(targetDir, tpl, agentKeys, mode, nil); err != nil {
@@ -1144,6 +1159,7 @@ type StatusReport struct {
 	VersionMatch  bool        // stamp == binary
 	Agents        []string    // wired agents
 	Commit, Push  string      // config levers
+	Check         string      // config.check — the repo's single check command, "" when unset
 	HasQueue      bool        // BUILD_QUEUE.md present (full mode)
 	UndoneBatches int         // count of un-done batches; -1 when there's no queue (spec-only)
 	InProgress    []ClaimLine // active claims from CLAIMS.md
@@ -1172,6 +1188,8 @@ func Status(targetDir string, tpl fs.FS, version string) (StatusReport, error) {
 	if cfg, ok := stamp["config"].(map[string]any); ok {
 		rep.Commit, _ = cfg["commit"].(string)
 		rep.Push, _ = cfg["push"].(string)
+		rep.Check, _ = cfg["check"].(string) // absent in installs predating the field
+
 	}
 
 	// Drift: a managed region whose current hash differs from the recorded baseline (same test the

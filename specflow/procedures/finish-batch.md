@@ -10,13 +10,20 @@ Run this when wrapping up. `AGENTS.md` carries only the pointer to this file.
 
 ## Wrap-up
 
+**Run the repo's check command first.** If `specflow/config.json` has a non-empty `config.check`,
+run exactly that one command and fix what it reports. It is recorded precisely so the check is a
+single call rather than a type-check, lint, and test sequence you rediscover every batch. If it is
+empty, this repo has no configured check: use whatever the repo documents, and consider suggesting
+a value to the user.
+
 1. Make the final work commit and push. **Note its short SHA** — you'll record it in `CLAIMS.md`.
 
    ```
    git log --oneline -1     # capture the SHA
    ```
 
-2. Edit `CLAIMS.md`. Move the batch's entry from `## In progress` to the **top** of
+2. Edit `CLAIMS.md`. Locate the entry with `grep -nE '^## |^###' CLAIMS.md` and edit by line
+   range rather than reading the file whole. Move it from `## In progress` to the **top** of
    `## Completed`, adding:
 
    ```
@@ -34,7 +41,8 @@ Run this when wrapping up. `AGENTS.md` carries only the pointer to this file.
 
 4. **Move the batch out of `BUILD_QUEUE.md`.** That file lists only *un-done* batches — a
    completed batch must not linger there or the next agent re-reads it as open work. Three edits:
-   - Delete the batch's full section from `BUILD_QUEUE.md`.
+   - Delete the batch's full section from `BUILD_QUEUE.md` (`grep -nE '^## ' BUILD_QUEUE.md` gives
+     you its line range without reading the file).
    - Add a one-paragraph summary to `specflow/history/BUILD_QUEUE_DONE.md` (match the existing compact style —
      what shipped + key commit).
    - Drop the batch from any **pick-order pointer** line at the top of `BUILD_QUEUE.md`.

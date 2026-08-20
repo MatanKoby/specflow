@@ -137,6 +137,24 @@ don't reconstruct it from memory.
 
 `git log --oneline` is the change log — there is no separate changelog file.
 
+## Working economically
+
+Context is the scarce resource in every session, and the largest drains are mechanical rather than
+intellectual. These are habits, not politeness:
+
+- **Read by headings, then slice.** `grep -n` a long file's headings and read only the section you
+  need. Never `cat` `CLAIMS.md` or `BUILD_QUEUE.md`: every check the
+  procedures ask for is answered by headings plus a field line or two, and both files are read
+  several times per batch. Each procedure names the exact grep for its own checks.
+- **Batch independent reads into one turn.** Reads whose results don't feed each other should be
+  issued together rather than one per turn. This is usually the single largest saving available.
+- **Never re-read to confirm your own write.** A failed edit reports an error; a grep that confirms
+  one worked buys nothing.
+- **Run one check command.** When `config.check` is set in `specflow/config.json`, that string is
+  this repo's entire check: run it, rather than rediscovering its type-check / lint / test parts.
+- **Read the batch's declared file list before opening anything else.** It tells you the working set;
+  wandering the tree to find it costs more than the batch does.
+
 ## Editing rules
 
 - Treat `spec/**` as the design — propose edits through the `spec-edit` procedure; don't freelance.

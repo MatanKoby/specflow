@@ -107,7 +107,7 @@ only becomes actionable when the procedure names the cheap read:
   full-reading them is the largest recurring context cost in the protocol. Read headings first, then
   slice the one section you need. The same applies to a `spec/` file: its `#` headings, then the
   matching section.
-- **One check command, not three.** See `config.verify` under *Config & state*.
+- **One check command, not three.** See `config.check` under *Config & state*.
 - **Batch independent reads, and never re-read to confirm your own write.** A failed edit reports an
   error; a `grep` that confirms it worked buys nothing.
 
@@ -253,19 +253,20 @@ check** therefore scans managed regions for queue/claim tokens whenever the stam
 written by `init`, updated by later calls (`add-agent`, lever/mode changes):
 
 - **`config`** — the user's choices: `agents`, `mode` (`full` | `spec-only`), `commit`
-  (`agent` | `user`), `push` (`agent` | `user`), `verify` (the repo's single check command, or
+  (`agent` | `user`), `push` (`agent` | `user`), `check` (the repo's single check command, or
   empty when not configured).
 - **internal** — `kitVersion`, `schemaVersion`, `initializedAt`, `upgradedAt`, and the `managed`
   map (per managed file → SHA-256 of its rendered region) that powers the drift detection above.
 
-**`verify` is the repo's one check command**, asked at `init` and skippable. Empty means not
-configured, and the procedures then say nothing about it. It exists because every repo has a check
-triple that specflow currently has no place to name: an agent that does not know the repo runs the
-type-checker, then the linter, then the tests as three separate calls, and rediscovers that split on
-every batch forever. One recorded string (`npm run verify`, `make check`, `cargo test`) collapses the
-finish-batch check to a single call. specflow neither validates nor runs it: it is a string the
-procedures quote back, so a wrong value costs one failed command and is fixed by editing
-`config.json`, not by a migration.
+**`check` is the repo's one check command**, asked at `init` and skippable; empty means not
+configured, and the procedures then say nothing about it. It is named `check` rather than `verify`
+so it never reads as the `specflow verify` command, which checks install integrity and is a
+different thing. It exists because every repo has a check sequence specflow currently has no place
+to name: an agent that does not know the repo runs the type-checker, then the linter, then the
+tests as three separate calls, and rediscovers that split on every batch forever. One recorded
+string (`npm run verify`, `make check`, `cargo test`) collapses it to a single call. specflow
+neither validates nor executes it: it is a string the procedures quote back, so a wrong value costs
+one failed command and is fixed by editing `config.json`, not by a migration.
 
 Living under `specflow/` keeps the repo root clean — the convention good tools follow (a dedicated
 folder, not yet another root dotfile). A human-readable mirror (`specflow/config.md`) is planned with

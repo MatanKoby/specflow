@@ -14,6 +14,18 @@ Run this before starting any new batch. `AGENTS.md` carries only the pointer to 
 
 ## Eligibility
 
+**Read both ledgers by their headings, not in full.** Every question in this section is answered by
+headings plus one or two field lines, and both files get read again at finish and at prune, so
+reading them whole is the largest recurring context cost in the protocol:
+
+```
+grep -nE '^## Batch' BUILD_QUEUE.md        # the candidates, with their tags
+grep -nE '^###|^- Owner:' CLAIMS.md        # what is claimed, and by whom
+```
+
+Then slice the one section you actually need by line number (`sed -n '120,180p' BUILD_QUEUE.md`).
+Read a file whole only when the headings genuinely don't answer the question.
+
 2. Pick a candidate batch in `BUILD_QUEUE.md` (under "Un-done batches"):
    - **Skip** if it has an exclusionary tag: `[MANUAL]`, `[NOT READY]`, or any tag you don't recognize.
    - **Skip** if it's already listed in `CLAIMS.md` `## In progress` or `## Completed`.

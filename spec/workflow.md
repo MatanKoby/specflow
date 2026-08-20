@@ -122,7 +122,7 @@ permissions before any file is written. Non-interactive use must pass `--profile
 is no implicit default). The chosen config → the stamp's `workflow` block + a freshly rendered
 `config.md`. `upgrade` re-renders `config.md` from the stored config.
 
-The flow also asks for the repo's single check command, stored as `config.verify` and skippable; it
+The flow also asks for the repo's single check command, stored as `config.check` and skippable; it
 is not a policy lever and is defined in `architecture.md` → *Config & state*.
 
 ## Enforcement (relationship)
