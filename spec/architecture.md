@@ -372,6 +372,25 @@ ported to Go — see `BUILD_QUEUE.md`. Decided 2026-06-21.)
   are editable after the fact; a missing archive is not. Because the push is therefore irreversibly
   public, the human checkpoint moves to the decision to tag — the agent needs the user's explicit
   approval for every release (`CLAIMS.md` → *Releases need the user's approval*). Decided 2026-08-16.
+- **The release body is authored, not generated.** GoReleaser's default body is a filtered commit
+  list, which answers "what commits landed" — not the question its actual reader has. The reader is
+  overwhelmingly an **agent** deciding whether a repo it maintains needs `specflow upgrade` and what
+  that will do to the tree; the humans who read it are few and technical. So each release carries a
+  hand-written `.github/release-notes/vX.Y.Z.md`, written in the same commit as the version bump and
+  passed to GoReleaser with `--release-notes`. Writing it *in the release commit* is the point: the
+  tag push is irreversible and public, so the notes get reviewed in the same diff as the bump rather
+  than edited in afterwards — which needs an API token the agent doesn't have, and which nobody
+  remembers to do. A missing file falls back to the generated changelog and never fails the job: a
+  release that ships no archives is far worse than one with a plain body.
+
+  **Shape, in priority order** — action first, because the reader is deciding what to run:
+  1. **What to run**, as a command block, and whether it's required.
+  2. **What it changes on disk**: exact paths, and what happens to a file the user edited.
+  3. **Behavior changes** to output an agent may be parsing (a new `status` row, a changed verb).
+  4. **Fixes**, then install lines and the compare link.
+
+  No marketing register, no emoji, no "we're excited to". Name paths, flags, and commands exactly.
+
 - **Install front-ends.** v1 ships two, both resolving to the same release binary: a `curl … | sh`
   script that detects OS/arch, and **Homebrew** (`brew install`) for macOS/Linux. Deferred post-v1
   (see `open-questions.md` → Distribution): an **npm wrapper** so `npx specflow` still works for the
