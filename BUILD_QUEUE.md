@@ -43,11 +43,56 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > managed as whole files, so a fix to one finally reaches an install that already has it, carried
 > across by a one-time adoption on the next `upgrade`).
 > **Current release: `v0.1.6`. No version line is open.**
+> **Claimable now: Batch RN** (authored release notes) — repo-internal, ships nothing to users, so
+> it opens no version line.
 > **Nothing is claimable right now** — every batch below is `[NOT READY]`, so the next move is the
 > user's: cut the tag, or promote one of them.
 > **Post-v0.1 queue below:**
 > **Batch W** (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · Homebrew tap.
+
+---
+
+## Batch RN — Authored release notes
+
+**Depends on:** none.
+
+**Goal.** Make a pushed tag publish the release body an agent actually needs. Spec:
+`spec/architecture.md` → *Distribution* → "The release body is authored, not generated".
+
+Today the body is GoReleaser's filtered commit list. v0.1.6 is the case in point: the one thing its
+reader needs is "run `specflow upgrade`, here is what it does to your tree, expect up to five
+`.specflow-bak` files" — and none of that is derivable from commit subjects. Editing the body after
+the fact needs a GitHub API token, which the agent cutting the release does not have (`git push`
+authenticates over SSH; the REST API does not accept that), so in practice the body stays as
+generated forever.
+
+The fix keeps the "tag publishes" invariant and adds nothing to the agent's release-time burden that
+isn't already in the release commit:
+
+1. **`.github/release-notes/vX.Y.Z.md`**, written in the same commit as the version bump. Reviewed
+   in the same diff, before the irreversible tag push.
+2. **`.github/workflows/release.yml`** resolves the file for the pushed tag and passes
+   `--release-notes` to GoReleaser when it exists. **A missing file must not fail the job** — it
+   falls back to the generated changelog, because a release that ships no archives is far worse
+   than one with a plain body. Warn in the job summary so the omission is visible.
+3. **Record it in the release procedure** so the next agent writes the file as part of cutting a
+   release rather than rediscovering this. `CLAIMS.md` → *Releases need the user's approval* is
+   where the release convention already lives.
+4. **Backfill `v0.1.6`'s notes file** from the draft already written this session, so the directory
+   starts with a worked example in the specified shape. This does not touch the published v0.1.6
+   release (deliberately — the user's call).
+
+Repo-internal: no `templates/`, no Go source, no `install.sh`. It ships nothing to users and opens
+no version line.
+
+### Files this batch creates/edits
+- `.github/workflows/release.yml` · `.github/release-notes/v0.1.6.md` (new) · `CLAIMS.md`
+
+### Verification
+- `act` isn't available here, so verify by reading: the step must resolve the tag name to a path,
+  pass `--release-notes` only when the file exists, and otherwise run exactly the args it runs today.
+- Confirm the fallback path is the *default* branch of the shell logic, not an error branch.
 
 ---
 
