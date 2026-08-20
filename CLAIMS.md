@@ -33,6 +33,10 @@ Entry format:
 
 ## In progress
 
+### Batch CE — Context economy + `config.verify`
+- Owner: claude
+- Started: 2026-08-20 11:50
+
 <!-- One entry per actively claimed batch. -->
 
 ## Completed
