@@ -288,8 +288,8 @@ only when the agent asks:
   `config.agents`, `Started` in UTC) at the top of `CLAIMS.md`.
 - **`specflow finish <N> --commit <sha>`** — moves the entry to the top of `## Completed` with
   `Finished` and `Commit`, appends the agent's summary (`--summary-file`, or stdin), deletes the
-  batch section from `BUILD_QUEUE.md`, appends the agent's one-paragraph summary to
-  `BUILD_QUEUE_DONE.md`, and prunes `CLAIMS.md` to its 5 newest completed entries.
+  batch section from `BUILD_QUEUE.md`, appends the agent's one-paragraph summary
+  (`--done-file`) to `BUILD_QUEUE_DONE.md`, and prunes `CLAIMS.md` to its 5 newest completed entries.
 
 **The division of labor: the CLI owns placement, format, and timestamps; the agent owns every word of
 prose.** No verb composes a sentence a human will read, and **no verb commits** — committing stays
