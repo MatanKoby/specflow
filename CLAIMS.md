@@ -35,6 +35,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch QV — Queue verbs (`next`, `claim`, `finish`)
+- Owner: claude
+- Started: 2026-08-20 12:47
+
 ## Completed
 
 ### Batch CE — Context economy + `config.check`
