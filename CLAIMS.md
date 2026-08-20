@@ -35,6 +35,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch AF — Adapter files upgrade like everything else
+- Owner: claude
+- Started: 2026-08-20 13:56
+
 ## Completed
 
 ### Batch QV — Queue verbs (`next`, `claim`, `finish`)
