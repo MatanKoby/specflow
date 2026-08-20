@@ -6,6 +6,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"slices"
 	"strings"
@@ -781,6 +782,253 @@ func cmdStatus(args []string) error {
 	return nil
 }
 
+// flagValue reads `--name value` or `--name=value`. The second return distinguishes an absent flag
+// from one given an empty value.
+func flagValue(args []string, name string) (string, bool) {
+	for i, a := range args {
+		switch {
+		case a == name:
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
+				return args[i+1], true
+			}
+			return "", true
+		case strings.HasPrefix(a, name+"="):
+			return strings.TrimPrefix(a, name+"="), true
+		}
+	}
+	return "", false
+}
+
+// positional returns the first non-flag argument.
+func positional(args []string) string {
+	for i, a := range args {
+		if strings.HasPrefix(a, "-") {
+			continue
+		}
+		// Skip a value that belongs to the preceding `--flag value` pair.
+		if i > 0 && strings.HasPrefix(args[i-1], "--") && !strings.Contains(args[i-1], "=") && valueFlags[args[i-1]] {
+			continue
+		}
+		return a
+	}
+	return ""
+}
+
+// valueFlags are the flags that take a separate value, so positional() doesn't mistake the value
+// for the batch id.
+var valueFlags = map[string]bool{"--commit": true, "--summary-file": true, "--done-file": true, "--as": true}
+
+func nextUsage() {
+	fmt.Printf(`
+%s — list the batches claimable right now (read-only)
+
+%s
+  specflow next [--json]
+
+Applies the whole Eligibility section of claim-batch.md in one call: exclusionary
+tags, batches already in CLAIMS.md, unsatisfied dependencies, and file overlap with
+anything in progress. Blocked batches are listed with the reason. A batch missing its
+declared fields is reported as unparseable, never silently offered as claimable.
+
+  --json       machine-readable report
+  -h, --help   show this help
+
+`, bold("specflow next"), bold("Usage:"))
+}
+
+func claimUsage() {
+	fmt.Printf(`
+%s — write the CLAIMS.md In-progress entry for a batch
+
+%s
+  specflow claim <batch-id> [--as <agent>]
+
+Writes the heading, Owner (from config.agents), and Started (UTC) at the top of
+%s. It refuses any batch %s would not offer, and it does not commit:
+committing stays with the commit/push levers and claim-batch.md.
+
+  --as <agent>  Owner to record, when more than one agent is wired
+  -h, --help    show this help
+
+`, bold("specflow claim"), bold("Usage:"), cyan("CLAIMS.md"), cyan("specflow next"))
+}
+
+func finishUsage() {
+	fmt.Printf(`
+%s — move a claimed batch to done, across all four ledger files
+
+%s
+  specflow finish <batch-id> --commit <sha> [--summary-file <path>] [--done-file <path>]
+
+Moves the CLAIMS.md entry to the top of %s with Finished and Commit, deletes the
+batch section from %s, files your paragraph in BUILD_QUEUE_DONE.md, and prunes
+%s to its %d newest entries (older ones move verbatim to CLAIMS_DONE.md).
+
+specflow owns placement, format, and timestamps; you own every word of prose:
+
+  --summary-file <path>  the "What shipped" block for the CLAIMS.md entry ("-" reads stdin)
+  --done-file <path>     the one-paragraph summary for BUILD_QUEUE_DONE.md
+  --commit <sha>         short SHA of the work commit
+  -h, --help             show this help
+
+It does not commit. Nothing is written unless every file parses cleanly.
+
+`, bold("specflow finish"), bold("Usage:"), cyan("## Completed"), cyan("BUILD_QUEUE.md"), cyan("CLAIMS.md"), kit.CompletedRetention)
+}
+
+func cmdNext(args []string) error {
+	if helpRequested(args) {
+		nextUsage()
+		return nil
+	}
+	target, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	rep, err := kit.Next(target)
+	if err != nil {
+		return err
+	}
+	if hasFlag(args, "--json") {
+		out, err := kit.MarshalNext(rep)
+		if err != nil {
+			return err
+		}
+		fmt.Println(out)
+		return nil
+	}
+
+	fmt.Println(bold("\nspecflow next") + dim("  — claimable batches"))
+	if len(rep.Claimable) == 0 {
+		fmt.Println(dim("  nothing claimable right now."))
+	}
+	for _, b := range rep.Claimable {
+		fmt.Println(green("  ✓ ") + bold(fmt.Sprintf("%-12s", "Batch "+b.ID)) + b.Title)
+		if len(b.Files) > 0 {
+			fmt.Println(dim("      files: " + strings.Join(b.Files, ", ")))
+		}
+	}
+	if len(rep.Blocked) > 0 {
+		fmt.Println(dim("\n  blocked:"))
+		for _, b := range rep.Blocked {
+			fmt.Println(dim("  · ") + fmt.Sprintf("%-12s", "Batch "+b.ID) + dim(b.Reason))
+		}
+	}
+	if len(rep.Problems) > 0 {
+		fmt.Println(yellow("\n  queue problems:"))
+		for _, p := range rep.Problems {
+			fmt.Println(yellow("  ⚠ ") + p)
+		}
+	}
+	fmt.Println(dim("\n  claim one with ") + cyan("specflow claim <id>") + dim(" (see specflow/procedures/claim-batch.md)\n"))
+	return nil
+}
+
+func cmdClaim(args []string) error {
+	if helpRequested(args) {
+		claimUsage()
+		return nil
+	}
+	id := positional(args)
+	if id == "" {
+		return fmt.Errorf("which batch? usage: specflow claim <batch-id>")
+	}
+	target, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	owner, _ := flagValue(args, "--as")
+	if owner == "" {
+		agents := kit.ConfiguredAgents(target)
+		switch len(agents) {
+		case 0:
+			return fmt.Errorf("no agents recorded in specflow/config.json — pass --as <agent>")
+		case 1:
+			owner = agents[0]
+		default:
+			return fmt.Errorf("%d agents are wired (%s) — pass --as <agent> to say who owns this claim", len(agents), strings.Join(agents, ", "))
+		}
+	}
+	res, err := kit.Claim(target, id, owner)
+	if err != nil {
+		return err
+	}
+	fmt.Println(bold("\nspecflow claim") + dim("  — written to CLAIMS.md"))
+	for _, l := range strings.Split(res.Entry, "\n") {
+		fmt.Println(dim("  ") + l)
+	}
+	fmt.Println(dim("\n  Nothing is committed. Commit ") + cyan("meta: claim batch-"+id+" ("+res.Owner+")") + dim(" per your commit/push levers.\n"))
+	return nil
+}
+
+func cmdFinish(args []string) error {
+	if helpRequested(args) {
+		finishUsage()
+		return nil
+	}
+	id := positional(args)
+	if id == "" {
+		return fmt.Errorf("which batch? usage: specflow finish <batch-id> --commit <sha>")
+	}
+	target, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	commit, _ := flagValue(args, "--commit")
+	summary, err := readProse(args, "--summary-file")
+	if err != nil {
+		return err
+	}
+	paragraph, err := readProse(args, "--done-file")
+	if err != nil {
+		return err
+	}
+	res, err := kit.Finish(target, id, commit, summary, paragraph)
+	if err != nil {
+		return err
+	}
+	fmt.Println(bold("\nspecflow finish") + dim("  — Batch "+res.Batch))
+	fmt.Println(green("  ✓ ") + "CLAIMS.md entry moved to " + cyan("## Completed"))
+	if res.QueueRemoved {
+		fmt.Println(green("  ✓ ") + "batch section removed from " + cyan("BUILD_QUEUE.md"))
+	} else {
+		fmt.Println(yellow("  ⚠ ") + "no matching section in BUILD_QUEUE.md — nothing to remove")
+	}
+	if !res.NoParagraph {
+		fmt.Println(green("  ✓ ") + "paragraph filed in " + cyan("specflow/history/BUILD_QUEUE_DONE.md"))
+	} else {
+		fmt.Println(yellow("  ⚠ ") + "no --done-file: write the BUILD_QUEUE_DONE.md paragraph yourself")
+	}
+	if res.NoSummary {
+		fmt.Println(yellow("  ⚠ ") + "no --summary-file: add the \"What shipped\" summary to the entry yourself")
+	}
+	if len(res.Archived) > 0 {
+		fmt.Println(green("  ✓ ") + fmt.Sprintf("pruned to the %d newest: archived %s", kit.CompletedRetention, strings.Join(res.Archived, ", ")))
+	}
+	fmt.Println(dim("\n  Nothing is committed. Commit ") + cyan("meta: complete batch-"+res.Batch) + dim(" per your commit/push levers, then offer the step-6 handoff.\n"))
+	return nil
+}
+
+// readProse loads one of finish's prose inputs from a file, or from stdin when the value is "-".
+func readProse(args []string, flag string) (string, error) {
+	path, given := flagValue(args, flag)
+	if !given || path == "" {
+		return "", nil
+	}
+	if path == "-" {
+		b, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("can't read %s %s: %w", flag, path, err)
+	}
+	return string(b), nil
+}
+
 func usage() {
 	fmt.Printf(`
 %s %s — spec-driven batch/claim protocol for AI coding agents
@@ -791,6 +1039,9 @@ func usage() {
   specflow init --spec-only                        %s
   specflow add-agent <name>                        %s
   specflow status                                  %s
+  specflow next [--json]                           %s
+  specflow claim <batch-id>                        %s
+  specflow finish <batch-id> --commit <sha>        %s
   specflow upgrade                                 %s
   specflow verify                                  %s
   specflow --version                               %s
@@ -798,6 +1049,7 @@ func usage() {
 
 %s
   specflow init --help · specflow add-agent --help · specflow upgrade --help · specflow verify --help
+  specflow next --help · specflow claim --help · specflow finish --help
 
 %s %s
 `,
@@ -808,6 +1060,9 @@ func usage() {
 		dim("spec discipline only — no queue/claim"),
 		dim("wire another agent into the repo"),
 		dim("summarize the install (read-only)"),
+		dim("list the batches claimable right now"),
+		dim("write the CLAIMS.md In-progress entry"),
+		dim("move a batch to done across the ledgers"),
 		dim("refresh the managed protocol files"),
 		dim("check installation integrity"),
 		dim("print the installed version"),
@@ -823,6 +1078,12 @@ func dispatch(command string, args []string) error {
 		return cmdAddAgent(args)
 	case "status":
 		return cmdStatus(args)
+	case "next":
+		return cmdNext(args)
+	case "claim":
+		return cmdClaim(args)
+	case "finish":
+		return cmdFinish(args)
 	case "upgrade":
 		return cmdUpgrade(args)
 	case "verify":

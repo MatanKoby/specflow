@@ -1968,3 +1968,366 @@ func TestPruneLedgersOmittedFromSpecOnly(t *testing.T) {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Queue verbs: next / claim / finish
+// ---------------------------------------------------------------------------
+
+// TestParseQueueDeclaredShape drives the parser over the declared batch shape and the ways a
+// hand-edited queue breaks it. The rule under test: a batch missing a declared field comes back
+// with Problem set, never silently claimable.
+func TestParseQueueDeclaredShape(t *testing.T) {
+	cases := []struct {
+		name    string
+		queue   string
+		wantID  string
+		wantTag string
+		deps    []string
+		files   []string
+		problem string
+	}{
+		{
+			name: "plain claimable batch",
+			queue: "## Batch 7 — Do the thing\n\n**Depends on:** none.\n\n" +
+				"### Files this batch creates/edits\n- `src/a.go` — the a.\n",
+			wantID: "7", files: []string{"src/a.go"},
+		},
+		{
+			name: "backticked tag and multi-dependency",
+			queue: "## Batch W `[NOT READY]` — Workflow model\n\n**Depends on:** Batch A, Batch B (both edit the same file).\n\n" +
+				"### Files this batch creates/edits\n- `x.go`\n",
+			wantID: "W", wantTag: "NOT READY", deps: []string{"A", "B"}, files: []string{"x.go"},
+		},
+		{
+			name: "bare tag, brace-expanded file list",
+			queue: "## Batch NB [MANUAL] — Provision\n\n" +
+				"### Files this batch creates/edits\n- `proc/{one,two}.md`\n",
+			wantID: "NB", wantTag: "MANUAL", files: []string{"proc/one.md", "proc/two.md"},
+		},
+		{
+			name:    "missing file list is unparseable",
+			queue:   "## Batch 9 — No files declared\n\nSome prose, no declared list.\n",
+			wantID:  "9",
+			problem: "no `### Files",
+		},
+		{
+			name:    "empty file list is unparseable",
+			queue:   "## Batch 9 — Empty list\n\n### Files this batch creates/edits\n\n### Verification\n- run it\n",
+			wantID:  "9",
+			problem: "lists no files",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := kit.ParseQueue(c.queue)
+			if len(got) != 1 {
+				t.Fatalf("parsed %d batches, want 1", len(got))
+			}
+			b := got[0]
+			if b.ID != c.wantID || b.Tag != c.wantTag {
+				t.Errorf("id/tag = %q/%q, want %q/%q", b.ID, b.Tag, c.wantID, c.wantTag)
+			}
+			if strings.Join(b.DependsOn, ",") != strings.Join(c.deps, ",") {
+				t.Errorf("deps = %v, want %v", b.DependsOn, c.deps)
+			}
+			if c.problem == "" && strings.Join(b.Files, ",") != strings.Join(c.files, ",") {
+				t.Errorf("files = %v, want %v", b.Files, c.files)
+			}
+			if c.problem == "" && b.Problem != "" {
+				t.Errorf("unexpected problem: %s", b.Problem)
+			}
+			if c.problem != "" && !strings.Contains(b.Problem, c.problem) {
+				t.Errorf("problem = %q, want it to mention %q", b.Problem, c.problem)
+			}
+		})
+	}
+}
+
+// TestParseQueueDuplicateIDs: two sections answering to one id can't be claimed unambiguously, so
+// both are flagged rather than one silently winning.
+func TestParseQueueDuplicateIDs(t *testing.T) {
+	q := "## Batch 3 — First\n\n### Files this batch creates/edits\n- `a.go`\n\n" +
+		"## Batch 3 — Second\n\n### Files this batch creates/edits\n- `b.go`\n"
+	got := kit.ParseQueue(q)
+	if len(got) != 2 {
+		t.Fatalf("parsed %d batches, want 2", len(got))
+	}
+	for _, b := range got {
+		if !strings.Contains(b.Problem, "duplicate") {
+			t.Errorf("Batch %s problem = %q, want a duplicate-id report", b.ID, b.Problem)
+		}
+	}
+}
+
+// seedQueue replaces the installed queue's batches with the given sections, keeping the header.
+func seedQueue(t *testing.T, dir, sections string) {
+	t.Helper()
+	p := filepath.Join(dir, "BUILD_QUEUE.md")
+	body := read(t, p)
+	if i := strings.Index(body, "## Batch"); i >= 0 {
+		body = body[:i]
+	}
+	mustWrite(t, p, body+sections)
+}
+
+const twoBatchQueue = "## Batch A — First thing\n\n" +
+	"### Files this batch creates/edits\n- `src/a.go`\n\n---\n\n" +
+	"## Batch B — Second thing\n\n**Depends on:** Batch A.\n\n" +
+	"### Files this batch creates/edits\n- `src/a.go`\n- `src/b.go`\n"
+
+// TestNextReportsEligibilityAndBlockReasons covers the whole Eligibility section of claim-batch.md
+// in one call: dependency order first, then the overlap rule once a batch is in progress.
+func TestNextReportsEligibilityAndBlockReasons(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+
+	r := run(t, tmp, "next")
+	if r.code != 0 {
+		t.Fatalf("next exit %d: %s%s", r.code, r.stdout, r.stderr)
+	}
+	if !strings.Contains(r.stdout, "Batch A") || !strings.Contains(r.stdout, "First thing") {
+		t.Error("next did not offer the claimable Batch A")
+	}
+	if !strings.Contains(r.stdout, "depends on Batch A") {
+		t.Errorf("next did not block Batch B on its dependency:\n%s", r.stdout)
+	}
+
+	// Batch C has no dependency, so once A is in progress the overlap rule is what blocks it.
+	seedQueue(t, tmp, twoBatchQueue+"\n---\n\n## Batch C — Independent but overlapping\n\n"+
+		"### Files this batch creates/edits\n- `src/a.go`\n")
+	run(t, tmp, "claim", "A")
+	r2 := run(t, tmp, "next")
+	if !strings.Contains(r2.stdout, "already in progress (claude)") {
+		t.Errorf("claimed batch not reported as in progress:\n%s", r2.stdout)
+	}
+	if !strings.Contains(r2.stdout, "overlap") || !strings.Contains(r2.stdout, "src/a.go") {
+		t.Errorf("next did not report the file overlap with the in-progress batch:\n%s", r2.stdout)
+	}
+}
+
+// TestNextJSONShape: agents read the machine form, so it must carry the fields they branch on.
+func TestNextJSONShape(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+
+	r := run(t, tmp, "next", "--json")
+	var rep struct {
+		Claimable []struct {
+			ID    string   `json:"id"`
+			Title string   `json:"title"`
+			Files []string `json:"files"`
+		} `json:"claimable"`
+		Blocked []struct {
+			ID     string `json:"id"`
+			Reason string `json:"reason"`
+		} `json:"blocked"`
+	}
+	if err := json.Unmarshal([]byte(r.stdout), &rep); err != nil {
+		t.Fatalf("next --json is not valid JSON: %v\n%s", err, r.stdout)
+	}
+	if len(rep.Claimable) != 1 || rep.Claimable[0].ID != "A" || len(rep.Claimable[0].Files) != 1 {
+		t.Errorf("claimable = %+v, want just Batch A with its declared file", rep.Claimable)
+	}
+	if len(rep.Blocked) != 1 || rep.Blocked[0].ID != "B" || rep.Blocked[0].Reason == "" {
+		t.Errorf("blocked = %+v, want Batch B with a reason", rep.Blocked)
+	}
+}
+
+// TestClaimWritesEntryAndRefusesIneligible: the verb writes the documented entry shape, and holds
+// the same eligibility line `next` does, so using the CLI can't smuggle in an illegal claim.
+func TestClaimWritesEntryAndRefusesIneligible(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+
+	if r := run(t, tmp, "claim", "A"); r.code != 0 {
+		t.Fatalf("claim A exit %d: %s%s", r.code, r.stdout, r.stderr)
+	}
+	claims := read(t, filepath.Join(tmp, "CLAIMS.md"))
+	inProgress := claims[strings.Index(claims, "## In progress"):strings.Index(claims, "## Completed")]
+	if !strings.Contains(inProgress, "### Batch A — First thing") {
+		t.Errorf("claim did not write the entry heading into In progress:\n%s", inProgress)
+	}
+	if !strings.Contains(inProgress, "- Owner: claude") {
+		t.Error("claim did not record the Owner from config.agents")
+	}
+	if !regexp.MustCompile(`- Started: \d{4}-\d{2}-\d{2} \d{2}:\d{2}`).MatchString(inProgress) {
+		t.Errorf("claim did not write a UTC Started stamp:\n%s", inProgress)
+	}
+
+	// Re-claiming, and claiming a dependency-blocked batch, both fail loudly.
+	if r := run(t, tmp, "claim", "A"); r.code == 0 {
+		t.Error("claiming an already-claimed batch succeeded")
+	}
+	if r := run(t, tmp, "claim", "B"); r.code == 0 {
+		t.Error("claiming a dependency-blocked batch succeeded")
+	}
+	if r := run(t, tmp, "claim", "ZZ"); r.code == 0 {
+		t.Error("claiming a batch that isn't in the queue succeeded")
+	}
+}
+
+// TestFinishRoundTripAndPrune walks next → claim → finish on a temp repo and asserts each file
+// matches what the procedures describe by hand, including the prune boundary.
+func TestFinishRoundTripAndPrune(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+
+	// Fill Completed to the retention bound so finishing one more pushes the oldest out.
+	claimsPath := filepath.Join(tmp, "CLAIMS.md")
+	body := read(t, claimsPath)
+	var filler strings.Builder
+	for i := 1; i <= kit.CompletedRetention; i++ {
+		fmt.Fprintf(&filler, "\n### Batch F%d — Filler %d\n- Owner: claude\n- Started: 2026-01-0%d 09:00\n- Finished: 2026-01-0%d 10:00\n- Commit: aaa000%d\n", i, i, i, i, i)
+	}
+	mustWrite(t, claimsPath, body+filler.String())
+
+	run(t, tmp, "claim", "A")
+	sum := filepath.Join(tmp, "sum.md")
+	done := filepath.Join(tmp, "done.md")
+	mustWrite(t, sum, "**What shipped**\n- The a, shipped.\n")
+	mustWrite(t, done, "Shipped the a in `src/a.go`. Key commit `abc1234`.\n")
+
+	r := run(t, tmp, "finish", "A", "--commit", "abc1234", "--summary-file", sum, "--done-file", done)
+	if r.code != 0 {
+		t.Fatalf("finish exit %d: %s%s", r.code, r.stdout, r.stderr)
+	}
+
+	claims := read(t, claimsPath)
+	inProgress := claims[strings.Index(claims, "## In progress"):strings.Index(claims, "## Completed")]
+	if strings.Contains(inProgress, "Batch A") {
+		t.Error("finished batch is still in In progress")
+	}
+	completed := claims[strings.Index(claims, "## Completed"):]
+	for _, want := range []string{"### Batch A — First thing", "- Commit: abc1234", "**What shipped**", "- The a, shipped."} {
+		if !strings.Contains(completed, want) {
+			t.Errorf("Completed entry missing %q:\n%s", want, completed)
+		}
+	}
+	if !regexp.MustCompile(`- Finished: \d{4}-\d{2}-\d{2} \d{2}:\d{2}`).MatchString(completed) {
+		t.Error("finish did not write a Finished stamp")
+	}
+	// Newest first: the batch just finished heads the section.
+	if i, j := strings.Index(completed, "Batch A"), strings.Index(completed, "Batch F1"); i < 0 || j < 0 || i > j {
+		t.Error("finished entry was not placed at the top of Completed")
+	}
+	if n := strings.Count(completed, "### Batch "); n != kit.CompletedRetention {
+		t.Errorf("Completed holds %d entries, want the retention bound of %d", n, kit.CompletedRetention)
+	}
+	// The oldest filler moved verbatim to the archive.
+	archive := read(t, filepath.Join(tmp, "specflow/history/CLAIMS_DONE.md"))
+	if !strings.Contains(archive, "### Batch F"+fmt.Sprint(kit.CompletedRetention)) || !strings.Contains(archive, fmt.Sprintf("- Commit: aaa000%d", kit.CompletedRetention)) {
+		t.Errorf("oldest entry was not archived verbatim:\n%s", archive)
+	}
+	if strings.Contains(completed, "Batch F"+fmt.Sprint(kit.CompletedRetention)) {
+		t.Error("archived entry is still in CLAIMS.md")
+	}
+
+	// The batch left the queue and its paragraph reached the queue archive.
+	queue := read(t, filepath.Join(tmp, "BUILD_QUEUE.md"))
+	if strings.Contains(queue, "## Batch A") {
+		t.Error("finished batch still listed in BUILD_QUEUE.md")
+	}
+	if !strings.Contains(queue, "## Batch B") {
+		t.Error("finish removed a batch it was not asked about")
+	}
+	qDone := read(t, filepath.Join(tmp, "specflow/history/BUILD_QUEUE_DONE.md"))
+	if !strings.Contains(qDone, "## Batch A — First thing") || !strings.Contains(qDone, "Key commit `abc1234`") {
+		t.Errorf("queue archive missing the batch paragraph:\n%s", qDone)
+	}
+	// The paragraph must land as a real entry, not inside the template's worked-example comment.
+	if i, j := strings.Index(qDone, "-->"), strings.Index(qDone, "## Batch A"); i < 0 || j < i {
+		t.Error("queue archive paragraph landed inside the template's HTML comment")
+	}
+
+	// B is claimable now that A is done and its files are free.
+	if out := run(t, tmp, "next").stdout; !strings.Contains(out, "✓") || !strings.Contains(out, "Batch B") {
+		t.Errorf("Batch B not offered after its dependency completed:\n%s", out)
+	}
+}
+
+// TestFinishRefusesUnreadableLedger: the parser must never be the reason a hand edit is lost, so an
+// unparseable CLAIMS.md stops the command with the file untouched.
+func TestFinishRefusesUnreadableLedger(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+	run(t, tmp, "claim", "A")
+
+	claimsPath := filepath.Join(tmp, "CLAIMS.md")
+	broken := strings.Replace(read(t, claimsPath), "## Completed", "## Done (renamed by hand)", 1)
+	mustWrite(t, claimsPath, broken)
+
+	r := run(t, tmp, "finish", "A", "--commit", "abc1234")
+	if r.code == 0 {
+		t.Fatal("finish succeeded against an unparseable CLAIMS.md")
+	}
+	if !strings.Contains(r.stderr, "In progress") && !strings.Contains(r.stderr, "Completed") {
+		t.Errorf("error did not name the missing section: %s", r.stderr)
+	}
+	if read(t, claimsPath) != broken {
+		t.Error("finish rewrote a CLAIMS.md it could not parse")
+	}
+	if !strings.Contains(read(t, filepath.Join(tmp, "BUILD_QUEUE.md")), "## Batch A") {
+		t.Error("finish removed the queue section despite failing")
+	}
+}
+
+// TestFinishWithoutProse still moves the batch, and says which prose the agent owes by hand.
+func TestFinishWithoutProse(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+	run(t, tmp, "claim", "A")
+
+	r := run(t, tmp, "finish", "A", "--commit", "abc1234")
+	if r.code != 0 {
+		t.Fatalf("finish exit %d: %s%s", r.code, r.stdout, r.stderr)
+	}
+	if !strings.Contains(r.stdout, "--summary-file") || !strings.Contains(r.stdout, "--done-file") {
+		t.Errorf("finish did not name the prose it left to the agent:\n%s", r.stdout)
+	}
+	if !strings.Contains(read(t, filepath.Join(tmp, "CLAIMS.md")), "- Commit: abc1234") {
+		t.Error("finish did not record the commit SHA")
+	}
+}
+
+// TestVerbsDoNotCommit: committing stays with the commit/push levers and the procedures.
+func TestVerbsDoNotCommit(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+	gitOut(t, tmp, "add", "-A")
+	gitOut(t, tmp, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "seed")
+
+	run(t, tmp, "claim", "A")
+	run(t, tmp, "finish", "A", "--commit", "abc1234")
+	if out := gitOut(t, tmp, "log", "--oneline"); strings.Count(out, "\n") != 1 {
+		t.Errorf("a verb created a commit — git log:\n%s", out)
+	}
+	if out := gitOut(t, tmp, "status", "--porcelain"); !strings.Contains(out, "CLAIMS.md") {
+		t.Errorf("verb changes were not left uncommitted in the work tree:\n%s", out)
+	}
+}
+
+// TestVerbHelpDescribesTheDivisionOfLabor — the help is where an agent learns the CLI owns
+// placement while the agent owns prose, and that no verb commits.
+func TestVerbHelpDescribesTheDivisionOfLabor(t *testing.T) {
+	tmp := newRepo(t)
+	for _, c := range []struct{ cmd, want string }{
+		{"next", "claim-batch"},
+		{"claim", "config.agents"},
+		{"finish", "does not commit"},
+	} {
+		r := run(t, tmp, c.cmd, "--help")
+		if r.code != 0 {
+			t.Fatalf("%s --help exit %d", c.cmd, r.code)
+		}
+		if !strings.Contains(r.stdout, "specflow "+c.cmd) || !strings.Contains(r.stdout, c.want) {
+			t.Errorf("%s --help did not mention %q:\n%s", c.cmd, c.want, r.stdout)
+		}
+	}
+}
