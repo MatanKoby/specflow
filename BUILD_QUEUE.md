@@ -39,12 +39,90 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > no `templates/`, no Go source, no `install.sh`. So the binary and the installed kit are unchanged
 > and there is nothing for `specflow upgrade` to deliver. Don't open a new version line for a batch
 > until it changes something a user installs.
-> **Pick next:** no un-blocked batch — every remaining entry is `[NOT READY]`. Unblock **Batch W**
-> (needs the profile→dimension mapping in `open-questions.md`) or **Batch NB** (needs a design pass)
-> before claiming.
+> **Pick next: Batch CE**, then **Batch QV** (which depends on it). Both come from the turn-cost
+> analysis in `architecture.md` → *Context economy* and *Queue verbs*, and both change what users
+> install, so **a version line opens when CE ships** — the number is the user's call at tag time.
 > **Post-v0.1 queue below:**
-> **Batch W** (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
+> **Batch CE** (context economy + `config.verify`) · **Batch QV** (queue verbs) · **Batch W**
+> (workflow config) · **Batch NB** (`--new-batch`) · **Batch E** (enforcement — research-first) ·
 > **Batch P** (npm-wrapper front-end) · Homebrew tap.
+
+---
+
+## Batch CE — Context economy + `config.verify`
+
+**Spec:** `spec/architecture.md` → *Context economy — the read side of the ledger* and
+*Config & state* (`verify`).
+
+**Goal.** Cut the recurring per-batch context cost that the procedures currently cause. Measured on
+this repo, an eligibility check that needs 419 bytes of headings reads 17.2 KB when the agent `cat`s
+`CLAIMS.md`, and both ledgers are read 3 to 5 times per batch.
+
+1. **Read-shape steps in the procedures.** `claim-batch.md`, `finish-batch.md`, and
+   `prune-ledgers.md` name the cheap read inline (grep the headings, then slice the one section)
+   wherever they currently say only *what* state to check. `spec-edit.md` says the same for a
+   `spec/` file: headings first, then the matching section.
+2. **An economy section in `AGENTS.md`.** Batch independent reads into one turn; never re-read to
+   confirm your own write; read the batch's declared file list before opening anything else. Keep it
+   short: this text loads in every session in every install.
+3. **`config.verify`.** A new `config` string: the repo's single check command. `init` asks for it
+   (skippable, empty when not configured), `status` shows it, and `finish-batch.md` says to run it
+   before the final commit *only* when it is set. specflow never validates or executes it.
+
+**Note.** Item 3 is worth zero in a repo with no check suite, and item 2 is advisory (specflow can
+ask an agent to batch its reads; it cannot enforce that). Item 1 is the deterministic one.
+
+### Files this batch creates/edits
+- `templates/base/specflow/procedures/{claim-batch,finish-batch,prune-ledgers,spec-edit}.md` ·
+  `templates/base/AGENTS.md` · `cmd/specflow/main.go` (init prompt + `status` row) ·
+  `internal/kit/kit.go` (stamp field) · `cmd/specflow/main_test.go` · the repo's own `AGENTS.md` +
+  `specflow/procedures/**` via self-hosted `upgrade`.
+
+### Verification
+- `go test ./...`; `init` into a temp repo with and without a verify answer, asserting the stamp and
+  that spec-only mode still omits the queue machinery; `status` renders the new row; the repo's own
+  managed regions refresh with no drift.
+
+---
+
+## Batch QV — Queue verbs (`next`, `claim`, `finish`)
+
+**Depends on:** Batch CE (both edit `cmd/specflow/main.go`, `internal/kit/kit.go`, the procedures,
+and `main_test.go`; CE also settles the procedure wording these verbs then shortcut).
+
+**Spec:** `spec/architecture.md` → *Queue verbs — the CLI as the agent's hands* + *Declared batch
+fields*.
+
+**Goal.** Move the deterministic file surgery out of agent turns and make the ledger format
+machine-guaranteed for every agent, not just the one that wrote the last entry.
+
+1. **Declared batch fields.** Parse the fixed shape out of `BUILD_QUEUE.md` (heading + id + tag,
+   optional `**Depends on:**`, `### Files this batch creates/edits`). Forgiving and line-oriented;
+   a batch missing a field is reported unparseable, never silently claimable.
+2. **`specflow next [--json]`** — read-only eligibility: tag, not already claimed, dependencies
+   satisfied (`CLAIMS.md` `## Completed` **or** `CLAIMS_DONE.md`), no file overlap with anything in
+   progress.
+3. **`specflow claim <N>`** — write the `## In progress` entry (Owner from `config.agents`, `Started`
+   in UTC).
+4. **`specflow finish <N> --commit <sha> [--summary-file <path>]`** — move the entry to `## Completed`
+   with `Finished` + `Commit` + the agent's summary, delete the batch from `BUILD_QUEUE.md`, append
+   the agent's paragraph to `BUILD_QUEUE_DONE.md`, prune `CLAIMS.md` to its 5 newest.
+5. **Procedures reference the verbs as the fast path**, keeping every manual step so non-CLI agents
+   and hand edits still work.
+
+**Constraints.** No verb commits (the `commit` / `push` levers own that). No verb writes prose a
+human reads. Never lose a user's hand edit: unparseable input stops with a message rather than
+rewriting the file.
+
+### Files this batch creates/edits
+- `cmd/specflow/main.go` · `internal/kit/kit.go` · `cmd/specflow/main_test.go` ·
+  `templates/base/BUILD_QUEUE.md` (demonstrate the declared shape) ·
+  `templates/base/specflow/procedures/{claim-batch,finish-batch,prune-ledgers}.md`.
+
+### Verification
+- Table-driven parser tests over malformed queues (missing fields, unknown tags, duplicate ids).
+- Round-trip on a temp repo: `next` → `claim` → `finish` and assert both ledgers plus both archives
+  match what the procedures describe by hand, including the prune boundary at 5.
 
 ---
 
