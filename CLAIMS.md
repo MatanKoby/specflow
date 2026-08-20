@@ -17,8 +17,13 @@ the archives and puts them straight on a public GitHub Release, and `install.sh`
 draft to review and no undo worth the name. The checkpoint that used to sit at "publish the draft"
 now sits at "should we tag at all" — and it is the user's, not the agent's.
 
-Editing a published release's notes afterward is fine and expected; the generated body is a plain
-commit list.
+**The release commit writes the notes.** `meta: release vX.Y.Z` covers the version bump *and*
+`.github/release-notes/vX.Y.Z.md`; the workflow passes that file to GoReleaser, so the pushed tag
+publishes the body you wrote. Miss it and the release still ships, with GoReleaser's commit list as
+the body and a warning in the job summary — but fixing it afterwards needs a GitHub API token, which
+`git push` over SSH does not provide, so in practice a missed file stays missed. Write it before you
+tag. Shape and house style: `spec/architecture.md` → *Distribution*; worked example:
+`.github/release-notes/v0.1.6.md`.
 
 Entry format:
 

@@ -22,10 +22,30 @@ jobs:
         with:
           go-version: "stable"
 
+      # The release body is authored, not generated: `.github/release-notes/<tag>.md` is written in
+      # the same commit as the version bump, so it is reviewed in the same diff as the bump rather
+      # than edited into the published release afterwards (which needs an API token the agent
+      # cutting the release does not have). Its reader is overwhelmingly an agent deciding whether a
+      # repo it maintains needs `specflow upgrade` — see spec/architecture.md → Distribution.
+      #
+      # A missing file falls back to GoReleaser's generated changelog and never fails the job: a
+      # release that ships no archives is far worse than one with a plain body.
+      - name: Resolve release notes
+        id: notes
+        run: |
+          notes=".github/release-notes/${GITHUB_REF_NAME}.md"
+          if [ -f "$notes" ]; then
+            echo "args=release --clean --release-notes=$notes" >> "$GITHUB_OUTPUT"
+            echo "Using authored release notes: $notes" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "args=release --clean" >> "$GITHUB_OUTPUT"
+            echo "⚠ No $notes — falling back to the generated changelog. Write one in the release commit next time." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: "~> v2"
-          args: release --clean
+          args: ${{ steps.notes.outputs.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

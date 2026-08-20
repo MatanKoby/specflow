@@ -55,6 +55,10 @@ snapshot:
   # Used by `goreleaser release --snapshot` for local, unpublished test builds.
   version_template: "{{ incpatch .Version }}-snapshot"
 
+# Only reached when a release ships without an authored body: `--release-notes` skips changelog
+# generation entirely, and .github/workflows/release.yml passes it whenever
+# .github/release-notes/<tag>.md exists (which is meant to be every release — see
+# spec/architecture.md → Distribution). This is the fallback's shape, not the normal one.
 changelog:
   sort: asc
   filters:
