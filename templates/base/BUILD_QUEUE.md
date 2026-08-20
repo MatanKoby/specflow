@@ -13,6 +13,10 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
   this file** — that's execution state, and it lives in `CLAIMS.md` only.
 - Batches are designed so two agents can work different batches at once without file conflicts.
 - See `specflow/procedures/claim-batch.md` before claiming.
+- Each batch below follows a **declared shape**: the `## Batch <id> [TAG] — <title>` heading, an
+  optional `**Depends on:** Batch X[, Batch Y]` line, and a `### Files this batch creates/edits`
+  list. Everything else in a section is free prose. `specflow next` reads that shape to answer
+  eligibility, and reports a batch missing a field rather than treating it as claimable.
 
 ---
 
@@ -36,7 +40,8 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 - Concrete, checkable outcomes — not "work on X" but "X does Y, verified by Z".
 
 ### Files this batch creates/edits
-- `path/to/file` — what changes. (This list is what the parallelism check reads — keep it honest.)
+- `path/to/file` — what changes. (This list is what the parallelism check and `specflow next` read,
+  so keep it honest. Backticked paths; `dir/{a,b}.md` stands for both files.)
 
 ### Does NOT touch
 - Files deliberately out of scope, so a parallel batch knows it's safe.

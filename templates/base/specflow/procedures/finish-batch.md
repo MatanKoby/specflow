@@ -22,6 +22,21 @@ a value to the user.
    git log --oneline -1     # capture the SHA
    ```
 
+   **Fast path: `specflow finish`.** With the CLI installed, one call performs steps 2, 3, 4, and 4a:
+
+   ```
+   specflow finish <N> --commit <sha> --summary-file <path> --done-file <path>
+   ```
+
+   It moves the `CLAIMS.md` entry to the top of `## Completed` with `Finished` + `Commit`, appends
+   your "What shipped" summary (`--summary-file`, or `-` to read stdin), deletes the batch section
+   from `BUILD_QUEUE.md`, files your one-paragraph summary in
+   `specflow/history/BUILD_QUEUE_DONE.md` (`--done-file`), and prunes `## Completed` to its 5 newest.
+   specflow owns placement, format, and timestamps; **you still write every word of prose**, and the
+   verb does **not** commit, so step 5 is yours. If a ledger doesn't parse it writes nothing and says
+   so, rather than rewriting a file over someone's hand edit. Without the CLI, do steps 2 to 4a by
+   hand exactly as written below.
+
 2. Edit `CLAIMS.md`. Locate the entry with `grep -nE '^## |^###' CLAIMS.md` and edit by line
    range rather than reading the file whole. Move it from `## In progress` to the **top** of
    `## Completed`, adding:

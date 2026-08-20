@@ -12,6 +12,8 @@ growing logs. This procedure keeps them that way. `AGENTS.md` carries only the p
 ## When to run
 
 - **`finish-batch` delegates here** at the end of every batch (its step 4a). That is the normal path.
+  (`specflow finish` already applies section 1 as part of completing the batch, so after the verb the
+  only thing left here is the section 2 queue sweep.)
 - **By hand, any time**, when a ledger has already overgrown: `prune-ledgers` as a skill, or just
   follow this file. An install that predates this procedure can be many entries over, so the first
   run is a **catch-up pass** that archives them all at once.

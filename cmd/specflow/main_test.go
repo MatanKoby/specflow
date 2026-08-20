@@ -2064,8 +2064,9 @@ func seedQueue(t *testing.T, dir, sections string) {
 	t.Helper()
 	p := filepath.Join(dir, "BUILD_QUEUE.md")
 	body := read(t, p)
-	if i := strings.Index(body, "## Batch"); i >= 0 {
-		body = body[:i]
+	// Cut at a real heading: the header prose quotes "## Batch <id>" inline as an example.
+	if loc := regexp.MustCompile(`(?m)^## Batch`).FindStringIndex(body); loc != nil {
+		body = body[:loc[0]]
 	}
 	mustWrite(t, p, body+sections)
 }
