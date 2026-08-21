@@ -7,6 +7,23 @@ Written by `specflow/procedures/prune-ledgers.md`, which keeps the 5 newest comp
 `CLAIMS.md` and moves everything older here. Don't hand-move entries; run the procedure (Claude:
 the `prune-ledgers` skill) so the retention rule stays consistent.
 
+### Batch AF — Adapter files upgrade like everything else
+- Owner: claude
+- Started: 2026-08-20 13:56
+- Finished: 2026-08-20 14:03
+- Commit: f5f578f
+
+**What shipped**
+- **The second managed tier.** `MANAGED` only ever covered files with a marker-wrapped region, so
+  the wholly-generated adapters — the four Claude `SKILL.md` stubs and
+  `.claude/hooks/specflow-handoff-reminder.sh` — were create-once: `upgrade` placed one when absent
+  and otherwise left it alone forever. `internal/kit/kit.go` now hashes each adapter *whole* into
+  the stamp's `managed` map (`adapterEntries` / `decideAdapter` / `adapterDecisions`), and both
+  tiers funnel through one `applyDecision`, so a region and an adapter in the same state are
+  written and reported identically.
+
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch AF
+
 ### Batch QV — Queue verbs (`next`, `claim`, `finish`)
 - Owner: claude
 - Started: 2026-08-20 12:47

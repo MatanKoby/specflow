@@ -48,11 +48,22 @@ refuses a stub over 8 lines. Entries above the LW line predate the rule and are 
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch MC — migrate-claims, so 0.1.8's ledger shape reaches old entries
 - Owner: claude
 - Started: 2026-08-21 14:38
+- Finished: 2026-08-21 14:57
+- Commit: a493a09
 
-## Completed
+**What shipped.** `specflow migrate-claims [--dry-run]`: over-cap entries in `CLAIMS.md`
+`## Completed` and `CLAIMS_DONE.md` keep their metadata and a stub, and their narratives move
+whole into `BUILD_QUEUE_DONE.md`. Appends under a divider where a section exists; never deletes
+prose; `## In progress` untouched. Run once per install after an upgrade that caps the entry.
+- Run here already: 24 entries migrated (`5b65de2`), CLAIMS.md 201 → 137, CLAIMS_DONE.md 696 → 328.
+- A metadata bullet owns its wrapped continuation lines, which is the parse this verb exists for.
+
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch MC
 
 ### Batch RC — drift is a state you can leave
 - Owner: claude
@@ -119,19 +130,3 @@ destroy the edit being blessed.
 
 - Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch RN
 
-### Batch AF — Adapter files upgrade like everything else
-- Owner: claude
-- Started: 2026-08-20 13:56
-- Finished: 2026-08-20 14:03
-- Commit: f5f578f
-
-**What shipped**
-- **The second managed tier.** `MANAGED` only ever covered files with a marker-wrapped region, so
-  the wholly-generated adapters — the four Claude `SKILL.md` stubs and
-  `.claude/hooks/specflow-handoff-reminder.sh` — were create-once: `upgrade` placed one when absent
-  and otherwise left it alone forever. `internal/kit/kit.go` now hashes each adapter *whole* into
-  the stamp's `managed` map (`adapterEntries` / `decideAdapter` / `adapterDecisions`), and both
-  tiers funnel through one `applyDecision`, so a region and an adapter in the same state are
-  written and reported identically.
-
-- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch AF

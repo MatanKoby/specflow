@@ -10,6 +10,46 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch MC — migrate-claims, so 0.1.8's ledger shape reaches old entries
+Shipped `specflow migrate-claims [--dry-run]` in `internal/kit/queue.go` + `cmd/specflow/main.go`.
+Retention bounds how many entries a ledger holds; Batch LW's stub cap bounds how big one gets, but
+it only reached entries written after the upgrade, so an install arriving at 0.1.8 still carried
+every legacy essay in the file re-read on every claim, finish, and prune. The verb rewrites each
+over-cap entry in `CLAIMS.md` `## Completed` and in `specflow/history/CLAIMS_DONE.md` to its
+metadata plus a stub within `StubMaxLines` plus the pointer, and relocates the narrative to
+`specflow/history/BUILD_QUEUE_DONE.md` under that batch's heading. Key commit `a493a09`.
+
+Three decisions the queue entry left open. **The body relocates whole**, not just the part that did
+not fit, so the archive section reads from its first sentence and "never deletes prose" is literal;
+the stub is a copy of its head. **Only over-cap entries migrate** — an entry already within the cap
+is left exactly as it is, including one with no pointer, because emitting a pointer at a section
+that may not exist would fabricate a reference (Batch FS owns pointer emission at finish time).
+**`## In progress` is never touched**: a live claim has no archived narrative to point at yet.
+
+The parsing contract, which is why this is a verb rather than a paragraph in a procedure. A metadata
+bullet owns every non-blank line that follows it, so `- Progress note (2026-08-20, …)` survives to
+its last wrapped line; the block resumes past a blank line only if the next line is another field
+bullet (`metaFieldRe`: a short capitalized label, then `:` or `(`), which is what keeps body prose
+opening with a bullet from being read as metadata. The stub is cut from the body only, in whole
+leading paragraphs while they fit the cap, and a first paragraph that overruns the cap alone is
+truncated and backed up to its last sentence boundary. Both halves are tested, plus the append-under-
+a-divider path, newest-first ordering across both ledgers, idempotency, `--dry-run`, and the same
+nothing-is-written-unless-every-ledger-parsed contract `finish` has.
+
+Also refactored out of `Finish`: `archiveInsertPoint`, `archiveSection`, and `archiveHeading`, so
+the two verbs cannot disagree about where a narrative goes or what its heading looks like — a
+mismatch there would open a second section for a batch that already has one.
+
+Run against this repo's own ledgers in its own commit (`5b65de2`), 24 entries: `CLAIMS.md` 201 → 137
+lines, `CLAIMS_DONE.md` 696 → 328, with everything displaced appended under each batch's existing
+`BUILD_QUEUE_DONE.md` section. Verification: `gofmt -l cmd internal` clean, `go vet ./...`,
+`go test ./...` green (three new tests), plus a self-hosted `upgrade` that adopted the refreshed
+`prune-ledgers.md` region and `specflow verify` clean.
+
+**Follow-up deferred.** A stub cut mechanically can end on a colon that introduced a list left
+behind in the archive (`Batch 3`, `Batch CE` here). It is honest and the pointer is right below it,
+and the alternative is rewriting a shipped batch's prose, which this verb deliberately does not do.
+
 ## Batch RC — drift is a state you can leave
 Two defects in one loop, both reported from a downstream install running 0.1.8. **The sidecar was the wrong bytes.** `upDrift` wrote the rendered template whole, which is right for an adapter (every byte is specflow's) and a footgun for a marker-delimited file: the warning invites reconciliation, the obvious reconciliation is `mv`, and `mv` threw away everything outside the region. One install carried 27 managed lines in `CLAUDE.md` and 73 lines of its own project guidance below them, with a single warning string covering both tiers and the correct action opposite in each. The sidecar now holds `before + markers + fresh region + after`, so `mv` is correct everywhere and the CLI says `mv` outright. **Drift was also terminal**, which is sharper than it was reported: the adapter tier has adopted an identical file since Batch AF, the region tier had no such check, and `Upgrade` carries the old baseline forward for a drifted file. So a user who followed the printed advice ended with a region matching the *new* template and a baseline still holding the *old* hash: re-drifted on every upgrade, warned on in every verify, with no exit but discarding their edit. `decideUpgrade` now adopts on identical bytes, which self-heals every already-reconciled install on its next upgrade with no verb involved. **The third piece is `specflow waive <file>` (`--all`, `--clear`), and it is a deliberate departure from what the queue entry specified.** The entry proposed `specflow adopt` as "re-record the baseline over a deliberate local edit", and that shape is a trap: recording the edited bytes as the baseline makes the region read as *clean*, so the very next `upgrade` refreshes it and destroys the edit being blessed. The correct primitive is a waiver, and this repo already had the idiom in the spec-file `specflow:size-ok` marker from Batch SZ. A waiver changes no file bytes; it records `local` (the exact bytes waived, so a later edit resurfaces as drift) and `kit` (the template version it was taken against, so `upgrade` reports a waiver specflow has moved past rather than sitting silent forever) in a new `waived` map in `specflow/config.json`, absent until first use so older stamps read back fine. `upgrade` leaves a waived file alone and writes no sidecar, `verify` reports it as a choice rather than a warning, `status` counts it on its own row, and only a *drifted* file can be waived, since waiving a clean one would silently opt it out of every future refresh for nothing. Mode consistency still overrides a waiver on the adapter tier: a leak proves the content is stale specflow text rather than the user's. Key commit `2bda486`, spec in `30cd293` (`spec/architecture.md` → *init / upgrade*, plus the `waived` map under *Config & state*). Verified by `gofmt`/`go vet`/`go test` with seven new tests (out-of-region text survives in the sidecar, `mv` ends the drift across upgrade + verify + status, waive keeps the edit and silences the report, a second edit resurfaces it, `--clear` restores reporting, clean and unmanaged files are refused, and `--all` covers the adapter tier), and a hand run against a scratch install that reproduced the original `CLAUDE.md` failure and showed it fixed. Follow-ups left alone on purpose: the procedures and `templates/**` say nothing about waivers (Batch FS owns that prose, and Batch ED is about to rewrite those files wholesale), and `waive` deliberately does not delete the stale sidecar it makes redundant, since the command's contract is that it touches no files - it prints a line saying the sidecar can go.
 

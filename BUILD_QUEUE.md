@@ -20,38 +20,10 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > **MC** · **FS** · **ED**. Which batch shipped in which release lives in `spec/roadmap.md` →
 > *Release lines*, and the milestone goals live there too, not here. This file holds un-done work only.
 >
-> **Claimable:** **MC** (`migrate-claims`) · **FS** (stub contract) · **ED** (em dash sweep). Pick
-> order MC, FS, and **ED last** so it sweeps the prose the others add. MC and FS share
-> `internal/kit/queue.go`; FS and ED share `templates/base/**`. **RC** is done.
+> **Claimable:** **FS** (stub contract) · **ED** (em dash sweep). Pick order FS, then **ED last** so
+> it sweeps the prose FS adds. FS and ED share `templates/base/**`. **RC** and **MC** are done.
 > **Not ready:** **NX** (`next` file spread) · **W** (workflow config) · **NB** (`--new-batch`) ·
 > **E** (enforcement, research-first) · **P** (npm-wrapper front-end) · Homebrew tap.
-
----
-
-## Batch MC - migrate-claims, so 0.1.8's ledger shape reaches old entries
-
-**Goal.** The stub + pointer shape applies only to entries written *after* the upgrade, so an install
-arriving at 0.1.8 still carries every legacy essay: the exact weight Batch LW exists to remove, in the
-file that is re-read on every claim, finish, and prune. Add **`specflow migrate-claims [--dry-run]`**:
-rewrite legacy `### Batch` entries in `CLAIMS.md` and `specflow/history/CLAIMS_DONE.md` to metadata
-plus a stub within `StubMaxLines` plus the pointer, and **relocate** the displaced prose into
-`specflow/history/BUILD_QUEUE_DONE.md` under that batch's heading. It never deletes prose: where a
-section for the batch already exists, the relocated text is appended under a divider, never
-overwritten. Writes nothing anywhere if either ledger fails to parse, same contract as `finish`.
-
-**The hazard, and the reason this is a verb rather than a snippet in a procedure.** A hand-rolled
-retrofit downstream lost a `- Progress note (2026-08-20, ...)` line and its 15 wrapped continuation
-lines by reading the continuation as body prose. specflow's own archiver kept a multi-line
-`- Overlap note:` intact in the same run, because it copies entries verbatim. So the parsing subtlety
-is already solved here and nowhere else: metadata lines and every continuation line survive, and the
-stub is cut from the body only. Both halves get a test.
-
-**Note:** shares `internal/kit/queue.go` and `cmd/specflow/main.go` with Batch FS, so the two do not
-run in parallel; either order is fine.
-
-### Files this batch creates/edits
-- `internal/kit/queue.go` · `cmd/specflow/main.go` · `cmd/specflow/main_test.go` ·
-  `templates/base/specflow/procedures/prune-ledgers.md` · `README.md`.
 
 ---
 
