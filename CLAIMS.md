@@ -48,6 +48,10 @@ refuses a stub over 8 lines. Entries above the LW line predate the rule and are 
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch MC — migrate-claims, so 0.1.8's ledger shape reaches old entries
+- Owner: claude
+- Started: 2026-08-21 14:38
+
 ## Completed
 
 ### Batch RC — drift is a state you can leave
