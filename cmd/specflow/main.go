@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -240,8 +241,13 @@ Refreshes specflow's marker-delimited regions in AGENTS.md, the procedures, and
 each installed agent's instruction file, plus the wholly-generated adapter files
 (skill stubs, hooks), which are managed as whole files. %s: text
 outside the markers is preserved, and any managed file you edited (drift) is left
-untouched with the fresh version written alongside as %s. Your
-queue, claims, and spec are never touched, and upgrade never commits.
+untouched with the fresh version written alongside as %s — that
+sidecar is your file with the fresh region spliced in, so reconciling is a plain
+%s. Your queue, claims, and spec are never touched, and upgrade never commits.
+
+Taking the sidecar clears the drift: a region that already matches the current
+version is adopted on the next upgrade. To keep an edit instead, %s
+it, and upgrade will leave the file alone without reporting it.
 
   --dry-run    preview what would refresh / add / migrate / skip, and exit
   -h, --help   show this help
@@ -249,7 +255,9 @@ queue, claims, and spec are never touched, and upgrade never commits.
 		bold("specflow upgrade"),
 		bold("Usage:"),
 		bold("Non-destructive"),
-		cyan("<file>.specflow-new"))
+		cyan("<file>.specflow-new"),
+		cyan("mv"),
+		cyan("specflow waive"))
 }
 
 // printInitPlan renders what `init --dry-run` would do, writing nothing.
@@ -444,7 +452,7 @@ func printUpgradePlan(plan kit.UpgradePlan) {
 		return
 	}
 	fmt.Println(bold("\nspecflow upgrade --dry-run") + dim(fmt.Sprintf("  — preview %s → %s; nothing will be written", plan.From, plan.To)))
-	if len(plan.Refresh)+len(plan.Add)+len(plan.Migrate)+len(plan.Drift) == 0 {
+	if len(plan.Refresh)+len(plan.Add)+len(plan.Migrate)+len(plan.Drift)+len(plan.Waived) == 0 {
 		fmt.Println(dim("\n  Already current — nothing to refresh.") + "\n")
 		return
 	}
@@ -464,6 +472,12 @@ func printUpgradePlan(plan kit.UpgradePlan) {
 		fmt.Println(bold(fmt.Sprintf("\n  would migrate to managed-region format (%d):", len(plan.Migrate))) + dim("  (original → .specflow-bak)"))
 		for _, f := range plan.Migrate {
 			fmt.Println(yellow("    ⇄ ") + f)
+		}
+	}
+	if len(plan.Waived) > 0 {
+		fmt.Println(bold(fmt.Sprintf("\n  waived — would leave alone (%d):", len(plan.Waived))) + dim("  (no sidecar, not reported as drift)"))
+		for _, f := range plan.Waived {
+			fmt.Println(dim("    · " + f))
 		}
 	}
 	if len(plan.Drift) > 0 {
@@ -513,10 +527,17 @@ func cmdUpgrade(args []string) error {
 	if len(res.Drifted) > 0 {
 		fmt.Println(yellow(fmt.Sprintf("\n  ⚠ %d managed file(s) edited since install — left untouched:", len(res.Drifted))))
 		for _, f := range res.Drifted {
-			fmt.Println(dim("    · " + f + "  → new version written to " + f + ".specflow-new (reconcile, then re-run upgrade)"))
+			fmt.Println(dim("    · " + f + "  → " + f + ".specflow-new (your file with the fresh region spliced in)"))
+		}
+		fmt.Println(dim("      take it with ") + cyan("mv <file>.specflow-new <file>") + dim(", or keep your edit with ") + cyan("specflow waive <file>"))
+	}
+	if len(res.Waived) > 0 {
+		fmt.Println(dim(fmt.Sprintf("\n  · %d waived file(s) left alone: ", len(res.Waived))) + dim(strings.Join(res.Waived, ", ")))
+		for _, f := range res.WaiverStale {
+			fmt.Println(dim("    · "+f+": specflow has changed this file since you waived it — ") + cyan("specflow waive --clear "+f) + dim(" to see the new version"))
 		}
 	}
-	if len(res.Refreshed)+len(res.Added)+len(res.Migrated)+len(res.Drifted) == 0 {
+	if len(res.Refreshed)+len(res.Added)+len(res.Migrated)+len(res.Drifted)+len(res.Waived) == 0 {
 		fmt.Println(dim("  Already current — nothing to refresh."))
 	}
 	fmt.Println(dim("\n  Your queue, claims, and spec were left untouched."))
@@ -783,6 +804,9 @@ func cmdStatus(args []string) error {
 		row("drift", green("none"))
 	} else {
 		row("drift", yellow(fmt.Sprintf("⚠ %d file(s) edited since install", len(rep.Drifted)))+dim(" — "+strings.Join(rep.Drifted, ", ")))
+	}
+	if len(rep.Waived) > 0 {
+		row("waived", fmt.Sprintf("%d file(s) edited on purpose", len(rep.Waived))+dim(" — "+strings.Join(rep.Waived, ", ")))
 	}
 	// Drift and staleness are different questions: one asks whether *you* changed a file, the other
 	// whether *specflow* did. A repo can be clean on the first and behind on the second.
@@ -1066,6 +1090,90 @@ func readProse(args []string, flag string) (string, error) {
 	return string(b), nil
 }
 
+func waiveUsage() {
+	fmt.Printf(`
+%s — keep a deliberate edit to a specflow-managed file
+
+%s
+  specflow waive <file>...
+  specflow waive --all
+  specflow waive --clear <file>...
+
+%s already refuses to overwrite a managed file you edited, but it keeps
+writing a %s sidecar and %s keeps warning, forever. Waiving
+says the edit is deliberate: the file is left alone and stops being reported.
+
+It changes no file bytes, only %s. The waiver is pinned to the bytes
+you waived, so editing the file again resurfaces it as drift, and it remembers the
+version it was taken against, so upgrade tells you when specflow has moved on.
+
+To take specflow's version instead, reconcile from the sidecar (%s)
+— a region matching the current version is adopted automatically.
+
+  --all        waive every currently drifted file (with --clear, drop every waiver)
+  --clear      remove the waiver instead of recording one
+  -h, --help   show this help
+`,
+		bold("specflow waive"),
+		bold("Usage:"),
+		bold("upgrade"),
+		cyan(".specflow-new"),
+		cyan("specflow verify"),
+		cyan("specflow/config.json"),
+		cyan("mv <file>.specflow-new <file>"))
+}
+
+func cmdWaive(args []string) error {
+	if helpRequested(args) {
+		waiveUsage()
+		return nil
+	}
+	all, clear := hasFlag(args, "--all"), hasFlag(args, "--clear")
+	var files []string
+	for _, a := range args {
+		if !strings.HasPrefix(a, "-") {
+			files = append(files, a)
+		}
+	}
+	if len(files) == 0 && !all {
+		fmt.Println(yellow("\nspecflow waive") + " — name the file(s) to waive, or pass " + cyan("--all") + " for every drifted file.")
+		fmt.Println(dim("  see what is drifted with ") + cyan("specflow status") + "\n")
+		os.Exit(1)
+	}
+	target, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	res, err := kit.Waive(target, specflow.Templates(), files, all, clear)
+	if err != nil {
+		return err
+	}
+	if res.NotInstalled {
+		fmt.Println(yellow("\nspecflow is not installed here.") + " Run " + cyan("specflow init") + " first.\n")
+		os.Exit(1)
+	}
+	fmt.Println(bold("\nspecflow waive") + dim("  — recorded in specflow/config.json; no file was changed"))
+	for _, f := range res.Waived {
+		fmt.Println(green("  ✓ ") + f + dim("  waived — upgrade will leave it alone"))
+		// The sidecar was the pending reconciliation; waiving answered it. Say so rather than
+		// deleting it, since this command's whole contract is that it touches no files.
+		if _, err := os.Stat(filepath.Join(target, f+".specflow-new")); err == nil {
+			fmt.Println(dim("      " + f + ".specflow-new is now stale — delete it when you like"))
+		}
+	}
+	for _, f := range res.Cleared {
+		fmt.Println(green("  ✓ ") + f + dim("  waiver cleared — upgrade reports it as drift again"))
+	}
+	for _, sk := range res.Skipped {
+		fmt.Println(dim("  · " + sk))
+	}
+	if len(res.Waived)+len(res.Cleared)+len(res.Skipped) == 0 {
+		fmt.Println(dim("  nothing to do — no drifted files"))
+	}
+	fmt.Println("")
+	return nil
+}
+
 func usage() {
 	fmt.Printf(`
 %s %s — spec-driven batch/claim protocol for AI coding agents
@@ -1081,12 +1189,13 @@ func usage() {
   specflow finish <batch-id> --commit <sha>        %s
   specflow upgrade                                 %s
   specflow verify                                  %s
+  specflow waive <file>... [--all] [--clear]       %s
   specflow --version                               %s
   specflow --help
 
 %s
   specflow init --help · specflow add-agent --help · specflow upgrade --help · specflow verify --help
-  specflow next --help · specflow claim --help · specflow finish --help
+  specflow next --help · specflow claim --help · specflow finish --help · specflow waive --help
 
 %s %s
 `,
@@ -1102,6 +1211,7 @@ func usage() {
 		dim("move a batch to done across the ledgers"),
 		dim("refresh the managed protocol files"),
 		dim("check installation integrity"),
+		dim("keep a deliberate edit to a managed file"),
 		dim("print the installed version"),
 		bold("Per-command help:"),
 		bold("Agents:"), strings.Join(allAgentKeys(), ", "))
@@ -1125,6 +1235,8 @@ func dispatch(command string, args []string) error {
 		return cmdUpgrade(args)
 	case "verify":
 		return cmdVerify(args)
+	case "waive":
+		return cmdWaive(args)
 	case "--version", "-v", "version":
 		fmt.Println(version)
 	case "", "--help", "-h", "help":

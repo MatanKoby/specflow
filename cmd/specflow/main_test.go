@@ -2695,3 +2695,159 @@ func TestNextReportsLedgerWeight(t *testing.T) {
 		t.Errorf("the size-ok waiver did not raise the preamble limit:\n%s", out)
 	}
 }
+
+// ---- Batch RC: the drift sidecar, adoption on reconcile, and waivers ----
+
+// driftRegion injects a sentinel inside the managed region of a file, simulating a hand edit.
+func driftRegion(t *testing.T, path, sentinel string) {
+	t.Helper()
+	c := read(t, path)
+	edited := startMarker.ReplaceAllStringFunc(c, func(m string) string { return m + "\n" + sentinel })
+	if edited == c {
+		t.Fatalf("could not locate start marker in %s", path)
+	}
+	os.WriteFile(path, []byte(edited), 0o644)
+}
+
+// The sidecar for a marker-delimited file is the user's file with the fresh region spliced in, not
+// the bare template: `mv` is the reconciliation the warning invites, and it must not cost the user
+// everything they wrote outside the markers.
+func TestUpgradeSidecarKeepsTextOutsideTheRegion(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude")
+	ag := filepath.Join(tmp, "AGENTS.md")
+
+	f, _ := os.OpenFile(ag, os.O_APPEND|os.O_WRONLY, 0o644)
+	f.WriteString("\n## Our team notes\nDeploy on Fridays only.\n")
+	f.Close()
+	driftRegion(t, ag, "DRIFT-SENTINEL")
+
+	run(t, tmp, "upgrade")
+	side := read(t, ag+".specflow-new")
+	if !strings.Contains(side, "Deploy on Fridays only.") {
+		t.Error("sidecar dropped the user's text outside the region — `mv` over it would destroy that text")
+	}
+	if strings.Contains(side, "DRIFT-SENTINEL") {
+		t.Error("sidecar carried the drifted region forward; it should hold the fresh region")
+	}
+}
+
+// Reconciling by taking the sidecar must end the drift. Before this, the baseline was carried
+// forward unchanged, so a reconciled file mismatched forever: every upgrade re-drifted it and every
+// verify warned, with no exit but discarding the edit.
+func TestUpgradeAdoptsReconciledRegion(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude")
+	ag := filepath.Join(tmp, "AGENTS.md")
+	driftRegion(t, ag, "DRIFT-SENTINEL")
+	run(t, tmp, "upgrade")
+
+	// The user reconciles the only way the CLI suggests.
+	if err := os.Rename(ag+".specflow-new", ag); err != nil {
+		t.Fatalf("mv sidecar: %v", err)
+	}
+	r := run(t, tmp, "upgrade")
+	if regexp.MustCompile(`(?i)edited since install`).MatchString(r.stdout) {
+		t.Errorf("reconciled file still reported as drift: %s", r.stdout)
+	}
+	if exists(ag + ".specflow-new") {
+		t.Error("a second sidecar was written for an already-reconciled file")
+	}
+	if v := run(t, tmp, "verify"); regexp.MustCompile(`(?i)drift`).MatchString(v.stdout) {
+		t.Errorf("verify still warns after reconcile: %s", v.stdout)
+	}
+	if s := run(t, tmp, "status"); !regexp.MustCompile(`drift\s+none`).MatchString(s.stdout) {
+		t.Errorf("status still reports drift after reconcile: %s", s.stdout)
+	}
+}
+
+// Waiving keeps the edit, stops the sidecar, and stops the warning — without re-recording the
+// baseline, which would hand the file back to the next refresh.
+func TestWaiveKeepsEditAndSilencesDrift(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude")
+	ag := filepath.Join(tmp, "AGENTS.md")
+	driftRegion(t, ag, "DRIFT-SENTINEL")
+	run(t, tmp, "upgrade")
+	os.Remove(ag + ".specflow-new")
+
+	w := run(t, tmp, "waive", "AGENTS.md")
+	if w.code != 0 {
+		t.Fatalf("waive exit %d: %s", w.code, w.stderr)
+	}
+	if !strings.Contains(read(t, ag), "DRIFT-SENTINEL") {
+		t.Fatal("waive changed the file; it must only record in the stamp")
+	}
+
+	r := run(t, tmp, "upgrade")
+	if regexp.MustCompile(`(?i)edited since install`).MatchString(r.stdout) {
+		t.Errorf("waived file still reported as drift: %s", r.stdout)
+	}
+	if exists(ag + ".specflow-new") {
+		t.Error("sidecar written for a waived file")
+	}
+	if !strings.Contains(read(t, ag), "DRIFT-SENTINEL") {
+		t.Fatal("upgrade overwrote a waived edit")
+	}
+	if v := run(t, tmp, "verify"); v.code != 0 || regexp.MustCompile(`(?i)drift`).MatchString(v.stdout) {
+		t.Errorf("verify still warns about a waived file: %s", v.stdout)
+	}
+
+	// The waiver is pinned to the bytes waived: edit again and it is drift again.
+	driftRegion(t, ag, "SECOND-EDIT")
+	if r2 := run(t, tmp, "upgrade"); !regexp.MustCompile(`(?i)edited since install`).MatchString(r2.stdout) {
+		t.Errorf("a second edit stayed silent under the old waiver: %s", r2.stdout)
+	}
+}
+
+// --clear puts the file back under the normal drift contract.
+func TestWaiveClearRestoresDriftReporting(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude")
+	ag := filepath.Join(tmp, "AGENTS.md")
+	driftRegion(t, ag, "DRIFT-SENTINEL")
+	run(t, tmp, "waive", "AGENTS.md")
+	run(t, tmp, "waive", "--clear", "AGENTS.md")
+	if r := run(t, tmp, "upgrade"); !regexp.MustCompile(`(?i)edited since install`).MatchString(r.stdout) {
+		t.Errorf("cleared waiver did not restore drift reporting: %s", r.stdout)
+	}
+}
+
+// Waiving a clean file would silently opt it out of every future refresh for no reason.
+func TestWaiveRefusesCleanAndUnmanagedFiles(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude")
+	mustWrite(t, filepath.Join(tmp, "notes.md"), "mine\n")
+
+	r := run(t, tmp, "waive", "AGENTS.md", "notes.md")
+	if !strings.Contains(r.stdout, "not drifted") {
+		t.Errorf("waive accepted a clean file: %s", r.stdout)
+	}
+	if !strings.Contains(r.stdout, "not a specflow-managed file") {
+		t.Errorf("waive accepted a file it doesn't manage: %s", r.stdout)
+	}
+	var stamp map[string]any
+	json.Unmarshal([]byte(read(t, filepath.Join(tmp, "specflow/config.json"))), &stamp)
+	if _, ok := stamp["waived"]; ok {
+		t.Error("waive wrote a waiver for files it reported as skipped")
+	}
+}
+
+// The adapters are whole-file managed, and a waiver has to work the same way there.
+func TestWaiveAllCoversAdapters(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude")
+	stub := filepath.Join(tmp, ".claude/skills/claim-batch/SKILL.md")
+	mustWrite(t, stub, read(t, stub)+"\nMy own trigger note.\n")
+
+	if r := run(t, tmp, "waive", "--all"); !strings.Contains(r.stdout, ".claude/skills/claim-batch/SKILL.md") {
+		t.Fatalf("--all did not waive the drifted adapter: %s", r.stdout)
+	}
+	r := run(t, tmp, "upgrade")
+	if regexp.MustCompile(`(?i)edited since install`).MatchString(r.stdout) {
+		t.Errorf("waived adapter still reported as drift: %s", r.stdout)
+	}
+	if !strings.Contains(read(t, stub), "My own trigger note.") {
+		t.Error("upgrade overwrote a waived adapter")
+	}
+}

@@ -230,6 +230,7 @@ spec an area just before you work it, and the coverage grows to fit what you act
 specflow status      # version, mode, agents, levers, check command, queue depth, claims, drift
 specflow upgrade     # refresh the managed mechanism, bump the stamp
 specflow verify      # check install integrity, file by file
+specflow waive FILE  # keep a deliberate edit to a managed file
 specflow add-agent copilot
 ```
 
@@ -237,9 +238,18 @@ specflow add-agent copilot
 `specflow/procedures/`). Your queue, claims, and spec are never touched.
 
 If you edited inside a managed region, `upgrade` detects the drift by hash, leaves your version
-alone, and writes the fresh one to a `<file>.specflow-new` sidecar rather than clobbering you. The
-stamp's `schemaVersion` gates future state-file migrations. None exist yet, and the file contract is
-kept stable on purpose so they stay rare.
+alone, and writes the fresh one to a `<file>.specflow-new` sidecar rather than clobbering you. That
+sidecar is **your file with the fresh region spliced in**, so reconciling is a plain
+`mv <file>.specflow-new <file>`: everything you wrote outside the markers survives it, and the next
+`upgrade` sees the region as current and starts refreshing the file again.
+
+Want to keep your edit instead? `specflow waive <file>` (or `--all`) records that the divergence is
+deliberate: no bytes change, `upgrade` stops writing sidecars for it, and `verify` reports it as a
+choice rather than a warning. The waiver is pinned to the bytes you waived, so a later edit shows up
+as drift again, and `specflow waive --clear <file>` puts the file back under the normal contract.
+
+The stamp's `schemaVersion` gates future state-file migrations. None exist yet, and the file contract
+is kept stable on purpose so they stay rare.
 
 </details>
 

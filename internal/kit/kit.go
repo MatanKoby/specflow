@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -287,6 +288,53 @@ func baselineMap(stamp map[string]any) map[string]string {
 		}
 	}
 	return out
+}
+
+// waiver records a deliberate local edit to a managed file: the user ran `specflow waive`, so the
+// divergence is intentional and neither `upgrade` nor `verify` keeps reporting it as drift. It is
+// deliberately not a baseline re-record: recording the edited bytes as the baseline would make the
+// region read as *clean*, and the very next `upgrade` would refresh it and destroy the edit being
+// blessed. A waiver instead says "leave this alone and stop warning".
+//
+// local is the hash of the waived bytes, so editing the file again no longer matches and it
+// resurfaces as drift. kit is the template hash the waiver was taken against, so a waiver made
+// against an older specflow is reported as stale rather than sitting silent forever.
+type waiver struct{ local, kit string }
+
+// waivedMap pulls the recorded waivers out of the stamp. A stamp written before waivers existed
+// simply has no `waived` key, which reads back as an empty map.
+func waivedMap(stamp map[string]any) map[string]waiver {
+	out := map[string]waiver{}
+	raw, ok := stamp["waived"].(map[string]any)
+	if !ok {
+		return out
+	}
+	for k, v := range raw {
+		m, ok := v.(map[string]any)
+		if !ok {
+			continue
+		}
+		local, _ := m["local"].(string)
+		kit, _ := m["kit"].(string)
+		if local != "" {
+			out[k] = waiver{local: local, kit: kit}
+		}
+	}
+	return out
+}
+
+// writeWaivers puts the map back into the stamp in the shape waivedMap reads. An empty set drops the
+// key entirely, so clearing the last waiver leaves no residue in config.json.
+func writeWaivers(stamp map[string]any, ws map[string]waiver) {
+	if len(ws) == 0 {
+		delete(stamp, "waived")
+		return
+	}
+	out := map[string]any{}
+	for k, w := range ws {
+		out[k] = map[string]any{"local": w.local, "kit": w.kit}
+	}
+	stamp["waived"] = out
 }
 
 // isPerAgentFile reports whether a managed rel is a per-agent instruction file (Tier 3) rather than
@@ -675,6 +723,8 @@ type UpgradeResult struct {
 	Added         []string
 	Migrated      []string
 	Drifted       []string
+	Waived        []string // deliberate local edits, left alone and not reported as drift
+	WaiverStale   []string // waived, but specflow has changed the file since the waiver was taken
 	SchemaChanged bool
 }
 
@@ -689,6 +739,7 @@ const (
 	upAdd                          // managed file absent → create it whole
 	upMigrate                      // pre-marker file (had a baseline) → back up + rewrite
 	upDrift                        // hand-edited / no baseline → write .specflow-new, don't overwrite
+	upWaived                       // hand-edited, and the user waived it → leave it, don't even write a sidecar
 )
 
 type upgradeDecision struct {
@@ -696,12 +747,18 @@ type upgradeDecision struct {
 	updated string // full new file content (upRefresh/upAdd/upMigrate) or sidecar body (upDrift)
 	backup  string // original bytes to preserve as .specflow-bak (upMigrate only)
 	newHash string // region baseline to record (all actions that keep the file managed; not upDrift)
+
+	// The two hashes a waiver is made of, carried on every decision so `waive` can read them off the
+	// same classification the upgrade path uses instead of re-deriving them.
+	localHash   string // what is on disk now (region hash, or whole-file hash for an adapter)
+	kitHash     string // the template's current version of the same unit
+	staleWaiver bool   // waived, but against an older template than the one shipping now
 }
 
 // decideUpgrade classifies one managed file from its rendered template (srcContent + its extracted
 // srcParts) against the current disk state, touching nothing. The write side effects each action
 // implies are carried in the decision so the caller can either apply or merely report them.
-func decideUpgrade(dest, rel, srcContent string, srcParts regionParts, baseline map[string]string) (upgradeDecision, error) {
+func decideUpgrade(dest, rel, srcContent string, srcParts regionParts, baseline map[string]string, waived map[string]waiver) (upgradeDecision, error) {
 	db, err := os.ReadFile(dest)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -722,19 +779,43 @@ func decideUpgrade(dest, rel, srcContent string, srcParts regionParts, baseline 
 		}
 		return upgradeDecision{action: upMigrate, updated: srcContent, backup: destContent, newHash: hashRegion(srcParts.region)}, nil
 	}
+	// Everything below is decided against these two: what the region is now, and what the template
+	// says it should be.
+	localHash, kitHash := hashRegion(destParts.region), hashRegion(srcParts.region)
+	// The fresh region spliced into *this* file, which is both what a clean refresh writes and what
+	// the drift sidecar carries. It is deliberately not the rendered template on its own: for a
+	// marker-delimited file that would drop everything the user wrote outside the region, and `mv`
+	// over the sidecar is the reconciliation the warning invites.
+	updated := destParts.before + srcParts.startMarker + srcParts.region + srcParts.endMarker + destParts.after
+	base := baseline[rel]
+	clean := base != "" && localHash == base
 	// Never overwrite a region we can't prove is pristine: a hash mismatch (hand-edited since install)
-	// or a missing baseline (lost/corrupt stamp, or newly managed) leaves the on-disk region untouched
-	// and drops the fresh version to a .specflow-new sidecar instead of clobbering in-region edits.
-	if base := baseline[rel]; base == "" || hashRegion(destParts.region) != base {
-		return upgradeDecision{action: upDrift, updated: srcContent}, nil
+	// or a missing baseline (lost/corrupt stamp, or newly managed) leaves the on-disk region untouched.
+	if !clean {
+		// Already reconciled: the region *is* the fresh template region, whatever the stale baseline
+		// says. Recording the baseline is the whole fix — without it a file the user reconciled from
+		// its own sidecar mismatches forever, re-drifting on every upgrade and warning in every
+		// verify, with no way out but discarding the edit. This mirrors the adapter tier, which has
+		// adopted an identical file since whole-file management landed.
+		if localHash == kitHash {
+			if updated == destContent {
+				return upgradeDecision{action: upNoop, newHash: kitHash, localHash: localHash, kitHash: kitHash}, nil
+			}
+			return upgradeDecision{action: upRefresh, updated: updated, newHash: kitHash, localHash: localHash, kitHash: kitHash}, nil
+		}
+		// A deliberate local edit the user waived: leave it, and don't even write a sidecar. The
+		// waiver is matched against the bytes it was taken on, so a later edit drops back to drift.
+		if w, ok := waived[rel]; ok && w.local == localHash {
+			return upgradeDecision{action: upWaived, localHash: localHash, kitHash: kitHash, staleWaiver: w.kit != "" && w.kit != kitHash}, nil
+		}
+		return upgradeDecision{action: upDrift, updated: updated, localHash: localHash, kitHash: kitHash}, nil
 	}
 	// Clean: swap in the fresh region (and the template's current marker wording), preserving
 	// everything outside the markers verbatim.
-	updated := destParts.before + srcParts.startMarker + srcParts.region + srcParts.endMarker + destParts.after
 	if updated == destContent {
-		return upgradeDecision{action: upNoop, newHash: hashRegion(srcParts.region)}, nil
+		return upgradeDecision{action: upNoop, newHash: kitHash, localHash: localHash, kitHash: kitHash}, nil
 	}
-	return upgradeDecision{action: upRefresh, updated: updated, newHash: hashRegion(srcParts.region)}, nil
+	return upgradeDecision{action: upRefresh, updated: updated, newHash: kitHash, localHash: localHash, kitHash: kitHash}, nil
 }
 
 // relDecision pairs a managed file with its upgrade decision.
@@ -748,6 +829,7 @@ type relDecision struct {
 func upgradeDecisions(targetDir string, tpl fs.FS, stamp map[string]any) ([]relDecision, error) {
 	mode := modeOf(stamp)
 	baseline := baselineMap(stamp)
+	waived := waivedMap(stamp)
 	entries, err := managedEntries(tpl, installedAgents(stamp), mode)
 	if err != nil {
 		return nil, err
@@ -765,7 +847,7 @@ func upgradeDecisions(targetDir string, tpl fs.FS, stamp map[string]any) ([]relD
 		if !ok {
 			continue // template lacks markers — nothing to manage (shouldn't happen)
 		}
-		d, err := decideUpgrade(destPath(targetDir, e.rel), e.rel, srcContent, srcParts, baseline)
+		d, err := decideUpgrade(destPath(targetDir, e.rel), e.rel, srcContent, srcParts, baseline, waived)
 		if err != nil {
 			return nil, err
 		}
@@ -816,6 +898,7 @@ const (
 	adAdoptable                       // no baseline: installed before whole-file management, one-time adoption due
 	adLeaking                         // names machinery this install mode omits — stale specflow text by proof
 	adEdited                          // differs from its baseline — the user's edit, never overwritten
+	adWaived                          // the user's edit, declared deliberate with `specflow waive`
 )
 
 // adapterDecision is one adapter's state plus the two contents every caller needs.
@@ -837,8 +920,11 @@ type adapterDecision struct {
 //  5. No baseline at all → an install predating whole-file management. There is nothing to compare
 //     against, so it is replaced *with a backup* — the only way such an install can ever converge,
 //     at no cost to the user.
-//  6. Otherwise the hash differs from a baseline we do have: the user edited it. Never overwritten.
-func decideAdapter(dest, rel, rendered, mode string, baseline map[string]string) (adapterDecision, error) {
+//  6. Waived → the user declared this edit deliberate, so it is left alone *and* left unreported.
+//     Checked after the leak rule, which overrides everything, and before the no-baseline adoption,
+//     which would otherwise replace a file the user has explicitly claimed.
+//  7. Otherwise the hash differs from a baseline we do have: the user edited it. Never overwritten.
+func decideAdapter(dest, rel, rendered, mode string, baseline map[string]string, waived map[string]waiver) (adapterDecision, error) {
 	d := adapterDecision{rendered: rendered}
 	db, err := os.ReadFile(dest)
 	if err != nil {
@@ -856,6 +942,8 @@ func decideAdapter(dest, rel, rendered, mode string, baseline map[string]string)
 		d.state = adRefreshable
 	case len(ModeLeaks(mode, d.current)) > 0:
 		d.state = adLeaking
+	case waived[rel].local == hashFile(d.current):
+		d.state = adWaived
 	case !hasBase || base == "":
 		d.state = adAdoptable
 	default:
@@ -869,6 +957,7 @@ func decideAdapter(dest, rel, rendered, mode string, baseline map[string]string)
 func adapterDecisions(targetDir string, tpl fs.FS, stamp map[string]any) ([]relAdapter, error) {
 	mode := modeOf(stamp)
 	baseline := baselineMap(stamp)
+	waived := waivedMap(stamp)
 	files, err := adapterEntries(tpl, installedAgents(stamp), mode)
 	if err != nil {
 		return nil, err
@@ -879,7 +968,7 @@ func adapterDecisions(targetDir string, tpl fs.FS, stamp map[string]any) ([]relA
 		if err != nil {
 			return nil, err
 		}
-		d, err := decideAdapter(destPath(targetDir, f.rel), f.rel, string(renderFile(srcb, mode)), mode, baseline)
+		d, err := decideAdapter(destPath(targetDir, f.rel), f.rel, string(renderFile(srcb, mode)), mode, baseline, waived)
 		if err != nil {
 			return nil, err
 		}
@@ -907,8 +996,10 @@ func (d adapterDecision) asUpgrade() upgradeDecision {
 		return upgradeDecision{action: upRefresh, updated: d.rendered, newHash: h}
 	case adAdoptable, adLeaking:
 		return upgradeDecision{action: upMigrate, updated: d.rendered, backup: d.current, newHash: h}
+	case adWaived:
+		return upgradeDecision{action: upWaived, localHash: hashFile(d.current), kitHash: h}
 	case adEdited:
-		return upgradeDecision{action: upDrift, updated: d.rendered}
+		return upgradeDecision{action: upDrift, updated: d.rendered, localHash: hashFile(d.current), kitHash: h}
 	default: // adOK — record the baseline (which is how adoption of a pristine copy happens)
 		return upgradeDecision{action: upNoop, newHash: h}
 	}
@@ -939,6 +1030,13 @@ func applyDecision(targetDir, rel string, d upgradeDecision, next map[string]str
 		}
 		next[rel] = d.newHash
 		res.Migrated = append(res.Migrated, rel)
+	case upWaived:
+		// Waived: nothing is written and no baseline is recorded — the file stays the user's, and
+		// stays out of the drift report. The stamp keeps the waiver as-is.
+		res.Waived = append(res.Waived, rel)
+		if d.staleWaiver {
+			res.WaiverStale = append(res.WaiverStale, rel)
+		}
 	case upDrift:
 		if err := os.WriteFile(dest+".specflow-new", []byte(d.updated), 0o644); err != nil {
 			return err
@@ -1022,6 +1120,7 @@ type UpgradePlan struct {
 	Add          []string // managed files that would be created
 	Migrate      []string // pre-marker files that would be backed up + rewritten
 	Drift        []string // drifted regions left untouched (fresh version → .specflow-new)
+	Waived       []string // deliberate local edits the user waived — untouched, no sidecar
 }
 
 // PlanUpgrade classifies what Upgrade would do, writing nothing. upNoop/upSkip files are omitted —
@@ -1052,6 +1151,8 @@ func PlanUpgrade(targetDir string, tpl fs.FS, version string) (UpgradePlan, erro
 			plan.Migrate = append(plan.Migrate, rd.rel)
 		case upDrift:
 			plan.Drift = append(plan.Drift, rd.rel)
+		case upWaived:
+			plan.Waived = append(plan.Waived, rd.rel)
 		}
 	}
 	adapters, err := adapterDecisions(targetDir, tpl, stamp)
@@ -1068,6 +1169,8 @@ func PlanUpgrade(targetDir string, tpl fs.FS, version string) (UpgradePlan, erro
 			plan.Migrate = append(plan.Migrate, ra.rel)
 		case upDrift:
 			plan.Drift = append(plan.Drift, ra.rel)
+		case upWaived:
+			plan.Waived = append(plan.Waived, ra.rel)
 		}
 	}
 	return plan, nil
@@ -1257,6 +1360,102 @@ func staleFiles(targetDir string, tpl fs.FS, stamp map[string]any, adapters []re
 	return out, nil
 }
 
+// WaiveResult reports what `waive` recorded, for the CLI to summarize.
+type WaiveResult struct {
+	NotInstalled bool
+	Waived       []string // newly waived (or re-waived at the current bytes)
+	Cleared      []string // waivers removed
+	Skipped      []string // "<rel>: reason" — nothing was recorded for these
+}
+
+// Waive marks a deliberate local edit to a managed file as intentional: `upgrade` already refused to
+// touch a drifted file, and this stops it writing a sidecar and stops `verify` warning about it. It
+// changes no file bytes — only the stamp.
+//
+// It is not a baseline re-record, and that distinction is the whole point. Recording the edited bytes
+// as the baseline would make the region read as clean, and the next `upgrade` would refresh it,
+// overwriting the edit being blessed. A waiver instead pins the edit: it is matched against the exact
+// bytes waived, so a later edit to the same file resurfaces as drift, and it carries the template
+// hash it was taken against, so `upgrade` can say when specflow has moved on since.
+//
+// Only a file that is actually drifted can be waived — waiving a clean file would silently opt it out
+// of future refreshes for no reason, which is the failure this batch exists to remove.
+func Waive(targetDir string, tpl fs.FS, rels []string, all, clear bool) (WaiveResult, error) {
+	res := WaiveResult{}
+	sp := configPath(targetDir)
+	sb, err := os.ReadFile(sp)
+	if err != nil {
+		res.NotInstalled = true
+		return res, nil
+	}
+	var stamp map[string]any
+	if err := json.Unmarshal(sb, &stamp); err != nil {
+		return res, fmt.Errorf("%s is corrupted (invalid JSON) — fix or restore it: %w", filepath.Base(sp), err)
+	}
+	ws := waivedMap(stamp)
+
+	// One classification pass over both tiers, so `waive` sees exactly what `upgrade` sees.
+	state := map[string]upgradeDecision{}
+	decisions, err := upgradeDecisions(targetDir, tpl, stamp)
+	if err != nil {
+		return res, err
+	}
+	for _, rd := range decisions {
+		state[rd.rel] = rd.dec
+	}
+	adapters, err := adapterDecisions(targetDir, tpl, stamp)
+	if err != nil {
+		return res, err
+	}
+	for _, ra := range adapters {
+		state[ra.rel] = ra.dec.asUpgrade()
+	}
+
+	if all {
+		rels = nil
+		for rel, d := range state {
+			if (clear && d.action == upWaived) || (!clear && d.action == upDrift) {
+				rels = append(rels, rel)
+			}
+		}
+		sort.Strings(rels)
+	}
+	if len(rels) == 0 {
+		return res, nil
+	}
+
+	for _, rel := range rels {
+		rel = filepath.ToSlash(strings.TrimPrefix(filepath.Clean(rel), "./"))
+		d, managed := state[rel]
+		switch {
+		case clear:
+			if _, ok := ws[rel]; !ok {
+				res.Skipped = append(res.Skipped, rel+": no waiver recorded")
+				continue
+			}
+			delete(ws, rel)
+			res.Cleared = append(res.Cleared, rel)
+		case !managed:
+			res.Skipped = append(res.Skipped, rel+": not a specflow-managed file")
+		case d.action == upWaived:
+			res.Skipped = append(res.Skipped, rel+": already waived at these bytes")
+		case d.action != upDrift:
+			res.Skipped = append(res.Skipped, rel+": not drifted — nothing to waive")
+		default:
+			ws[rel] = waiver{local: d.localHash, kit: d.kitHash}
+			res.Waived = append(res.Waived, rel)
+		}
+	}
+	if len(res.Waived) == 0 && len(res.Cleared) == 0 {
+		return res, nil // nothing to record — leave the stamp untouched
+	}
+	writeWaivers(stamp, ws)
+	if err := writeJSON(sp, stamp); err != nil {
+		return res, err
+	}
+	return res, nil
+}
+
 // StatusReport is a read-only snapshot of a specflow install, for `specflow status`.
 type StatusReport struct {
 	Installed     bool
@@ -1271,6 +1470,7 @@ type StatusReport struct {
 	UndoneBatches int         // count of un-done batches; -1 when there's no queue (spec-only)
 	InProgress    []ClaimLine // active claims from CLAIMS.md
 	Drifted       []string    // managed files the user edited — `upgrade` will not touch them
+	Waived        []string    // edited *and* waived — deliberate, and no longer counted as drift
 	Stale         []string    // managed files specflow has moved on from — `upgrade` will refresh them
 }
 
@@ -1309,6 +1509,7 @@ func Status(targetDir string, tpl fs.FS, version string) (StatusReport, error) {
 	// Missing files / missing baselines aren't drift — they're a verify concern, kept out of this
 	// orientation summary.
 	baseline := baselineMap(stamp)
+	waived := waivedMap(stamp)
 	entries, err := managedEntries(tpl, rep.Agents, rep.Mode)
 	if err != nil {
 		return rep, err
@@ -1322,8 +1523,13 @@ func Status(targetDir string, tpl fs.FS, version string) (StatusReport, error) {
 		if !ok {
 			continue
 		}
-		if base := baseline[e.rel]; base != "" && hashRegion(parts.region) != base {
-			rep.Drifted = append(rep.Drifted, e.rel)
+		h := hashRegion(parts.region)
+		if base := baseline[e.rel]; base != "" && h != base {
+			if w, ok := waived[e.rel]; ok && w.local == h {
+				rep.Waived = append(rep.Waived, e.rel)
+			} else {
+				rep.Drifted = append(rep.Drifted, e.rel)
+			}
 		}
 	}
 	adapters, err := adapterDecisions(targetDir, tpl, stamp)
@@ -1331,8 +1537,11 @@ func Status(targetDir string, tpl fs.FS, version string) (StatusReport, error) {
 		return rep, err
 	}
 	for _, ra := range adapters {
-		if ra.dec.state == adEdited {
+		switch ra.dec.state {
+		case adEdited:
 			rep.Drifted = append(rep.Drifted, ra.rel)
+		case adWaived:
+			rep.Waived = append(rep.Waived, ra.rel)
 		}
 	}
 	if rep.Stale, err = staleFiles(targetDir, tpl, stamp, adapters); err != nil {
@@ -1382,6 +1591,7 @@ func Verify(targetDir string, tpl fs.FS, version string) (VerifyReport, error) {
 	rep.OK = append(rep.OK, "specflow/config.json valid")
 
 	baseline := baselineMap(stamp)
+	waived := waivedMap(stamp)
 	mode := modeOf(stamp)
 	rep.Mode = mode
 	entries, err := managedEntries(tpl, installedAgents(stamp), mode)
@@ -1419,10 +1629,15 @@ func Verify(targetDir string, tpl fs.FS, version string) (VerifyReport, error) {
 				strings.Join(leaks, ", ")+") — run `specflow upgrade`")
 			continue
 		}
-		if base := baseline[e.rel]; base != "" && hashRegion(parts.region) != base {
-			rep.Warnings = append(rep.Warnings, e.rel+" region edited since install (drift) — `upgrade` won't refresh it")
-		} else {
+		switch h := hashRegion(parts.region); {
+		case baseline[e.rel] == "" || h == baseline[e.rel]:
 			rep.OK = append(rep.OK, e.rel)
+		case waived[e.rel].local == h:
+			// A waived edit is a decision, not a defect: report it so it stays visible, but as a
+			// state the user chose rather than a warning they are expected to clear.
+			rep.OK = append(rep.OK, e.rel+" (edited, waived — `upgrade` leaves it alone)")
+		default:
+			rep.Warnings = append(rep.Warnings, e.rel+" region edited since install (drift) — `upgrade` won't refresh it; reconcile from the .specflow-new sidecar, or `specflow waive` it")
 		}
 	}
 
@@ -1440,7 +1655,9 @@ func Verify(targetDir string, tpl fs.FS, version string) (VerifyReport, error) {
 		case adLeaking:
 			rep.Problems = append(rep.Problems, ra.rel+" names batch/claim machinery this spec-only install doesn't have — run `specflow upgrade`")
 		case adEdited:
-			rep.Warnings = append(rep.Warnings, ra.rel+" edited since install (drift) — `upgrade` won't refresh it")
+			rep.Warnings = append(rep.Warnings, ra.rel+" edited since install (drift) — `upgrade` won't refresh it; reconcile from the .specflow-new sidecar, or `specflow waive` it")
+		case adWaived:
+			rep.OK = append(rep.OK, ra.rel+" (edited, waived — `upgrade` leaves it alone)")
 		case adAdoptable:
 			rep.Warnings = append(rep.Warnings, ra.rel+" predates whole-file management — the next `upgrade` adopts it (your copy is kept as .specflow-bak)")
 		default:
