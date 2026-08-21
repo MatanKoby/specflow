@@ -19,7 +19,7 @@
     "CLAUDE.md": "409621d57e5cfb93c52b3aa118c9cc4c06dcae4a4b69f1f6cb1fb8c252838693",
     "specflow/procedures/claim-batch.md": "39820870fbf0b594e300026dbae28d6986b22af61997720459356247e876d4b0",
     "specflow/procedures/finish-batch.md": "9624a0c28e39e37a43463c1e2cd2ee0da6d99fe90322c22b44340b44ed096ba2",
-    "specflow/procedures/prune-ledgers.md": "55849bd5ee12adf8bc0d02d0b6f06c8585ea8bc7ffdc3ace149389727800af93",
+    "specflow/procedures/prune-ledgers.md": "9d595f93ec56cbcd6f808399ebd50eae877ece353e70d5dd5d1c54812c76aaec",
     "specflow/procedures/spec-edit.md": "8d93da7aecc9423229816054da464506729d45b28072256d560cc6cb6e3d431c"
   },
   "schemaVersion": 1,

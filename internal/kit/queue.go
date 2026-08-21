@@ -619,7 +619,7 @@ func Finish(targetDir, id, commit, summary, paragraph string) (FinishResult, err
 		res.Wrote = append(res.Wrote, claimsDoneRel)
 	}
 	if !res.NoParagraph {
-		block := []string{"## Batch " + res.Batch + " — " + entryTitle(entry.Heading), strings.TrimRight(paragraph, "\n"), ""}
+		block := []string{archiveHeading(res.Batch, entryTitle(entry.Heading)), strings.TrimRight(paragraph, "\n"), ""}
 		if err := prependArchive(destPath(targetDir, queueDoneRel), block); err != nil {
 			return res, err
 		}
@@ -668,6 +668,258 @@ func entryTitle(heading string) string {
 	return ""
 }
 
+// migrate-claims retrofits the stub shape onto entries written before it existed. The shape reached
+// installs as a rule for what agents write next, so every ledger that predates the upgrade still
+// carries its full essays in the file re-read on every claim, finish, and prune. This verb moves
+// that prose to the archive it should have gone to, and leaves the entry a stub plus a pointer.
+
+// MigratedEntry is one rewritten entry: which ledger it lives in, how much prose it carried, how
+// much it carries now, and whether its narrative joined a BUILD_QUEUE_DONE.md section already there.
+type MigratedEntry struct {
+	ID       string `json:"id"`
+	File     string `json:"file"`
+	Was      int    `json:"was"`
+	Now      int    `json:"now"`
+	Appended bool   `json:"appended"`
+}
+
+// MigrateReport is what migrate-claims did, or under --dry-run would do.
+type MigrateReport struct {
+	Entries  []MigratedEntry `json:"entries"`
+	Examined int             `json:"examined"`
+	Wrote    []string        `json:"wrote,omitempty"`
+	DryRun   bool            `json:"dryRun"`
+}
+
+// metaFieldRe matches a metadata bullet: `- Owner: claude`, `- Handoff note: …`, `- Progress note
+// (2026-08-20, …)`. A short capitalized label, then a colon or an opening paren. Body prose that
+// opens with a bullet of its own (`- **`internal/kit/queue.go`** (new, 500 lines): …`) does not
+// match, which is what stops the metadata block from swallowing the narrative.
+var metaFieldRe = regexp.MustCompile(`^\s*[-*]\s+\*{0,2}[A-Z][A-Za-z]*(?: [a-z]+){0,2}\*{0,2}\s*[:(]`)
+
+// sentenceEndRe is a line that ends a sentence, allowing for a closing quote, bracket, backtick, or
+// bold marker after the punctuation.
+var sentenceEndRe = regexp.MustCompile("[.!?:][\"'*`)\\]]*$")
+
+// MigrateClaims rewrites legacy entries in CLAIMS.md `## Completed` and in CLAIMS_DONE.md to
+// metadata plus a stub within StubMaxLines plus the pointer, relocating the displaced narrative to
+// BUILD_QUEUE_DONE.md under that batch's heading. In-progress entries are left alone: they have no
+// archived narrative to point at yet.
+//
+// It never deletes prose. The body is relocated whole rather than in the part that did not fit, so
+// the archive section reads from its first sentence, and where a section for the batch already
+// exists the block is appended under a divider instead of replacing what is there. Every file is
+// rebuilt in memory first, so a ledger that fails to parse stops the command with nothing written.
+func MigrateClaims(targetDir string, dryRun bool) (MigrateReport, error) {
+	rep := MigrateReport{DryRun: dryRun}
+
+	claimsPath := destPath(targetDir, claimsRel)
+	cb, err := os.ReadFile(claimsPath)
+	if err != nil {
+		return rep, fmt.Errorf("no %s here: %w", claimsRel, err)
+	}
+	claims, err := ParseClaims(string(cb))
+	if err != nil {
+		return rep, err
+	}
+	doneLines, err := readArchive(destPath(targetDir, claimsDoneRel))
+	if err != nil {
+		return rep, err
+	}
+	qdPath := destPath(targetDir, queueDoneRel)
+	qdLines, err := readArchive(qdPath)
+	if err != nil {
+		return rep, err
+	}
+
+	type source struct {
+		rel     string
+		lines   []string
+		entries []ClaimEntry
+		changed bool
+	}
+	// CLAIMS_DONE.md holds the older half, and within a file entries run newest-first, so walking
+	// the sources in this order and each one bottom-up visits the batches oldest-first: every
+	// relocated narrative is prepended above the one before it and the archive stays newest-first.
+	// Bottom-up is also what keeps the line ranges of the entries above valid while rewriting.
+	srcs := []*source{
+		{rel: claimsDoneRel, lines: doneLines, entries: parseEntries(doneLines, 0, len(doneLines))},
+		{rel: claimsRel, lines: claims.lines, entries: claims.Completed},
+	}
+
+	for _, src := range srcs {
+		for i := len(src.entries) - 1; i >= 0; i-- {
+			e := src.entries[i]
+			rep.Examined++
+			head, meta, body := splitEntry(src.lines[e.Start:e.End])
+			was := stubLines(joinLines(body))
+			if was <= StubMaxLines {
+				continue
+			}
+
+			stub := append(stubFrom(body, StubMaxLines), "", "- Full narrative: `"+queueDoneRel+"` → Batch "+e.ID)
+			rebuilt := append([]string{head}, meta...)
+			rebuilt = append(rebuilt, "")
+			rebuilt = append(rebuilt, stub...)
+
+			var appended bool
+			if _, end, ok := archiveSection(qdLines, e.ID); ok {
+				block := []string{"---", "", "*Relocated from `" + src.rel + "` by `specflow migrate-claims`.*", ""}
+				qdLines = insertBlock(qdLines, end, append(block, body...))
+				appended = true
+			} else {
+				block := append([]string{archiveHeading(e.ID, entryTitle(e.Heading)), ""}, body...)
+				qdLines = insertBlock(qdLines, archiveInsertPoint(qdLines), block)
+			}
+
+			src.lines = replaceBlock(src.lines, e.Start, e.End, rebuilt)
+			src.changed = true
+			rep.Entries = append(rep.Entries, MigratedEntry{
+				ID: e.ID, File: src.rel, Was: was, Now: stubLines(joinLines(stub)), Appended: appended,
+			})
+		}
+	}
+
+	if len(rep.Entries) == 0 || dryRun {
+		return rep, nil
+	}
+	for _, src := range srcs {
+		if !src.changed {
+			continue
+		}
+		if err := writeFile(destPath(targetDir, src.rel), []byte(joinLines(src.lines))); err != nil {
+			return rep, err
+		}
+		rep.Wrote = append(rep.Wrote, src.rel)
+	}
+	if err := writeFile(qdPath, []byte(joinLines(qdLines))); err != nil {
+		return rep, err
+	}
+	rep.Wrote = append(rep.Wrote, queueDoneRel)
+	return rep, nil
+}
+
+// readArchive loads an archive file as lines. A file that isn't there yet is not an error: the
+// caller creates it by writing the block it wanted to file.
+func readArchive(path string) ([]string, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return splitLines(string(b)), nil
+}
+
+// splitEntry cuts a CLAIMS entry into its heading, its metadata block, and its body prose.
+//
+// The metadata block is every field bullet between the heading and the narrative, plus the wrapped
+// continuation lines belonging to those bullets: a `- Progress note (…)` whose text runs to sixteen
+// lines is metadata down to its last one, and reading those continuations as body prose is exactly
+// how a hand-rolled retrofit downstream dropped them. A blank line ends a bullet's continuations;
+// the block resumes past it only if the next non-blank line is another field bullet.
+func splitEntry(entry []string) (head string, meta, body []string) {
+	if len(entry) == 0 {
+		return "", nil, nil
+	}
+	head = entry[0]
+	i := 1
+	for {
+		j := i
+		for j < len(entry) && strings.TrimSpace(entry[j]) == "" {
+			j++
+		}
+		if j >= len(entry) || !metaFieldRe.MatchString(entry[j]) {
+			break
+		}
+		for j < len(entry) && strings.TrimSpace(entry[j]) != "" {
+			j++
+		}
+		i = j
+	}
+	return head, trimBlankEdges(entry[1:i]), trimBlankEdges(entry[i:])
+}
+
+// stubFrom cuts the stub out of a legacy body: whole leading paragraphs while they fit the cap, so
+// the stub reads as the head of the narrative rather than as a cut through the middle of a list. A
+// first paragraph that overruns the cap on its own is truncated to it, backing up to a sentence
+// boundary when one is in reach. It only ever copies, since the body it was cut from is relocated
+// whole, and an awkward cut therefore costs a reader nothing.
+func stubFrom(body []string, max int) []string {
+	var out []string
+	for _, para := range paragraphs(body) {
+		// An existing pointer is the tool's own boilerplate rather than prose, and a fresh one is
+		// appended below the stub.
+		if len(para) == 1 && stubPointerRe.MatchString(strings.TrimSpace(para[0])) {
+			continue
+		}
+		if len(out) == 0 {
+			out = para
+			if len(out) > max {
+				out = trimToSentence(out[:max])
+			}
+			continue
+		}
+		if len(out)+1+len(para) > max {
+			break
+		}
+		out = append(append(out, ""), para...)
+	}
+	return trimBlankEdges(out)
+}
+
+// paragraphs splits a body into its blank-line-separated blocks.
+func paragraphs(body []string) [][]string {
+	var out [][]string
+	var cur []string
+	for _, l := range body {
+		if strings.TrimSpace(l) == "" {
+			if len(cur) > 0 {
+				out = append(out, cur)
+				cur = nil
+			}
+			continue
+		}
+		cur = append(cur, l)
+	}
+	if len(cur) > 0 {
+		out = append(out, cur)
+	}
+	return out
+}
+
+// trimToSentence backs a truncated paragraph up to its last line that ends a sentence, so the stub
+// does not stop mid-clause. It keeps the truncation as-is when no boundary is in reach.
+func trimToSentence(lines []string) []string {
+	for i := len(lines) - 1; i > 0; i-- {
+		if sentenceEndRe.MatchString(strings.TrimSpace(lines[i])) {
+			return lines[:i+1]
+		}
+	}
+	return lines
+}
+
+// replaceBlock swaps the half-open range [start, end) for new content, leaving every line around it
+// byte-identical.
+func replaceBlock(lines []string, start, end int, block []string) []string {
+	out := append([]string{}, lines[:start]...)
+	out = append(out, block...)
+	return append(out, lines[end:]...)
+}
+
+// trimBlankEdges drops the blank lines at both ends of a slice without touching the ones inside it.
+func trimBlankEdges(lines []string) []string {
+	i, j := 0, len(lines)
+	for i < j && strings.TrimSpace(lines[i]) == "" {
+		i++
+	}
+	for j > i && strings.TrimSpace(lines[j-1]) == "" {
+		j--
+	}
+	return append([]string{}, lines[i:j]...)
+}
+
 // pruneCompleted trims CLAIMS.md `## Completed` to CompletedRetention entries, returning the new
 // file plus the archived entries verbatim, newest first.
 func pruneCompleted(lines []string) (kept []string, archived []string, ids []string, err error) {
@@ -703,7 +955,12 @@ func prependArchive(path string, block []string) error {
 		b = nil
 	}
 	lines := splitLines(string(b))
-	at := len(lines)
+	return writeFile(path, []byte(joinLines(insertBlock(lines, archiveInsertPoint(lines), block))))
+}
+
+// archiveInsertPoint is where a new block goes in a newest-first archive: after the header prose,
+// above the first existing entry heading.
+func archiveInsertPoint(lines []string) int {
 	inComment := false
 	for i, l := range lines {
 		// The shipped templates carry a worked example inside an HTML comment, whose `## Batch …`
@@ -721,11 +978,56 @@ func prependArchive(path string, block []string) error {
 		// Any heading below the file's h1 title starts the entries: BUILD_QUEUE_DONE.md files them
 		// as `## Batch …`, CLAIMS_DONE.md as the `### Batch …` entry copied out of CLAIMS.md.
 		if qArchiveEntryRe.MatchString(l) {
-			at = i
-			break
+			return i
 		}
 	}
-	return writeFile(path, []byte(joinLines(insertBlock(lines, at, block))))
+	return len(lines)
+}
+
+// archiveSection locates an existing `## Batch <id>` section in a newest-first archive, as a
+// half-open line range with trailing blank lines excluded — so a relocated block can be appended to
+// the end of the section that is already there rather than replacing it.
+func archiveSection(lines []string, id string) (int, int, bool) {
+	head := regexp.MustCompile(`(?i)^#{2,3}\s+Batch\s+` + regexp.QuoteMeta(id) + `\b`)
+	inComment := false
+	for i, l := range lines {
+		if inComment {
+			if strings.Contains(l, "-->") {
+				inComment = false
+			}
+			continue
+		}
+		if strings.Contains(l, "<!--") && !strings.Contains(l, "-->") {
+			inComment = true
+			continue
+		}
+		if !head.MatchString(l) {
+			continue
+		}
+		end := len(lines)
+		for j := i + 1; j < len(lines); j++ {
+			if qArchiveEntryRe.MatchString(lines[j]) {
+				end = j
+				break
+			}
+		}
+		for end > i+1 && strings.TrimSpace(lines[end-1]) == "" {
+			end--
+		}
+		return i, end, true
+	}
+	return 0, 0, false
+}
+
+// archiveHeading is the `## Batch N — title` heading BUILD_QUEUE_DONE.md files a narrative under.
+// finish writes it for a batch shipping now, migrate-claims for one that shipped before the stub
+// shape existed; they must agree, or the second one opens a duplicate section.
+func archiveHeading(id, title string) string {
+	h := "## Batch " + id
+	if strings.TrimSpace(title) != "" {
+		h += " — " + title
+	}
+	return h
 }
 
 // splitLines / joinLines round-trip a file through a line slice without gaining or losing a

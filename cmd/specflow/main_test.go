@@ -2851,3 +2851,196 @@ func TestWaiveAllCoversAdapters(t *testing.T) {
 		t.Error("upgrade overwrote a waived adapter")
 	}
 }
+
+// ---- Batch MC: migrate-claims ----
+
+// legacyClaimsEntry is a pre-stub-shape entry: metadata including a wrapped multi-line note, then a
+// narrative well past the cap. Written as a helper so both ledgers get the same shape.
+func legacyClaimsEntry(id, title string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "\n### Batch %s — %s\n", id, title)
+	b.WriteString("- Owner: claude\n- Started: 2026-01-02 09:00\n- Finished: 2026-01-02 10:00\n- Commit: aaa0002\n")
+	b.WriteString("- Progress note (2026-01-02, claude): the note runs long and wraps, and every one\n")
+	b.WriteString("  of these continuation lines belongs to the bullet above rather than to the body.\n")
+	b.WriteString("  Losing them is the failure this verb exists to avoid.\n")
+	b.WriteString("\n**What shipped.** Paragraph one, line one.\nParagraph one, line two.\nParagraph one, line three.\n")
+	b.WriteString("\n**Why.** Paragraph two, a single line.\n")
+	b.WriteString("\n**Verification.** Paragraph three, line one, which no longer fits the cap.\n")
+	for i := 2; i <= 5; i++ {
+		fmt.Fprintf(&b, "- Paragraph three, line %d.\n", i)
+	}
+	return b.String()
+}
+
+func appendTo(t *testing.T, path, text string) {
+	t.Helper()
+	mustWrite(t, path, strings.TrimRight(read(t, path), "\n")+"\n"+text)
+}
+
+// TestMigrateClaimsRetrofitsStubShape: the whole point of the verb. An over-cap entry keeps its
+// metadata, gets a stub within the cap plus the pointer, and its narrative lands in
+// BUILD_QUEUE_DONE.md — while an entry already in the right shape is left exactly as it was.
+func TestMigrateClaimsRetrofitsStubShape(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+
+	claimsPath := filepath.Join(tmp, "CLAIMS.md")
+	appendTo(t, claimsPath, legacyClaimsEntry("LEG", "a legacy essay"))
+	short := "\n### Batch SHORT — already the right shape\n- Owner: claude\n- Commit: aaa0003\n\nOne line of stub.\n- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch SHORT\n"
+	appendTo(t, claimsPath, short)
+
+	r := run(t, tmp, "migrate-claims")
+	if r.code != 0 {
+		t.Fatalf("migrate-claims exit %d: %s%s", r.code, r.stdout, r.stderr)
+	}
+	if !strings.Contains(r.stdout, "Batch LEG") || strings.Contains(r.stdout, "Batch SHORT") {
+		t.Errorf("migrate-claims did not report exactly the over-cap entry:\n%s", r.stdout)
+	}
+
+	claims := read(t, claimsPath)
+	entry := claims[strings.Index(claims, "### Batch LEG"):strings.Index(claims, "### Batch SHORT")]
+
+	// The metadata block survives to its last continuation line.
+	for _, want := range []string{
+		"- Owner: claude", "- Commit: aaa0002",
+		"- Progress note (2026-01-02, claude): the note runs long and wraps, and every one",
+		"  of these continuation lines belongs to the bullet above rather than to the body.",
+		"  Losing them is the failure this verb exists to avoid.",
+	} {
+		if !strings.Contains(entry, want) {
+			t.Errorf("migrate-claims dropped a metadata line %q:\n%s", want, entry)
+		}
+	}
+	// The stub is inside the cap, keeps the head of the narrative, and carries the pointer.
+	if n := countProse(entry); n > kit.StubMaxLines {
+		t.Errorf("migrated entry holds %d prose lines, over the %d-line cap:\n%s", n, kit.StubMaxLines, entry)
+	}
+	if !strings.Contains(entry, "**What shipped.** Paragraph one, line one.") {
+		t.Errorf("the stub lost the head of the narrative:\n%s", entry)
+	}
+	if !strings.Contains(entry, "- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch LEG") {
+		t.Errorf("the migrated entry has no pointer at its narrative:\n%s", entry)
+	}
+	if strings.Contains(entry, "Paragraph three, line 5.") {
+		t.Errorf("the displaced prose is still in the entry:\n%s", entry)
+	}
+	// An entry already in the right shape is not touched.
+	if !strings.Contains(claims, short[1:]) {
+		t.Errorf("migrate-claims rewrote an entry that was already within the cap:\n%s", claims)
+	}
+
+	// The narrative moved whole, under this batch's own heading.
+	qDone := read(t, filepath.Join(tmp, "specflow/history/BUILD_QUEUE_DONE.md"))
+	if !strings.Contains(qDone, "## Batch LEG — a legacy essay") {
+		t.Errorf("no BUILD_QUEUE_DONE.md section for the migrated batch:\n%s", qDone)
+	}
+	for _, want := range []string{"**What shipped.** Paragraph one, line one.", "**Why.** Paragraph two, a single line.", "- Paragraph three, line 5."} {
+		if !strings.Contains(qDone, want) {
+			t.Errorf("relocated narrative is missing %q:\n%s", want, qDone)
+		}
+	}
+	// Metadata belongs to the ledger, not to the archive.
+	if strings.Contains(qDone, "- Owner: claude") {
+		t.Errorf("migrate-claims relocated the entry's metadata:\n%s", qDone)
+	}
+	// The paragraph must land as a real entry, not inside the template's worked-example comment.
+	if i, j := strings.Index(qDone, "-->"), strings.Index(qDone, "## Batch LEG"); i < 0 || j < i {
+		t.Error("relocated narrative landed inside the template's HTML comment")
+	}
+
+	// Running it again is a no-op: every entry is now within the cap.
+	before := read(t, claimsPath)
+	if r := run(t, tmp, "migrate-claims"); r.code != 0 || !strings.Contains(r.stdout, "nothing to migrate") {
+		t.Errorf("second run was not a no-op: %s%s", r.stdout, r.stderr)
+	}
+	if read(t, claimsPath) != before {
+		t.Error("second run rewrote CLAIMS.md")
+	}
+}
+
+// countProse counts the lines of an entry that the stub cap counts: prose, not blanks, metadata, or
+// the pointer.
+func countProse(entry string) int {
+	n := 0
+	for _, l := range strings.Split(entry, "\n") {
+		t := strings.TrimSpace(l)
+		switch {
+		case t == "", strings.HasPrefix(l, "### "), strings.HasPrefix(l, "  "):
+		case regexp.MustCompile(`^- (Owner|Started|Finished|Commit|Progress note|Full narrative)`).MatchString(t):
+		default:
+			n++
+		}
+	}
+	return n
+}
+
+// TestMigrateClaimsArchiveAppendsAndOrders: CLAIMS_DONE.md entries migrate too, and a batch that
+// already has a BUILD_QUEUE_DONE.md section keeps it — the relocated prose is appended under a
+// divider, never overwriting what is there. Ordering stays newest-first across both ledgers.
+func TestMigrateClaimsArchiveAppendsAndOrders(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+
+	appendTo(t, filepath.Join(tmp, "CLAIMS.md"), legacyClaimsEntry("NEW", "the newer essay"))
+	donePath := filepath.Join(tmp, "specflow/history/CLAIMS_DONE.md")
+	appendTo(t, donePath, legacyClaimsEntry("OLD", "the older essay"))
+	qDonePath := filepath.Join(tmp, "specflow/history/BUILD_QUEUE_DONE.md")
+	appendTo(t, qDonePath, "\n## Batch OLD — the older essay\nShipped the old thing in `src/old.go`. Key commit `aaa0004`.\n")
+
+	if r := run(t, tmp, "migrate-claims"); r.code != 0 {
+		t.Fatalf("migrate-claims exit %d: %s%s", r.code, r.stdout, r.stderr)
+	}
+
+	archived := read(t, donePath)
+	archived = archived[strings.Index(archived, "### Batch OLD"):]
+	if n := countProse(archived); n > kit.StubMaxLines {
+		t.Errorf("the archived entry still holds %d prose lines:\n%s", n, archived)
+	}
+	if !strings.Contains(archived, "- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch OLD") {
+		t.Errorf("the archived entry has no pointer at its narrative:\n%s", archived)
+	}
+	qDone := read(t, qDonePath)
+	if !strings.Contains(qDone, "Shipped the old thing in `src/old.go`.") {
+		t.Errorf("migrate-claims overwrote the section that was already there:\n%s", qDone)
+	}
+	if !strings.Contains(qDone, "*Relocated from `specflow/history/CLAIMS_DONE.md` by `specflow migrate-claims`.*") {
+		t.Errorf("the appended block carries no divider naming where it came from:\n%s", qDone)
+	}
+	if strings.Count(qDone, "## Batch OLD") != 1 {
+		t.Errorf("migrate-claims opened a second section for a batch that had one:\n%s", qDone)
+	}
+	// Newest-first: the CLAIMS.md batch is newer than the archived one, so it sits above it.
+	if i, j := strings.Index(qDone, "## Batch NEW"), strings.Index(qDone, "## Batch OLD"); i < 0 || j < 0 || i > j {
+		t.Errorf("relocated narratives are not newest-first:\n%s", qDone)
+	}
+}
+
+// TestMigrateClaimsDryRunAndUnparseable: the two halves of "nothing is written unless everything
+// worked" — --dry-run reports without touching a file, and a ledger that fails to parse stops the
+// command the way finish does.
+func TestMigrateClaimsDryRunAndUnparseable(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	claimsPath := filepath.Join(tmp, "CLAIMS.md")
+	qDonePath := filepath.Join(tmp, "specflow/history/BUILD_QUEUE_DONE.md")
+	appendTo(t, claimsPath, legacyClaimsEntry("LEG", "a legacy essay"))
+
+	before, qBefore := read(t, claimsPath), read(t, qDonePath)
+	r := run(t, tmp, "migrate-claims", "--dry-run")
+	if r.code != 0 || !strings.Contains(r.stdout, "Batch LEG") {
+		t.Fatalf("--dry-run did not report the entry it would migrate: %s%s", r.stdout, r.stderr)
+	}
+	if read(t, claimsPath) != before || read(t, qDonePath) != qBefore {
+		t.Error("--dry-run wrote to a ledger")
+	}
+
+	broken := strings.Replace(before, "## Completed", "## Done (renamed by hand)", 1)
+	mustWrite(t, claimsPath, broken)
+	r = run(t, tmp, "migrate-claims")
+	if r.code == 0 {
+		t.Fatal("migrate-claims succeeded against an unparseable CLAIMS.md")
+	}
+	if read(t, claimsPath) != broken || read(t, qDonePath) != qBefore {
+		t.Error("migrate-claims wrote despite failing to parse a ledger")
+	}
+}

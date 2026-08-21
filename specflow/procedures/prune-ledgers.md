@@ -17,6 +17,9 @@ growing logs. This procedure keeps them that way. `AGENTS.md` carries only the p
 - **When a weight warning fires.** `specflow next` and `specflow verify` report both ledgers' line
   counts and warn when one is past its bound — the count of completed entries, or the preamble cap in
   section 3. The warning names the section to run.
+- **Once per install, after an upgrade that caps the entry.** Retention bounds how many entries
+  `CLAIMS.md` holds; the stub cap bounds how big one gets, and it only reaches entries written after
+  the upgrade. `specflow migrate-claims` retrofits the shape onto the rest (section 1a).
 - **By hand, any time**, when a ledger has already overgrown: `prune-ledgers` as a skill, or just
   follow this file. An install that predates this procedure can be many entries over, so the first
   run is a **catch-up pass** that archives them all at once.
@@ -47,6 +50,29 @@ of every entry in one call. Slice from there; don't read the file whole to count
 Retention is a **count, not a line or byte budget**: entries vary several-fold in length, a count
 cuts on an entry boundary instead of severing a record, and two agents pruning independently reach
 the same result. Rationale in `spec/architecture.md` → *Ledger lifecycle*.
+
+## 1a. Retrofit the stub shape onto entries written before it
+
+Pruning moves whole entries; it never makes one smaller. An entry written before the stub cap
+existed still carries its full narrative, in the file re-read on every claim, finish, and prune, and
+pruning does not fix that: the archive inherits the weight instead.
+
+`specflow migrate-claims [--dry-run]` rewrites each over-cap entry in `CLAIMS.md` `## Completed` and
+in `specflow/history/CLAIMS_DONE.md` to its metadata plus a stub within the cap plus the pointer, and
+relocates the narrative to `specflow/history/BUILD_QUEUE_DONE.md` under that batch's heading. It
+never deletes prose: the narrative moves whole, and where a section for the batch already exists the
+block is appended under a divider rather than replacing what is there. `## In progress` is left
+alone, having no archived narrative to point at yet. Run `--dry-run` first, then commit the
+migration on its own:
+
+```
+meta: migrate the ledgers to the stub shape (N entries)
+```
+
+Run it **once per install**, after upgrading to a version that caps the entry. Doing it by hand
+instead is slow and has one specific failure: a wrapped metadata line (a `- Progress note (…)` whose
+text runs to several lines) reads like body prose, and moving it loses it. The verb keeps the
+metadata and every continuation line in the entry, and moves the body only.
 
 ## 2. `BUILD_QUEUE.md`: sweep what leaked past
 

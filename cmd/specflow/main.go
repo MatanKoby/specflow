@@ -1090,6 +1090,73 @@ func readProse(args []string, flag string) (string, error) {
 	return string(b), nil
 }
 
+func migrateClaimsUsage() {
+	fmt.Printf(`
+%s — retrofit the stub shape onto entries written before it existed
+
+%s
+  specflow migrate-claims [--dry-run]
+
+The %d-line stub cap applies to what agents write next, so a ledger that predates it
+still carries its full essays in the file re-read on every claim, finish, and prune.
+This rewrites each over-cap entry in %s and CLAIMS_DONE.md to its metadata plus a
+stub plus the pointer, and relocates the narrative to BUILD_QUEUE_DONE.md under that
+batch's heading.
+
+It never deletes prose: the narrative moves whole, and where a section for the batch
+already exists it is appended under a divider, never overwritten. Entries in
+%s are left alone: they have no archived narrative to point at yet.
+
+  --dry-run    report what would change, write nothing
+  -h, --help   show this help
+
+It does not commit. Nothing is written unless every ledger parses cleanly.
+
+`, bold("specflow migrate-claims"), bold("Usage:"), kit.StubMaxLines, cyan("CLAIMS.md"), cyan("## In progress"))
+}
+
+func cmdMigrateClaims(args []string) error {
+	if helpRequested(args) {
+		migrateClaimsUsage()
+		return nil
+	}
+	target, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	dry := hasFlag(args, "--dry-run")
+	rep, err := kit.MigrateClaims(target, dry)
+	if err != nil {
+		return err
+	}
+
+	head := bold("\nspecflow migrate-claims")
+	if dry {
+		head += dim("  — dry run, nothing written")
+	}
+	fmt.Println(head)
+	if len(rep.Entries) == 0 {
+		fmt.Println(green("  ✓ ") + fmt.Sprintf("all %d completed entries are already within the %d-line stub cap, nothing to migrate", rep.Examined, kit.StubMaxLines))
+		fmt.Println()
+		return nil
+	}
+	for _, e := range rep.Entries {
+		where := "filed under a new BUILD_QUEUE_DONE.md section"
+		if e.Appended {
+			where = "appended to the BUILD_QUEUE_DONE.md section already there"
+		}
+		fmt.Println(green("  ✓ ") + bold(fmt.Sprintf("%-12s", "Batch "+e.ID)) +
+			fmt.Sprintf("%d → %d prose lines in %s, ", e.Was, e.Now, e.File) + dim(where))
+	}
+	if dry {
+		fmt.Println(dim("\n  Re-run without ") + cyan("--dry-run") + dim(" to apply.\n"))
+		return nil
+	}
+	fmt.Println(dim("\n  rewrote: " + strings.Join(rep.Wrote, ", ")))
+	fmt.Println(dim("  Nothing is committed. Commit ") + cyan("meta: migrate the ledgers to the stub shape") + dim(" per your commit/push levers.\n"))
+	return nil
+}
+
 func waiveUsage() {
 	fmt.Printf(`
 %s — keep a deliberate edit to a specflow-managed file
@@ -1187,6 +1254,7 @@ func usage() {
   specflow next [--json]                           %s
   specflow claim <batch-id>                        %s
   specflow finish <batch-id> --commit <sha>        %s
+  specflow migrate-claims [--dry-run]              %s
   specflow upgrade                                 %s
   specflow verify                                  %s
   specflow waive <file>... [--all] [--clear]       %s
@@ -1196,6 +1264,7 @@ func usage() {
 %s
   specflow init --help · specflow add-agent --help · specflow upgrade --help · specflow verify --help
   specflow next --help · specflow claim --help · specflow finish --help · specflow waive --help
+  specflow migrate-claims --help
 
 %s %s
 `,
@@ -1209,6 +1278,7 @@ func usage() {
 		dim("list the batches claimable right now"),
 		dim("write the CLAIMS.md In-progress entry"),
 		dim("move a batch to done across the ledgers"),
+		dim("retrofit the stub shape onto legacy entries"),
 		dim("refresh the managed protocol files"),
 		dim("check installation integrity"),
 		dim("keep a deliberate edit to a managed file"),
@@ -1231,6 +1301,8 @@ func dispatch(command string, args []string) error {
 		return cmdClaim(args)
 	case "finish":
 		return cmdFinish(args)
+	case "migrate-claims":
+		return cmdMigrateClaims(args)
 	case "upgrade":
 		return cmdUpgrade(args)
 	case "verify":

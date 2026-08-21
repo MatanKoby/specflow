@@ -227,10 +227,11 @@ spec an area just before you work it, and the coverage grows to fit what you act
 <summary><b>Upgrade, status, and verify</b></summary>
 
 ```bash
-specflow status      # version, mode, agents, levers, check command, queue depth, claims, drift
-specflow upgrade     # refresh the managed mechanism, bump the stamp
-specflow verify      # check install integrity, file by file
-specflow waive FILE  # keep a deliberate edit to a managed file
+specflow status         # version, mode, agents, levers, check command, queue depth, claims, drift
+specflow upgrade        # refresh the managed mechanism, bump the stamp
+specflow verify         # check install integrity, file by file
+specflow waive FILE     # keep a deliberate edit to a managed file
+specflow migrate-claims # retrofit today's entry shape onto a ledger written before it
 specflow add-agent copilot
 ```
 
@@ -247,6 +248,14 @@ Want to keep your edit instead? `specflow waive <file>` (or `--all`) records tha
 deliberate: no bytes change, `upgrade` stops writing sidecars for it, and `verify` reports it as a
 choice rather than a warning. The waiver is pinned to the bytes you waived, so a later edit shows up
 as drift again, and `specflow waive --clear <file>` puts the file back under the normal contract.
+
+`CLAIMS.md` entries are stubs: a few lines of what shipped plus a pointer at the full narrative in
+`specflow/history/BUILD_QUEUE_DONE.md`, because the ledger is re-read on every claim, finish, and
+prune. That bound reaches what agents write next, not what a ledger already holds, so an install
+that predates it keeps its full essays. `specflow migrate-claims [--dry-run]` retrofits the shape:
+each over-cap entry keeps its metadata and a stub, and its narrative moves whole into the archive.
+It never deletes prose, and where a section for the batch already exists the text is appended rather
+than replacing it.
 
 The stamp's `schemaVersion` gates future state-file migrations. None exist yet, and the file contract
 is kept stable on purpose so they stay rare.
