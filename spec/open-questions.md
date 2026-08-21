@@ -37,6 +37,10 @@ in-scope-vs-new-scope test). The **one open piece** is the *mechanism*:
   shared files like `CLAUDE.md` (never user content). *(decision pending)*
 - **NO_COLOR / non-TTY — approved for v0.1.** Real bug: the CLI always emits ANSI, so piped/
   redirected output embeds escape codes. Fix: plain text when stdout isn't a TTY (or `NO_COLOR` set).
+- **`next` prints each batch's file spread** — the declared file list's count and the top-level paths
+  it touches, printed beside each claimable batch, so a batch that is too wide (see `architecture.md`
+  → *Batch size*) is visible before it is claimed rather than after. Read-only, no new state.
+  *(raised 2026-08-21 from a context-exhaustion report; decision pending — optional as raised.)*
 - **upgrade changelog** — print "vX → vY changed …" on upgrade. *(defer past v0.1.)*
 - **No-baseline safety fix + stamp validation — v0.1 (closes risk A).** When a managed file has no
   recorded baseline (stamp missing/corrupt, or the file predates being managed), `upgrade` treats it

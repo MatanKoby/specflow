@@ -87,17 +87,23 @@ any batch finishing; and the user may want to run it by hand. `finish-batch` the
 to it. Per the cross-agent rule above, the rules live in the **procedure** (every agent reads it) and
 the Claude skill stays a thin trigger — pruning must not become a Claude-only feature.
 
+**The check runs at both ends of a batch, not only at finish.** An agent that prunes only on the way
+out still reads the overgrown ledger on the way in, and the read is the cost. `claim-batch` therefore
+tests the same condition before claiming, against the retention rule already stated above: more than
+five entries under `CLAIMS.md` `## Completed` means prune first. No new threshold is introduced, and
+the test is free — it is the heading grep the claim already runs.
+
 Both archives are append-only institutional memory, reference-only, and never rewritten — the same
 posture as `spec/archive.md`, and likewise exempt from any size cap.
 
-## Context economy — the read side of the ledger
+## Context economy
 
 The lifecycle above bounds what the state files *hold*. This bounds what an agent *reads out of*
-them, a separate cost and a larger one. Instrumented over one long batch in a specflow-managed repo,
+them, a separate cost and a larger one, plus the one *write* habit that costs like a read. Instrumented over one long batch in a specflow-managed repo,
 file reads were 45% of all tool calls and 88% of context spend, and the biggest single read was a
 `cat` of `CLAIMS.md` to answer a question the headings alone settle.
 
-Three rules, written into the **procedures** rather than left to agent judgment, because "read less"
+Four rules, written into the **procedures** rather than left to agent judgment, because "read less"
 only becomes actionable when the procedure names the cheap read:
 
 - **Slice, never `cat`.** Eligibility questions (is Batch N claimed? which batches are un-done?) are
@@ -110,6 +116,13 @@ only becomes actionable when the procedure names the cheap read:
 - **One check command, not three.** See `config.check` under *Config & state*.
 - **Batch independent reads, and never re-read to confirm your own write.** A failed edit reports an
   error; a `grep` that confirms it worked buys nothing.
+- **Edit through the file-editing tool, not the shell.** A `sed` expression or a heredoc that
+  rewrites a file re-emits the surrounding text into the transcript, and one bad quote or
+  unanchored pattern costs a retry plus a read to see what it did. In the session that produced
+  this rule, shell-driven edits were 17% of a 373 K-token window. **This rule outranks a harness
+  mode that asks for shell edits**: such a mode is a blanket default written for agents that may
+  have no file-editing tool, and the procedure is the more specific instruction. The shell stays
+  the right tool for reads, moves, and commits.
 
 This is deliberately **not** a smaller retention count. Retention is a count of 5 for the reasons
 given above, and entries at that size are what a resuming agent needs. The waste was reading 17 KB
@@ -352,6 +365,20 @@ a fixed shape, which the shipped template demonstrates: the heading
 Parsing is line-oriented and forgiving, and **fails loudly rather than silently**: a batch missing a
 declared field is reported by `next` as unparseable, never quietly treated as claimable. The queue
 remains user-owned and hand-editable, so the parser must never be the reason a user's edit is lost.
+
+### Batch size
+
+A batch is sized by **the layers it crosses, not the deliverables it lists.** Three edits inside one
+layer is a small batch; one edit each to the spec, a template, the CLI, and its tests is a wide one,
+however short each item reads in the queue. Width is what sets the context a batch costs: every layer
+crossed pulls in its own files, conventions, and verification, and the agent holds all of them at once
+until the batch closes.
+
+What counts as a layer is **per project and deliberately not enumerated here** — in this repo they run
+roughly spec, `templates/`, the root managed files, the CLI, and its tests, but that list is an example,
+not a contract. The authoring rule is the part that generalizes: when a batch's declared file list spans
+more layers than its goal needs, split it along the layer seam. Split batches also declare disjoint file
+lists, which is exactly what `next` needs to let them run in parallel.
 
 ## Distribution
 
