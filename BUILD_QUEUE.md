@@ -20,47 +20,11 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > **MC** · **FS** · **ED**. Which batch shipped in which release lives in `spec/roadmap.md` →
 > *Release lines*, and the milestone goals live there too, not here. This file holds un-done work only.
 >
-> **Claimable:** **RC** (drift reconciliation) · **MC** (`migrate-claims`) · **FS** (stub contract) ·
-> **ED** (em dash sweep). Pick order RC, MC, FS, and **ED last** so it sweeps the prose the others
-> add. MC and FS share `internal/kit/queue.go`; FS and ED share `templates/base/**`.
+> **Claimable:** **MC** (`migrate-claims`) · **FS** (stub contract) · **ED** (em dash sweep). Pick
+> order MC, FS, and **ED last** so it sweeps the prose the others add. MC and FS share
+> `internal/kit/queue.go`; FS and ED share `templates/base/**`. **RC** is done.
 > **Not ready:** **NX** (`next` file spread) · **W** (workflow config) · **NB** (`--new-batch`) ·
 > **E** (enforcement, research-first) · **P** (npm-wrapper front-end) · Homebrew tap.
-
----
-
-## Batch RC - drift is a state you can leave
-
-**Goal.** Two defects in one loop: reconciling a drifted managed file is destructive for
-marker-delimited files, and it never actually clears the drift.
-
-**(a) The sidecar is the wrong bytes for a region file.** `upDrift` writes the rendered template
-*whole* (`internal/kit/kit.go:729`), which for an adapter is right (every byte is specflow's) and for
-a marker-delimited file is a footgun: the warning tells the user to reconcile, the obvious
-reconciliation is `mv`, and `mv` throws away everything outside the region. A downstream install hit
-exactly this: 27 managed lines in `CLAUDE.md` and 73 lines of project guidance below the markers, with
-one warning string (`cmd/specflow/main.go:516`) covering both cases and the correct action opposite in
-each. Fix: the sidecar carries the *on-disk file with the fresh region spliced in*
-(`before + markers + fresh region + after`), so `mv` is correct for both tiers and the warning can say
-`mv` outright. Drift in a marker-delimited file is by definition drift inside the markers, which is
-what the user then diffs.
-
-**(b) Drift is terminal.** The adapter path adopts a file already identical to the current template
-(`kit.go:853`, check 2). The region path has no such check, and `Upgrade` carries the old baseline
-forward for a drifted file (`kit.go:976`). So after following the printed advice the region matches
-the *new* template while the baseline is still the *old* hash: the next `upgrade` re-drifts it, writes
-the sidecar again, and `verify` warns forever. The only exit today is restoring bytes that hash to the
-old baseline, which means discarding the edit. Two parts: add adopt-on-identical to `decideUpgrade`
-(mirrors the adapter check, self-heals every reconciled file), and add **`specflow adopt <file>...`**
-(`--all` for the whole drifted set) to re-record a baseline over a deliberate local edit. `adopt`
-changes no bytes; it says "I have reconciled this", which is what makes the warning list mean
-something again.
-
-**Spec.** `architecture.md` → *init / upgrade* documents the drift contract but not what the sidecar
-contains, nor how drift ends. Both rules land there.
-
-### Files this batch creates/edits
-- `internal/kit/kit.go` · `cmd/specflow/main.go` · `cmd/specflow/main_test.go` ·
-  `spec/architecture.md` · `README.md`.
 
 ---
 

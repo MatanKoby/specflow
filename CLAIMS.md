@@ -48,11 +48,25 @@ refuses a stub over 8 lines. Entries above the LW line predate the rule and are 
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch RC — drift is a state you can leave
 - Owner: claude
 - Started: 2026-08-21 14:26
+- Finished: 2026-08-21 14:36
+- Commit: 2bda486
 
-## Completed
+Reconciling a drifted managed file was destructive and never cleared. The `.specflow-new` sidecar
+now carries your file with the fresh region spliced in, so `mv` is the correct reconciliation for
+both managed tiers; a region that already matches the template is adopted, so taking the sidecar
+ends the drift instead of re-drifting forever; and `specflow waive <file>` (`--all`, `--clear`)
+keeps a deliberate edit without a baseline re-record, which would have let the next `upgrade`
+destroy the edit being blessed.
+
+**The waiver is the design correction to make before building on this**: the queue entry proposed
+`specflow adopt` as a baseline re-record, and that shape is a trap, not a nicety.
+
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch RC
 
 ### Batch LW — Ledger weight: bound the entry, not just the count
 - Owner: claude
@@ -181,52 +195,3 @@ end-to-end against this repo's own install.
 **Follow-up.** An existing install gets one `.specflow-bak` per adapter it didn't already match —
 expected and reported by `upgrade`, but worth a line in the release notes so users know to delete
 them.
-
-### Batch QV — Queue verbs (`next`, `claim`, `finish`)
-- Owner: claude
-- Started: 2026-08-20 12:47
-- Finished: 2026-08-20 12:58
-- Commit: a7df418
-
-**What shipped**
-- **`internal/kit/queue.go`** (new, 500 lines): the declared-batch-shape parser plus the three verbs.
-  `ParseQueue` reads the heading (`## Batch <id> [TAG] — <title>`, backticked or bare tag), the
-  optional `**Depends on:**` line (parenthetical rationale ignored, "none" understood), and the
-  `### Files this batch creates/edits` list (backticked paths, `dir/{a,b}.md` brace-expanded). A
-  batch missing the file list, or sharing its id with another section, comes back with `Problem` set
-  and is never offered as claimable. `ParseClaims` errors out if either `##` section heading is
-  missing, which is what keeps a hand edit from being rewritten.
-- **`specflow next [--json]`** — read-only. Applies the whole Eligibility section of
-  `claim-batch.md` in one call, in the order the procedure states it: tag → unparseable → already
-  claimed → dependency → file overlap with an in-progress batch. Blocked batches print with the
-  reason; the JSON form carries id, title, files, and reason.
-- **`specflow claim <id> [--as <agent>]`** — writes the In-progress entry (heading, Owner from
-  `config.agents`, `Started` in UTC) and refuses any batch `next` would not offer. `--as` is
-  required only when several agents are wired.
-- **`specflow finish <id> --commit <sha> [--summary-file <path>] [--done-file <path>]`** — does
-  steps 2, 3, 4, and 4a of `finish-batch.md`: entry to the top of `## Completed` with
-  Finished/Commit/summary, batch section deleted from `BUILD_QUEUE.md`, paragraph filed in
-  `BUILD_QUEUE_DONE.md`, `## Completed` pruned to its 5 newest with the overflow moved verbatim to
-  `CLAIMS_DONE.md`. Every edit is computed in memory first, so a parse failure writes nothing.
-- **No verb commits**, and no verb writes prose: `--summary-file` (or `-` for stdin) and
-  `--done-file` carry the agent's words, and the CLI owns only placement, format, and timestamps.
-  Omitting either flag still moves the batch and names what the agent owes by hand.
-- **Procedures name the verbs as the fast path** (`claim-batch.md` Eligibility + Claim,
-  `finish-batch.md` step 1, `prune-ledgers.md` When-to-run), with every manual step kept intact so
-  non-CLI agents and hand edits work exactly as before. The queue template documents the declared
-  shape.
-
-**Verification.** `test -z "$(gofmt -l cmd internal)" && go vet ./... && go test ./...` green.
-Nine new tests: table-driven parser cases (tag forms, dependency forms, brace expansion, missing
-file list, empty file list, duplicate ids), the eligibility and overlap rules, the JSON shape,
-claim's refusals, a full `next` → `claim` → `finish` round trip asserting the prune boundary at 5
-and verbatim archiving, an unparseable-ledger case asserting nothing is rewritten, and a check that
-no verb creates a commit. This batch was itself finished with `specflow finish`, which is how the archive-ordering bug fixed in
-`a7df418` was caught: both archives are newest-first, and the pruned entry was landing at the end.
-
-**Deviation from the declared file list.** The parser landed in a new `internal/kit/queue.go` rather
-than in `kit.go`, which is already 1314 lines. No other batch was in progress, so nothing raced.
-
-**Follow-up.** `next` reports Batch P as unparseable (no declared file list). That is user-owned
-queue prose and P is `[NOT READY]`, so it was left alone.
-
