@@ -48,11 +48,22 @@ refuses a stub over 8 lines. Entries above the LW line predate the rule and are 
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch LW — Ledger weight: bound the entry, not just the count
 - Owner: claude
 - Started: 2026-08-21 13:30
+- Finished: 2026-08-21 13:38
+- Commit: 5dcced8
 
-## Completed
+**What shipped**
+- `CLAIMS.md` entries are now stubs (8 lines max + pointer); the full narrative goes to `BUILD_QUEUE_DONE.md`.
+- `specflow finish --stub-file` refuses an over-length stub before writing; `--summary-file` still works.
+- `BUILD_QUEUE.md`'s preamble is capped at 45 lines, waivable with `specflow:size-ok`; `prune-ledgers` §3 audits it.
+- `next` and `verify` print ledger line counts and warn past a bound.
+- Absorbed the companion Batch NX was carrying, so NX no longer needs it.
+
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch LW
 
 ### Batch CD — Batch-width and prune discipline in the procedures
 - Owner: claude
@@ -215,47 +226,3 @@ than in `kit.go`, which is already 1314 lines. No other batch was in progress, s
 **Follow-up.** `next` reports Batch P as unparseable (no declared file list). That is user-owned
 queue prose and P is `[NOT READY]`, so it was left alone.
 
-### Batch CE — Context economy + `config.check`
-- Owner: claude
-- Started: 2026-08-20 11:50
-- Finished: 2026-08-20 11:56
-- Commit: 25f419e
-
-**What shipped.** Three changes aimed at the recurring per-batch context cost, all of them reaching
-existing installs through `upgrade`:
-
-1. **Read-shape steps in all four procedures.** Wherever a procedure said *what* state to check, it
-   now also names the cheap read: `grep` the headings, then slice the one section by line number.
-   `claim-batch` carries the two greps for its eligibility checks, `finish-batch` and `prune-ledgers`
-   locate entries by line range, and `spec-edit` extends the read-the-index rule to inside a file.
-2. **`AGENTS.md` → *Working economically*.** Read by headings; batch independent reads into one turn;
-   never re-read to confirm your own write; run the one check command; read the batch's declared file
-   list first. The queue-specific bullets are wrapped `full-only`, so a spec-only install does not
-   get told about machinery it doesn't have.
-3. **`config.check`.** A new config string: the repo's single check command. `init` asks for it
-   (skippable) or takes `--check=`, `status` shows it, and `finish-batch` quotes it back before the
-   final commit. specflow never validates or executes it.
-
-**Why.** Instrumented over one long batch in a specflow-managed repo, file reads were 45% of tool
-calls and 88% of context spend, and the single biggest read was a `cat` of a 22 KB `CLAIMS.md` to
-answer a question its headings settle. Measured here: 419 bytes of headings against 17.2 KB for the
-whole file (41x), 224 bytes against 7.5 KB for the queue (33x), and both ledgers are read 3 to 5
-times per batch. Rationale in `spec/architecture.md` → *Context economy*.
-
-**Two decisions worth carrying.** The field is named `check`, not `verify`, because `specflow verify`
-already means install-integrity and an agent told to "run config.verify" would plausibly type the
-wrong command. And this is deliberately *not* a smaller `CLAIMS.md` retention: retention is a count
-of 5 for reasons already recorded under *Ledger lifecycle*, and the waste was the read shape, not
-the entry count.
-
-**Verification.** `go vet` + `go test ./...` green, including five new tests: `--check=` recorded and
-surfaced by `status`; the skipped answer stored as an empty string; a check command containing quotes
-and backslashes still producing valid JSON (the config template is text-substituted, so the value is
-`json.Marshal`-escaped); the interactive prompt; and a legacy install whose config has no `check` key
-at all, where `status` degrades to "not set". Rendered `AGENTS.md` checked in both modes (5 bullets
-full, 4 spec-only) with `specflow verify` clean in each. Self-hosted `upgrade` refreshed this repo's
-own managed files, `drift none`, and the repo now records its own check command.
-
-**Follow-ups deferred.** `upgrade` does not backfill `check` into installs that predate it: the key
-stays absent, which reads as "not set", and `status` prints the one-line hint on how to add it.
-Batch QV depends on this batch and is next.
