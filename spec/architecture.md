@@ -280,8 +280,34 @@ check** therefore scans managed regions for queue/claim tokens whenever the stam
     markers is replaced; everything outside is preserved verbatim, and the baseline is re-recorded.
   - **Drifted region** (hash differs — someone edited inside the markers) → left **untouched**; the
     fresh version is written to a `<file>.specflow-new` sidecar and reported, so nothing is clobbered.
+    **The sidecar is that file with the fresh region spliced in**, not the bare template: for a
+    marker-delimited file the two are different documents, and the reconciliation the warning invites
+    (`mv` the sidecar over the file) would otherwise destroy everything the user wrote outside the
+    markers. One rule for both tiers, so `mv` is always the correct move.
   - **Pre-marker file** (an install predating markers) → migrated: backed up to `<file>.specflow-bak`,
     then rewritten with markers.
+  - **Reconciled region** (the region already *is* the current template's, whatever the recorded
+    baseline says) → adopted: the baseline is re-recorded and the drift ends. Without this the
+    baseline is carried forward unchanged, so a user who takes the sidecar mismatches **forever**:
+    every `upgrade` re-drifts the file and every `verify` warns, and the only exit is discarding the
+    edit. The adapter tier has adopted an identical file since whole-file management landed; this is
+    the region tier catching up.
+
+  **Drift is a state you can leave, in one of two directions.** Taking specflow's version is the
+  adoption rule above and needs no verb. Keeping your own is **`specflow waive <file>`** (`--all`,
+  `--clear`), which changes no file bytes and records the divergence in the stamp's `waived` map:
+  `upgrade` leaves the file alone and writes no sidecar, and `verify` reports it as a choice rather
+  than a warning. A waiver is deliberately **not** a baseline re-record. Recording the edited bytes
+  as the baseline would make the region read as clean, and the very next `upgrade` would refresh it
+  and destroy the edit being blessed, which is the opposite of what the user asked for. Two fields
+  keep a waiver honest: `local` pins it to the exact bytes waived, so a later edit resurfaces as
+  drift, and `kit` records the template version it was taken against, so `upgrade` can say when
+  specflow has moved on since (the same "a waiver is never permanent silence" rule the spec-file
+  size cap follows, above under *Spec organization*). Only a drifted file can be waived - waiving a
+  clean one would
+  silently opt it out of every future refresh for nothing. Same rule for both tiers, except that
+  mode consistency still overrides a waiver: an adapter naming machinery its mode omits is replaced
+  regardless, because the leak proves the content is stale specflow text rather than the user's.
 
   **Two managed tiers, one drift contract.** The rules above govern files that carry *both*
   generated and human text (`AGENTS.md`, the agent instruction files, the procedures), so only the
@@ -322,11 +348,13 @@ written by `init`, updated by later calls (`add-agent`, lever/mode changes):
 - **`config`** — the user's choices: `agents`, `mode` (`full` | `spec-only`), `commit`
   (`agent` | `user`), `push` (`agent` | `user`), `check` (the repo's single check command, or
   empty when not configured).
-- **internal** — `kitVersion`, `schemaVersion`, `initializedAt`, `upgradedAt`, and the `managed`
+- **internal** — `kitVersion`, `schemaVersion`, `initializedAt`, `upgradedAt`, the `managed`
   map (per managed file → SHA-256 of its rendered region, or of the **whole** rendered file for the
-  marker-less adapters) that powers the drift detection above. The two kinds of entry never collide
-  because the file sets are disjoint: a path is either region-managed or whole-file-managed, and
-  which one it is comes from the kit, not the stamp.
+  marker-less adapters) that powers the drift detection above, and the `waived` map (per waived file
+  → the `local` + `kit` hashes described in *init / upgrade*). The two kinds of `managed` entry never
+  collide because the file sets are disjoint: a path is either region-managed or whole-file-managed,
+  and which one it is comes from the kit, not the stamp. `waived` is absent until a file is waived,
+  so a stamp written by an older specflow reads back correctly.
 
 **`check` is the repo's one check command**, asked at `init` and skippable; empty means not
 configured, and the procedures then say nothing about it. It is named `check` rather than `verify`
