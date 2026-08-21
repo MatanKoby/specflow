@@ -81,6 +81,12 @@ dependency appears in `CLAIMS.md` `## Completed` (or `specflow/history/CLAIMS_DO
 Multiple batches run in parallel only when their declared "Files this batch creates/edits"
 don't overlap. When they touch the same files, run them sequentially.
 
+**Size a batch by the layers it crosses, not the deliverables it lists.** Three edits inside one
+layer is a small batch; one edit each to the spec, a template, the code, and its tests is a wide one,
+however short each item reads in the queue. What counts as a layer is per project. When a batch's
+declared file list spans more layers than its goal needs, split it along the layer seam — the pieces
+then declare disjoint file lists, which is what makes the parallel rule above usable.
+
 ## The claims file — `CLAIMS.md`
 
 Two sections: `## In progress` (one entry per active claim) and `## Completed` (recent finishes,

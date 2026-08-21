@@ -26,6 +26,18 @@ grep -nE '^###|^- Owner:' CLAIMS.md        # what is claimed, and by whom
 Then slice the one section you actually need by line number (`sed -n '120,180p' BUILD_QUEUE.md`).
 Read a file whole only when the headings genuinely don't answer the question.
 
+**Prune first if `CLAIMS.md` has overgrown.** Pruning at finish alone doesn't help the agent that
+claims next — it still reads the overgrown file on the way in, and that read is the cost. So test the
+retention rule here too, before claiming:
+
+```
+sed -n '/^## Completed/,$p' CLAIMS.md | grep -c '^### '   # more than 5 → prune first
+```
+
+More than **5** completed entries means run `specflow/procedures/prune-ledgers.md` and commit the
+prune on its own, then claim. This is the same retention count `finish` enforces — there is no second
+threshold, and nothing to ask the user.
+
 **Fast path: `specflow next`.** When the specflow CLI is on the machine, one read-only call answers
 this entire section: it applies the tag, already-claimed, dependency, and overlap rules together and
 prints every blocked batch with the reason (`specflow next --json` for the machine-readable form).

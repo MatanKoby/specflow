@@ -99,6 +99,13 @@ re-litigate it or silently contradict it.
    Finished) into `BUILD_QUEUE.md` — that lives in `CLAIMS.md` only. The queue holds *design
    intent*; the claims file holds *execution state*.
 3. Then proceed to implementation.
+
+**Sizing the batches you write.** A batch is sized by **the layers it crosses**, not the deliverables
+it lists: every layer crossed pulls in its own files, conventions, and verification, and the agent
+holds all of them at once until the batch closes. What counts as a layer is per project. When the
+work flowing from a decision spans more layers than one batch needs, write it as two, split on the
+layer seam — each then declares a file list of its own, and disjoint lists are what let them run in
+parallel.
 <!-- specflow:full-only:end -->
 <!-- specflow:spec-only:start -->
 A decision belongs in the **spec** (durable design), not just the transcript — if you don't
