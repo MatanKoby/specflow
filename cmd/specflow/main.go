@@ -587,6 +587,11 @@ func cmdVerify(args []string) error {
 	for _, p := range rep.Problems {
 		fmt.Println(red("  ✗ ") + p)
 	}
+	// Ledger weight is repo hygiene, not install integrity: it is reported here because verify is
+	// where someone looks for "is this repo healthy", but it never changes verify's verdict.
+	if rep.Mode != "spec-only" {
+		printWeight(kit.Weigh(target))
+	}
 	fmt.Println("")
 	switch {
 	case len(rep.Problems) > 0:
@@ -824,7 +829,7 @@ func positional(args []string) string {
 
 // valueFlags are the flags that take a separate value, so positional() doesn't mistake the value
 // for the batch id.
-var valueFlags = map[string]bool{"--commit": true, "--summary-file": true, "--done-file": true, "--as": true}
+var valueFlags = map[string]bool{"--commit": true, "--stub-file": true, "--summary-file": true, "--done-file": true, "--as": true}
 
 func nextUsage() {
 	fmt.Printf(`
@@ -866,22 +871,27 @@ func finishUsage() {
 %s — move a claimed batch to done, across all four ledger files
 
 %s
-  specflow finish <batch-id> --commit <sha> [--summary-file <path>] [--done-file <path>]
+  specflow finish <batch-id> --commit <sha> [--stub-file <path>] [--done-file <path>]
 
 Moves the CLAIMS.md entry to the top of %s with Finished and Commit, deletes the
-batch section from %s, files your paragraph in BUILD_QUEUE_DONE.md, and prunes
+batch section from %s, files your narrative in BUILD_QUEUE_DONE.md, and prunes
 %s to its %d newest entries (older ones move verbatim to CLAIMS_DONE.md).
+
+The prose about a batch is written once. CLAIMS.md is re-read on every claim, finish,
+and prune, so it gets a stub of at most %d lines; the full narrative goes to the
+archive, which is read on purpose. An over-length stub is refused, and nothing is written.
 
 specflow owns placement, format, and timestamps; you own every word of prose:
 
-  --summary-file <path>  the "What shipped" block for the CLAIMS.md entry ("-" reads stdin)
-  --done-file <path>     the one-paragraph summary for BUILD_QUEUE_DONE.md
+  --stub-file <path>     the "What shipped" stub for the CLAIMS.md entry ("-" reads stdin)
+  --done-file <path>     the full narrative for BUILD_QUEUE_DONE.md
   --commit <sha>         short SHA of the work commit
   -h, --help             show this help
 
+--summary-file is the old name for --stub-file and still works.
 It does not commit. Nothing is written unless every file parses cleanly.
 
-`, bold("specflow finish"), bold("Usage:"), cyan("## Completed"), cyan("BUILD_QUEUE.md"), cyan("CLAIMS.md"), kit.CompletedRetention)
+`, bold("specflow finish"), bold("Usage:"), cyan("## Completed"), cyan("BUILD_QUEUE.md"), cyan("CLAIMS.md"), kit.CompletedRetention, kit.StubMaxLines)
 }
 
 func cmdNext(args []string) error {
@@ -928,8 +938,20 @@ func cmdNext(args []string) error {
 			fmt.Println(yellow("  ⚠ ") + p)
 		}
 	}
+	printWeight(rep.Weight)
 	fmt.Println(dim("\n  claim one with ") + cyan("specflow claim <id>") + dim(" (see specflow/procedures/claim-batch.md)\n"))
 	return nil
+}
+
+// printWeight reports how heavy the ledgers are. Both files are re-read on every claim, finish, and
+// prune, and a count of entries can stay correct while the file behind it grows unreadable, so the
+// size is stated every time and warned about only past a bound.
+func printWeight(w kit.Weight) {
+	fmt.Println(dim(fmt.Sprintf("\n  ledger weight: BUILD_QUEUE.md %d lines (preamble %d/%d) · CLAIMS.md %d lines (%d completed)",
+		w.QueueLines, w.PreambleLines, w.PreambleLimit, w.ClaimsLines, w.CompletedCount)))
+	for _, warn := range w.Warnings {
+		fmt.Println(yellow("  ⚠ ") + warn)
+	}
 }
 
 func cmdClaim(args []string) error {
@@ -983,9 +1005,16 @@ func cmdFinish(args []string) error {
 		return err
 	}
 	commit, _ := flagValue(args, "--commit")
-	summary, err := readProse(args, "--summary-file")
+	summary, err := readProse(args, "--stub-file")
 	if err != nil {
 		return err
+	}
+	if summary == "" {
+		// --summary-file is the pre-0.1.8 name for the same input, kept working so an agent
+		// following an older procedure copy still files its prose instead of dropping it.
+		if summary, err = readProse(args, "--summary-file"); err != nil {
+			return err
+		}
 	}
 	paragraph, err := readProse(args, "--done-file")
 	if err != nil {
@@ -1008,7 +1037,7 @@ func cmdFinish(args []string) error {
 		fmt.Println(yellow("  ⚠ ") + "no --done-file: write the BUILD_QUEUE_DONE.md paragraph yourself")
 	}
 	if res.NoSummary {
-		fmt.Println(yellow("  ⚠ ") + "no --summary-file: add the \"What shipped\" summary to the entry yourself")
+		fmt.Println(yellow("  ⚠ ") + "no --stub-file: add the \"What shipped\" stub to the entry yourself")
 	}
 	if len(res.Archived) > 0 {
 		fmt.Println(green("  ✓ ") + fmt.Sprintf("pruned to the %d newest: archived %s", kit.CompletedRetention, strings.Join(res.Archived, ", ")))

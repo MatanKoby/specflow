@@ -9,11 +9,12 @@ Follow **`specflow/procedures/finish-batch.md`** in this repo — that file is t
 up-to-date procedure (kept in sync by `specflow upgrade`; this skill is a thin trigger).
 
 In short: final work commit + capture its SHA → move the `CLAIMS.md` entry to `## Completed` with
-Finished/Commit + a "What shipped" summary → delete the batch from `BUILD_QUEUE.md` and summarize
-it in `specflow/history/BUILD_QUEUE_DONE.md` → prune the ledgers → commit `meta: complete batch-N`
-and push.
+Finished/Commit + a **stub** "What shipped" summary (8 lines max, plus a pointer) → delete the batch
+from `BUILD_QUEUE.md` and file the **full narrative** in `specflow/history/BUILD_QUEUE_DONE.md` →
+prune the ledgers → commit `meta: complete batch-N` and push. The prose about a batch is written
+once, in the archive; `CLAIMS.md` is the hot file and only gets the stub.
 
-**Use the CLI when it's installed:** `specflow finish <N> --commit <sha> --summary-file <path>
+**Use the CLI when it's installed:** `specflow finish <N> --commit <sha> --stub-file <path>
 --done-file <path>` does every one of those edits — both ledger moves, the archive entry, and the
 prune — in one call. You still write every word of prose; it owns placement, format, and
 timestamps, and it does **not** commit, so the `meta: complete` commit and push are still yours.

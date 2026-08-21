@@ -2315,7 +2315,7 @@ func TestFinishWithoutProse(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("finish exit %d: %s%s", r.code, r.stdout, r.stderr)
 	}
-	if !strings.Contains(r.stdout, "--summary-file") || !strings.Contains(r.stdout, "--done-file") {
+	if !strings.Contains(r.stdout, "--stub-file") || !strings.Contains(r.stdout, "--done-file") {
 		t.Errorf("finish did not name the prose it left to the agent:\n%s", r.stdout)
 	}
 	if !strings.Contains(read(t, filepath.Join(tmp, "CLAIMS.md")), "- Commit: abc1234") {
@@ -2580,5 +2580,118 @@ func TestSpecOnlySpecEditStubNamesNoVerbs(t *testing.T) {
 		if strings.Contains(got, tok) {
 			t.Errorf("spec-only spec-edit stub names %q:\n%s", tok, got)
 		}
+	}
+}
+
+// TestFinishRefusesOverLongStub: retention bounds how many entries CLAIMS.md holds; the stub cap
+// bounds how big one of them gets. Over the cap nothing is written at all, so the agent can move
+// the prose into the done-file and retry against an untouched repo.
+func TestFinishRefusesOverLongStub(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+	run(t, tmp, "claim", "A")
+
+	claimsPath := filepath.Join(tmp, "CLAIMS.md")
+	before := read(t, claimsPath)
+	stub := filepath.Join(tmp, "stub.md")
+	var b strings.Builder
+	for i := 0; i <= kit.StubMaxLines; i++ {
+		fmt.Fprintf(&b, "- shipped thing %d\n", i)
+	}
+	mustWrite(t, stub, b.String())
+
+	r := run(t, tmp, "finish", "A", "--commit", "abc1234", "--stub-file", stub, "--done-file", stub)
+	if r.code == 0 {
+		t.Fatal("finish accepted a stub over the cap")
+	}
+	if !strings.Contains(r.stderr, "--done-file") {
+		t.Errorf("the error did not name the fix: %s", r.stderr)
+	}
+	if read(t, claimsPath) != before {
+		t.Error("finish rewrote CLAIMS.md despite refusing the stub")
+	}
+	if !strings.Contains(read(t, filepath.Join(tmp, "BUILD_QUEUE.md")), "## Batch A") {
+		t.Error("finish removed the queue section despite refusing the stub")
+	}
+	if strings.Contains(read(t, filepath.Join(tmp, "specflow/history/BUILD_QUEUE_DONE.md")), "Batch A") {
+		t.Error("finish filed the archive paragraph despite refusing the stub")
+	}
+}
+
+// TestFinishStubCapCountsProseOnly: the cap is on content. Blank lines and the pointer at the
+// archived narrative are structure the procedure itself requires, so they don't count against it.
+func TestFinishStubCapCountsProseOnly(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+	run(t, tmp, "claim", "A")
+
+	stub := filepath.Join(tmp, "stub.md")
+	var b strings.Builder
+	b.WriteString("**What shipped**\n\n")
+	for i := 1; i < kit.StubMaxLines; i++ {
+		fmt.Fprintf(&b, "- shipped thing %d\n\n", i)
+	}
+	b.WriteString("- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch A\n")
+	mustWrite(t, stub, b.String())
+
+	r := run(t, tmp, "finish", "A", "--commit", "abc1234", "--stub-file", stub)
+	if r.code != 0 {
+		t.Fatalf("finish rejected a stub of %d prose lines: %s%s", kit.StubMaxLines, r.stdout, r.stderr)
+	}
+	if !strings.Contains(read(t, filepath.Join(tmp, "CLAIMS.md")), "Full narrative:") {
+		t.Error("the pointer at the archived narrative did not reach the entry")
+	}
+}
+
+// TestFinishAcceptsLegacySummaryFlag: --summary-file is the pre-0.1.8 name. An agent following an
+// older procedure copy must still file its prose rather than silently dropping it.
+func TestFinishAcceptsLegacySummaryFlag(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+	run(t, tmp, "claim", "A")
+
+	sum := filepath.Join(tmp, "sum.md")
+	mustWrite(t, sum, "- The a, shipped.\n")
+	if r := run(t, tmp, "finish", "A", "--commit", "abc1234", "--summary-file", sum); r.code != 0 {
+		t.Fatalf("finish exit %d: %s%s", r.code, r.stdout, r.stderr)
+	}
+	if !strings.Contains(read(t, filepath.Join(tmp, "CLAIMS.md")), "- The a, shipped.") {
+		t.Error("--summary-file prose did not reach the entry")
+	}
+}
+
+// TestNextReportsLedgerWeight: a count of entries can stay correct while the file behind it grows
+// unreadable, so next states the size every time and warns only past a bound — which the user's
+// size-ok waiver can raise, the same marker the spec-file cap uses.
+func TestNextReportsLedgerWeight(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+
+	if out := run(t, tmp, "next").stdout; !strings.Contains(out, "ledger weight") {
+		t.Errorf("next did not report ledger weight:\n%s", out)
+	}
+
+	queuePath := filepath.Join(tmp, "BUILD_QUEUE.md")
+	body := read(t, queuePath)
+	at := strings.Index(body, "## Batch A")
+	if at < 0 {
+		t.Fatal("seeded queue has no batch heading")
+	}
+	bloat := strings.Repeat("> a durable fact nobody could place in spec/\n", kit.PreambleMaxLines)
+	mustWrite(t, queuePath, body[:at]+bloat+"\n"+body[at:])
+
+	out := run(t, tmp, "next").stdout
+	if !strings.Contains(out, "preamble") || !strings.Contains(out, "section 3") {
+		t.Errorf("next did not warn about the over-cap preamble:\n%s", out)
+	}
+
+	waiver := fmt.Sprintf("<!-- specflow:size-ok - user approved this preamble over %d lines on 2026-01-31 14:05 UTC; next check at 400. -->\n", kit.PreambleMaxLines)
+	mustWrite(t, queuePath, waiver+read(t, queuePath))
+	if out := run(t, tmp, "next").stdout; strings.Contains(out, "over its") {
+		t.Errorf("the size-ok waiver did not raise the preamble limit:\n%s", out)
 	}
 }

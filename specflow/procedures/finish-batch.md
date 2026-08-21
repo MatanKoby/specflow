@@ -25,13 +25,14 @@ a value to the user.
    **Fast path: `specflow finish`.** With the CLI installed, one call performs steps 2, 3, 4, and 4a:
 
    ```
-   specflow finish <N> --commit <sha> --summary-file <path> --done-file <path>
+   specflow finish <N> --commit <sha> --stub-file <path> --done-file <path>
    ```
 
    It moves the `CLAIMS.md` entry to the top of `## Completed` with `Finished` + `Commit`, appends
-   your "What shipped" summary (`--summary-file`, or `-` to read stdin), deletes the batch section
-   from `BUILD_QUEUE.md`, files your one-paragraph summary in
+   your stub summary (`--stub-file`, or `-` to read stdin; `--summary-file` is the old name and still
+   works), deletes the batch section from `BUILD_QUEUE.md`, files your full narrative in
    `specflow/history/BUILD_QUEUE_DONE.md` (`--done-file`), and prunes `## Completed` to its 5 newest.
+   A stub over 8 lines is refused before anything is written, with the count and the fix.
    specflow owns placement, format, and timestamps; **you still write every word of prose**, and the
    verb does **not** commit, so step 5 is yours. If a ledger doesn't parse it writes nothing and says
    so, rather than rewriting a file over someone's hand edit. Without the CLI, do steps 2 to 4a by
@@ -49,17 +50,29 @@ a value to the user.
    Same UTC convention as `Started:`. Keep any `Handoff note:` / `Reclaim note:` lines — they're
    part of the historical record.
 
-3. Add a "What shipped" summary under the entry — what changed, where, any manual prereqs,
-   verification steps, follow-ups deferred. Match the format of existing `## Completed` entries.
-   The point: a future agent (or you, after a context reset) can reconstruct the batch's outcome
-   from this entry alone.
+3. Add a **stub** "What shipped" summary under the entry — **8 lines of prose at most**: what
+   changed, where, and anything a resuming agent must know *before it acts* (a manual prereq, a
+   follow-up deferred). Close it with a pointer to the full record:
+
+   ```
+   - Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch N
+   ```
+
+   The stub's job is that a future agent (or you, after a context reset) can tell from `CLAIMS.md`
+   alone **what this batch did and whether it needs to read further** — not that the whole record
+   sits here. `CLAIMS.md` is re-read on every claim, finish, and prune; the archive is read on
+   purpose. So write the narrative **once**, in step 4, and keep this one short. Don't pad the stub
+   by restating step 4, and don't thin out step 4 to compensate.
 
 4. **Move the batch out of `BUILD_QUEUE.md`.** That file lists only *un-done* batches — a
    completed batch must not linger there or the next agent re-reads it as open work. Three edits:
    - Delete the batch's full section from `BUILD_QUEUE.md` (`grep -nE '^## ' BUILD_QUEUE.md` gives
      you its line range without reading the file).
-   - Add a one-paragraph summary to `specflow/history/BUILD_QUEUE_DONE.md` (match the existing compact style —
-     what shipped + key commit).
+   - **File the full narrative** in `specflow/history/BUILD_QUEUE_DONE.md` — what changed and where,
+     manual prereqs, verification steps, follow-ups deferred, and any reasoning a later reader would
+     otherwise have to reconstruct from the diff. This is the batch's durable record and the one
+     place the prose is meant to run long; the `CLAIMS.md` stub in step 3 points at it. Match the
+     existing style (heading + prose + key commit).
    - Drop the batch from any **pick-order pointer** line at the top of `BUILD_QUEUE.md`.
 
 4a. **Prune the ledgers.** Run `specflow/procedures/prune-ledgers.md` (Claude: the `prune-ledgers`

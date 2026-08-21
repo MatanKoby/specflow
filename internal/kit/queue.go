@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -20,6 +21,19 @@ import (
 // CompletedRetention is the number of newest entries CLAIMS.md `## Completed` keeps; older ones
 // move to specflow/history/CLAIMS_DONE.md. Same bound prune-ledgers.md states in prose.
 const CompletedRetention = 5
+
+// StubMaxLines bounds the "What shipped" stub finish writes into a CLAIMS.md entry. Retention
+// bounds how many entries there are; this bounds how big one gets. The batch's full narrative goes
+// to BUILD_QUEUE_DONE.md, which nothing reads on the hot path, so the cap is a hard reject rather
+// than a stop-and-ask: moving a paragraph into the done-file loses nothing. Same bound
+// finish-batch.md states in prose.
+const StubMaxLines = 8
+
+// PreambleMaxLines bounds everything above BUILD_QUEUE.md's first `## Batch` heading. That prose is
+// not an entry, so no retention rule reaches it, and it is where a durable fact gets parked when
+// nobody decided which spec/ file owns it. The shipped template is 33 lines. Same bound
+// prune-ledgers.md (section 3) states in prose.
+const PreambleMaxLines = 45
 
 // Repo-relative paths of the four files the verbs read and write.
 const (
@@ -46,6 +60,9 @@ var (
 	qBraceRe     = regexp.MustCompile(`^([^{]*)\{([^{}]*)\}(.*)$`)
 	// Both archives are newest-first, so a new block goes above the first existing entry heading.
 	qArchiveEntryRe = regexp.MustCompile(`^#{2,6}\s`)
+	// The stub's pointer at the archived narrative, and the user's over-cap waiver.
+	stubPointerRe = regexp.MustCompile(`(?i)^[-*]?\s*\**Full narrative\**:`)
+	sizeWaiverRe  = regexp.MustCompile(`(?i)specflow:size-ok\b.*next check at\s+(\d+)`)
 )
 
 // Tags that exclude a batch from claiming. Any *other* tag is exclusionary too (AGENTS.md: "any tag
@@ -357,11 +374,12 @@ type NextReport struct {
 	Blocked    []NextItem `json:"blocked"`
 	Problems   []string   `json:"problems,omitempty"`
 	InProgress []string   `json:"inProgress,omitempty"`
+	Weight     Weight     `json:"weight"`
 }
 
 // Next reports which batches are claimable right now. It writes nothing.
 func Next(targetDir string) (NextReport, error) {
-	rep := NextReport{Claimable: []NextItem{}, Blocked: []NextItem{}}
+	rep := NextReport{Claimable: []NextItem{}, Blocked: []NextItem{}, Weight: Weigh(targetDir)}
 	qb, err := os.ReadFile(destPath(targetDir, queueRel))
 	if err != nil {
 		return rep, fmt.Errorf("no %s here (spec-only installs have no queue): %w", queueRel, err)
@@ -524,6 +542,9 @@ type FinishResult struct {
 // is parsed and rewritten in memory first, so a parse failure stops the whole command.
 func Finish(targetDir, id, commit, summary, paragraph string) (FinishResult, error) {
 	res := FinishResult{Batch: id, NoSummary: strings.TrimSpace(summary) == "", NoParagraph: strings.TrimSpace(paragraph) == ""}
+	if n := stubLines(summary); n > StubMaxLines {
+		return res, fmt.Errorf("the CLAIMS.md stub is %d lines, over the %d-line cap — move the rest into the --done-file narrative and retry (nothing was written)", n, StubMaxLines)
+	}
 	cb, err := os.ReadFile(destPath(targetDir, claimsRel))
 	if err != nil {
 		return res, fmt.Errorf("no %s here: %w", claimsRel, err)
@@ -789,6 +810,87 @@ func dedupe(in []string) []string {
 		out = append(out, s)
 	}
 	return out
+}
+
+// stubLines counts the prose lines of a CLAIMS.md stub. Blank lines and the pointer at the archived
+// narrative don't count against the cap: the pointer is required by the procedure, and penalizing
+// paragraph breaks would just push agents to write one long line.
+func stubLines(summary string) int {
+	n := 0
+	for _, l := range splitLines(summary) {
+		t := strings.TrimSpace(l)
+		if t == "" || stubPointerRe.MatchString(t) {
+			continue
+		}
+		n++
+	}
+	return n
+}
+
+// Weight is how heavy the ledgers are, reported by next and verify. Retention is deliberately a
+// count, not a byte budget (see prune-ledgers.md), so this reports rather than prunes: a count
+// cannot reveal a file that grew heavy while staying correct, which is exactly how a CLAIMS.md at
+// its prescribed 5 entries reached 27 KB in the field.
+type Weight struct {
+	QueueLines     int      `json:"queueLines"`
+	PreambleLines  int      `json:"preambleLines"`
+	PreambleLimit  int      `json:"preambleLimit"`
+	ClaimsLines    int      `json:"claimsLines"`
+	CompletedCount int      `json:"completedCount"`
+	Warnings       []string `json:"warnings,omitempty"`
+}
+
+// Weigh measures both ledgers. It never fails: a file it cannot read or parse simply contributes
+// nothing, since a weight report must not be able to break the command that prints it.
+func Weigh(targetDir string) Weight {
+	w := Weight{PreambleLimit: PreambleMaxLines}
+	if qb, err := os.ReadFile(destPath(targetDir, queueRel)); err == nil {
+		lines := splitLines(string(qb))
+		w.QueueLines = len(lines)
+		w.PreambleLines = len(lines)
+		for i, l := range lines {
+			if qBatchHeadRe.MatchString(l) {
+				w.PreambleLines = i
+				break
+			}
+		}
+		if n, ok := sizeWaiver(lines); ok {
+			w.PreambleLimit = n
+		}
+		if w.PreambleLines > w.PreambleLimit {
+			w.Warnings = append(w.Warnings, fmt.Sprintf(
+				"BUILD_QUEUE.md preamble is %d lines, over its %d-line cap — audit it (prune-ledgers.md, section 3)",
+				w.PreambleLines, w.PreambleLimit))
+		}
+	}
+	if cb, err := os.ReadFile(destPath(targetDir, claimsRel)); err == nil {
+		w.ClaimsLines = len(splitLines(string(cb)))
+		if claims, err := ParseClaims(string(cb)); err == nil {
+			w.CompletedCount = len(claims.Completed)
+			if w.CompletedCount > CompletedRetention {
+				w.Warnings = append(w.Warnings, fmt.Sprintf(
+					"CLAIMS.md ## Completed holds %d entries, over the retention of %d — prune (prune-ledgers.md, section 1)",
+					w.CompletedCount, CompletedRetention))
+			}
+		}
+	}
+	return w
+}
+
+// sizeWaiver reads the `specflow:size-ok … next check at N` line the user's approval leaves at the
+// top of a capped file. Same marker the spec-file cap uses, so one waiver shape covers both.
+func sizeWaiver(lines []string) (int, bool) {
+	for i, l := range lines {
+		if i > 2 {
+			break
+		}
+		if m := sizeWaiverRe.FindStringSubmatch(l); m != nil {
+			if n, err := strconv.Atoi(m[1]); err == nil {
+				return n, true
+			}
+		}
+	}
+	return 0, false
 }
 
 // MarshalNext renders a NextReport as the `--json` payload.

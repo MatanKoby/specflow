@@ -13,6 +13,9 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
   this file** — that's execution state, and it lives in `CLAIMS.md` only.
 - Batches are designed so two agents can work different batches at once without file conflicts.
 - See `specflow/procedures/claim-batch.md` before claiming.
+- Everything above the first `## Batch` heading is the **preamble**, capped at 45 lines. It holds
+  the pick-order pointer and these rules — not design facts or release history, which belong in
+  `spec/`. `specflow/procedures/prune-ledgers.md` (section 3) audits it.
 - Each batch below follows a **declared shape**: the `## Batch <id> [TAG] — <title>` heading, an
   optional `**Depends on:** Batch X[, Batch Y]` line, and a `### Files this batch creates/edits`
   list. Everything else in a section is free prose. `specflow next` reads that shape to answer

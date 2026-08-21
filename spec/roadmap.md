@@ -24,6 +24,33 @@ real code. **Done when:**
 Medium/large-repo optimization is explicitly **out of scope**. Member batches: `BUILD_QUEUE.md` →
 *Milestone v0.1* (CFG · BI · SO · G2 · add-agent · status · `--dry-run`).
 
+## Release lines
+
+Which batches shipped in which patch release, kept here rather than in `BUILD_QUEUE.md`: the queue
+holds *un-done* work, and a version history parked in its preamble is exactly the sink
+`architecture.md` → *Ledger lifecycle* bounds. The queue keeps only the pick-order pointer.
+
+**Milestone v0.1 shipped** 🚀 — `v0.1.0` tagged and published, `curl|sh` verified end to end.
+Member batches: **CFG** (config + commit/push levers + safety), **BI** (brownfield `init` + `verify`
++ `_DONE` relocation), **SO** (spec-only mode), **G2** (release: GoReleaser → GitHub Releases +
+`curl|sh`; Homebrew deferred), **1** (add-agent), **2** (status), **5** (`--dry-run`).
+
+| Release | Ships |
+| --- | --- |
+| `v0.1.1` | **FH** (finish-batch step-6 handoff rework) · **RF** (research-flow convention) |
+| `v0.1.2` | **CH** (Claude-Code step-6 handoff hook: a `PostToolUse` backstop that blocks the loop after a `meta: complete batch-*` commit), plus the `upgrade` convergence that delivers newly-shipped non-managed adapter files to existing installs |
+| `v0.1.3` | **SL** (spec-only mode no longer names the queue/claim machinery it omits, plus the `verify` mode-consistency check and an `upgrade` repair path) · **SZ** (the spec-file 600-line cap became a stop-and-ask with a `specflow:size-ok` waiver that re-asks every +200) |
+| `v0.1.4` | **4** (README rewrite: badges, file-map, agent-executable install) · **PR** (ledger pruning: the `prune-ledgers` procedure + skill) |
+| `v0.1.5` | **CE** (per-batch context cost + `config.check`) · **QV** (the `next` / `claim` / `finish` queue verbs) |
+| `v0.1.6` | **AF** (the adapters — skill stubs and the handoff hook — are managed as whole files, carried across by a one-time adoption on the next `upgrade`) |
+| `v0.1.7` | **CD** (batches are sized by the layers they cross; the prune check runs at claim as well as at finish) |
+| `v0.1.8` | **LW** (ledger weight: the `CLAIMS.md` stub + archived narrative, the queue-preamble cap, and weight reporting in `next` / `verify`) |
+
+**A batch only opens a version line when it changes something a user installs.** Two batches landed
+without opening one: **RD** (a pushed tag publishes the release directly) between v0.1.4 and v0.1.5,
+and **RN** (the release body is authored in the release commit) after v0.1.6. Both are repo-internal
+— `.goreleaser.yaml`, this repo's own ledgers and spec — and ship nothing to users.
+
 ## Deferred directions
 
 - **Standalone demo repo.** A separate GitHub repo demonstrating a real specflow-managed project,

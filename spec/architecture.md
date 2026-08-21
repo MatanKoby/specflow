@@ -75,10 +75,41 @@ would keep a nondeterministic number of batches and could sever an entry mid-rec
 self-contained, so cutting on an entry boundary matters more than an exact ceiling. A count is also
 deterministic: two agents prune to the same result.
 
-Pruning is **not** gated behind a stop-and-ask, unlike the spec-file cap below. That cap asks
-because splitting a spec file is lossy and needs judgment about concerns. Archiving a claim is
-lossless and mechanical — the entry moves one file away, unedited — and dependency resolution
-already accepts either location: `claim-batch` resolves a dependency against `CLAIMS.md`
+**Count bounds how many entries there are; it does not bound how big one is.** Two failure modes sit
+outside the retention rule, and both showed up in a downstream install running *correctly* at
+retention 5 with a 27 KB `CLAIMS.md`:
+
+- **The entry written twice.** Finishing a batch asks for prose about that batch in two places: the
+  "What shipped" summary in `CLAIMS.md` and the one-paragraph summary in `BUILD_QUEUE_DONE.md`.
+  They are authored independently and neither is a superset of the other — measured over five
+  consecutive batches downstream, 0 to 2 lines of a `CLAIMS.md` entry reappeared in its
+  `BUILD_QUEUE_DONE.md` paragraph — so a batch's story ends up split across a hot file and an
+  archive, and the hot copy carries most of it. The split now runs the other way: `CLAIMS.md` keeps
+  a **stub** (the metadata fields, at most **8 lines** of "What shipped", and a pointer) and the
+  **full narrative** goes to `BUILD_QUEUE_DONE.md`, which nothing reads on the hot path. A resuming
+  agent gets enough to decide whether it needs more; the unabridged record is one file away. The cap
+  is a hard reject in `specflow finish`, not a stop-and-ask: unlike splitting a spec file, moving a
+  paragraph into the done-file loses nothing, so there is no judgment to put to the user.
+- **The prose that is not an entry at all.** Pruning walks *entries*. Everything above the first
+  `## Batch` heading in `BUILD_QUEUE.md` — the pick-order pointer, and whatever grows around it — is
+  not an entry, so no retention rule ever reaches it. That preamble is where an agent parks a durable
+  fact when it cannot decide which `spec/` file owns it: at finish time the queue is already open,
+  writing there is one edit, and nothing ever prunes it. It is a sink, and it fills. The preamble is
+  capped at **45 lines** (the shipped template is 30, which leaves real headroom) under the same
+  `specflow:size-ok` stop-and-ask the 600-line spec cap uses, re-asking every +15. Here an ask *is*
+  warranted where the claims cap's would not be: the fix is a judgment call about which spec file
+  should own the stranded paragraph. `prune-ledgers` carries the audit — delete, relocate via
+  `spec-edit`, or keep.
+
+**Weight is reported, never pruned by.** `specflow next` and `specflow verify` print the ledger line
+counts and warn past the bounds above. That is a signal, not a second retention rule: the cut stays a
+count, for the determinism reasons just given. What a count cannot reveal is a file that reached
+27 KB while its count stayed correct, and reporting closes exactly that gap.
+
+Archiving a claim is **not** gated behind a stop-and-ask, unlike the spec-file cap below and the
+preamble audit above. Those two ask because the fix is lossy, or needs judgment about which concern
+(or which file) should own what is being moved. Archiving is lossless and mechanical — the entry moves one file away, unedited — and dependency
+resolution already accepts either location: `claim-batch` resolves a dependency against `CLAIMS.md`
 `## Completed` **or** `CLAIMS_DONE.md`. An ask with no judgment behind it is just a prompt.
 
 Pruning is its own procedure, not a step inlined into `finish-batch.md`, for two reasons: a ledger

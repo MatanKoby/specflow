@@ -14,6 +14,9 @@ growing logs. This procedure keeps them that way. `AGENTS.md` carries only the p
 - **`finish-batch` delegates here** at the end of every batch (its step 4a). That is the normal path.
   (`specflow finish` already applies section 1 as part of completing the batch, so after the verb the
   only thing left here is the section 2 queue sweep.)
+- **When a weight warning fires.** `specflow next` and `specflow verify` report both ledgers' line
+  counts and warn when one is past its bound — the count of completed entries, or the preamble cap in
+  section 3. The warning names the section to run.
 - **By hand, any time**, when a ledger has already overgrown: `prune-ledgers` as a skill, or just
   follow this file. An install that predates this procedure can be many entries over, so the first
   run is a **catch-up pass** that archives them all at once.
@@ -61,7 +64,46 @@ For each one, confirm `specflow/history/BUILD_QUEUE_DONE.md` carries its one-par
 **Leave `[NOT READY]`, `[DEFERRED]`, `[MANUAL]`, and standing non-batch sections alone.** They are
 un-done work, which is exactly what the queue is for. Length is not a reason to prune them.
 
-## 3. Commit
+## 3. `BUILD_QUEUE.md`: audit the preamble
+
+Everything above the **first `## Batch` heading** is the queue's preamble: the header links, the
+"How this works" rules, and the pick-order pointer. Sections 1 and 2 bound *entries*; nothing bounds
+this. It is where a durable fact gets parked when whoever wrote it could not decide which `spec/`
+file owns it — at finish time the queue is already open, writing there is one edit, and no rule ever
+comes back for it. So it fills.
+
+**The cap is 45 lines**, counted from the top of the file to the line before the first batch:
+
+```
+awk '/^## Batch /{print NR-1; exit}' BUILD_QUEUE.md
+```
+
+Under the cap there is nothing to do here. Over it, sort each preamble paragraph into one of three
+piles and put the result to the user:
+
+- **Keep** — the pick-order pointer, and the rules that tell an agent how to read the file. That is
+  what a preamble is for.
+- **Relocate** — a durable design fact, a decision, a release history. It belongs in `spec/`: run
+  `spec-edit.md` to find the file whose concern owns it, move it there, and leave behind a link only
+  if a reader of the queue actually needs one.
+- **Delete** — stale status (a version line saying "open, not tagged" after the tag was pushed),
+  notes about a batch that has since shipped, anything the archives already carry.
+
+**This section is a stop-and-ask**, unlike sections 1 and 2. Archiving an entry is mechanical, but
+deciding which spec file should own a stranded paragraph is a judgment call about concerns — the same
+call `spec-edit.md` never makes on its own authority. Show the three piles, then act on the answer.
+
+**If the user chooses to keep it over the cap**, record the waiver as the **first line of the file**,
+above the `#` heading, exactly as the spec-file cap does:
+
+```
+<!-- specflow:size-ok - user approved this preamble over 45 lines on 2026-01-31 14:05 UTC; next check at 60. -->
+```
+
+Timestamp in UTC, and set `next check` to the limit you just asked about **plus 15**. That is the
+preamble's new limit. A waiver silences one threshold, never the rule.
+
+## 4. Commit
 
 Commit the prune on its own, so the diff stays readable and reviewable:
 
@@ -69,8 +111,9 @@ Commit the prune on its own, so the diff stays readable and reviewable:
 meta: prune ledgers (N claims entries archived)
 ```
 
-Cover `CLAIMS.md`, `specflow/history/CLAIMS_DONE.md`, and, if step 2 changed anything,
-`BUILD_QUEUE.md` + `specflow/history/BUILD_QUEUE_DONE.md`. Push.
+Cover `CLAIMS.md`, `specflow/history/CLAIMS_DONE.md`, and, if section 2 or 3 changed anything,
+`BUILD_QUEUE.md` + `specflow/history/BUILD_QUEUE_DONE.md` + whatever `spec/` file received a
+relocated paragraph. Push.
 
 When `finish-batch` delegated here, folding this into its `meta: complete batch-N` commit is fine
 too. One commit or two, but never leave the prune uncommitted.

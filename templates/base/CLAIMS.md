@@ -14,7 +14,15 @@ Entry format:
 - Finished: YYYY-MM-DD HH:MM       (only in Completed)
 - Commit: <short SHA>              (only in Completed)
 - Handoff note: ...                (only when a mid-batch handoff occurred)
+
+<up to 8 lines of "What shipped": what changed, where, what a resuming agent must know first>
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch N
 ```
+
+The completed entry is a **stub**, not the record. This file is re-read on every claim, finish, and
+prune, so the batch's full narrative lives in `specflow/history/BUILD_QUEUE_DONE.md` and the stub
+says only enough for a resuming agent to know whether it needs to go read it. `specflow finish`
+refuses a stub over 8 lines.
 
 ## In progress
 

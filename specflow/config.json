@@ -12,14 +12,14 @@
   "managed": {
     ".claude/hooks/specflow-handoff-reminder.sh": "9fea5b4f18baca779901fa4d93b2f90794aded84f8fc322d24d05f3e3558ead9",
     ".claude/skills/claim-batch/SKILL.md": "f0d812557db00a00df93e074afb4c1af172470dd7b629b6ebeb115e22ad4d863",
-    ".claude/skills/finish-batch/SKILL.md": "fb449c94b3440f55c8fedd708aeccbe10d1e148f92c058fa38b9a95660e83ec9",
-    ".claude/skills/prune-ledgers/SKILL.md": "c11aa076d48e65c1da8e605474e89b8ee267a66f340eae2a01ca6947a23640ae",
+    ".claude/skills/finish-batch/SKILL.md": "d72f15b86b96e46aae61fbe0cb7934f3a924a8aa9beb8ce2c525a3279effc9a6",
+    ".claude/skills/prune-ledgers/SKILL.md": "5f5633a5c2458a677be7df14cd6cb6b80ac20c59acb4311766175177e083864a",
     ".claude/skills/spec-edit/SKILL.md": "8385c8138be067b6347114cdf8e73b3ffa6d542d059792b70965f7f4b06cfe9a",
     "AGENTS.md": "54b68844cc31074e078b70f45a06c57d61f4d60bf4c87fa18e86753e49e64a61",
     "CLAUDE.md": "409621d57e5cfb93c52b3aa118c9cc4c06dcae4a4b69f1f6cb1fb8c252838693",
     "specflow/procedures/claim-batch.md": "39820870fbf0b594e300026dbae28d6986b22af61997720459356247e876d4b0",
-    "specflow/procedures/finish-batch.md": "730acde9630065bbc0afcd33d633d6796c3417195e02907a7253a4daff95a2c2",
-    "specflow/procedures/prune-ledgers.md": "a46b795fe8bac40f720b70510626744ec6d671dd0d1a44de21311395e9135368",
+    "specflow/procedures/finish-batch.md": "9624a0c28e39e37a43463c1e2cd2ee0da6d99fe90322c22b44340b44ed096ba2",
+    "specflow/procedures/prune-ledgers.md": "55849bd5ee12adf8bc0d02d0b6f06c8585ea8bc7ffdc3ace149389727800af93",
     "specflow/procedures/spec-edit.md": "8d93da7aecc9423229816054da464506729d45b28072256d560cc6cb6e3d431c"
   },
   "schemaVersion": 1,

@@ -16,44 +16,13 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 
 ## Un-done batches
 
-> **Pick-order pointer — Milestone v0.1 is shipped** 🚀 (goal/DoD in `roadmap.md`). `v0.1.0` is
-> tagged, published, and the public `curl|sh` install is verified end-to-end. All member
-> batches are done: **CFG** (config + commit/push levers + safety), **BI** (brownfield `init` +
-> `verify` + `_DONE` relocation), **SO** (spec-only mode), **G2** (release: GoReleaser → GitHub
-> Releases + `curl|sh`; Homebrew deferred), **1** (add-agent), **2** (status), **5** (`--dry-run`).
-> **`v0.1.1`** (patch) ships the user-facing content improvements since: **FH** (finish-batch step-6
-> handoff rework) and **RF** (research-flow convention).
-> **`v0.1.2`** (patch) ships **CH** (Claude-Code step-6 handoff hook: a `PostToolUse` backstop that
-> blocks the loop after a `meta: complete batch-*` commit to force the handoff) plus the `upgrade`
-> convergence that delivers newly-shipped non-managed adapter files to existing installs.
-> **`v0.1.3`** (patch) ships **SL** (spec-only mode no longer names the queue/claim
-> machinery it omits, plus the `verify` mode-consistency check and an `upgrade` repair path for
-> existing installs) and **SZ** (the spec-file 600-line cap is now a stop-and-ask, with a
-> `specflow:size-ok` waiver that re-asks every +200 lines).
-> **`v0.1.4`** (patch) ships **4** (README rewrite: badges, file-map, and an agent-executable
-> install section) and **PR** (ledger pruning: the `prune-ledgers` procedure + skill that keeps
-> `CLAIMS.md` to its 5 newest completed entries, archiving the rest).
-> **`v0.1.5`** (patch) ships **CE** (per-batch context cost: the procedures name the cheap read, plus
-> the `config.check` field) and **QV** (the `next` / `claim` / `finish` queue verbs). **RD** (a pushed
-> tag publishes the release directly; the agent needs the user's approval to cut one) landed between
-> v0.1.4 and v0.1.5 but is **repo-internal and ships nothing to users**, so it opened no version line:
-> it touched `.goreleaser.yaml` plus this repo's own ledgers and spec. Don't open a new version line
-> for a batch until it changes something a user installs.
-> **`v0.1.6`** (patch) ships **AF** (the adapters — the skill stubs and the handoff hook — are
-> managed as whole files, so a fix to one finally reaches an install that already has it, carried
-> across by a one-time adoption on the next `upgrade`).
-> **Current release: `v0.1.6`. No version line is open.**
-> **RN** (the release body is authored in the release commit, not generated from the commit list)
-> landed after v0.1.6 but is **repo-internal and ships nothing to users**, so it opened no version
-> line.
-> **`v0.1.7`** (patch) ships **CD** (batches are sized by the layers they
-> cross, and the prune check runs at claim as well as at finish). It changes `AGENTS.md` and two
-> procedures, which every install receives on `upgrade`, so it opened a version line.
-> **Current release: `v0.1.7`. `v0.1.8` is open** — **LW** (ledger weight) is claimable below.
-> **Post-v0.1 queue below:**
-> **Batch LW** (ledger weight — claimable) ·
-> **Batch NX** (`next` file spread) · **Batch W** (workflow config) · **Batch NB** (`--new-batch`) ·
-> **Batch E** (enforcement, research-first) · **Batch P** (npm-wrapper front-end) · Homebrew tap.
+> **Pick-order pointer.** Current release: **`v0.1.7`**; **`v0.1.8` is open** (Batch LW).
+> Which batch shipped in which release lives in `spec/roadmap.md` → *Release lines*, and the
+> milestone goals live there too — not here. This file holds un-done work only.
+>
+> **Claimable:** **LW** (ledger weight).
+> **Not ready:** **NX** (`next` file spread) · **W** (workflow config) · **NB** (`--new-batch`) ·
+> **E** (enforcement, research-first) · **P** (npm-wrapper front-end) · Homebrew tap.
 
 ---
 
@@ -103,8 +72,9 @@ retention 5, and 59 of `BUILD_QUEUE.md`'s 149 lines sit above the first `## Batc
 **Goal.** `next` already prints each batch's declared file list verbatim, which goes long and reads as
 a wall. Replace it with a **spread**: the file count plus the distinct top-level paths, so an over-wide
 batch (`spec/architecture.md` → *Batch size*) is visible at a glance **before** it is claimed. Read-only,
-no new state; `--json` keeps the full list. Carries the optional companion from the same
-report: `next` / `claim` warn when `CLAIMS.md` `## Completed` holds more than five entries.
+no new state; `--json` keeps the full list. (The companion from the same report — warning when
+`CLAIMS.md` `## Completed` holds more than five entries — shipped in Batch LW, so NX no longer
+carries it.)
 
 ### Files this batch creates/edits
 - `cmd/specflow/main.go` (`cmdNext`) · `internal/kit/queue.go` · `cmd/specflow/main_test.go`.
