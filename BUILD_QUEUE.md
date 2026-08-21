@@ -46,14 +46,52 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > **RN** (the release body is authored in the release commit, not generated from the commit list)
 > landed after v0.1.6 but is **repo-internal and ships nothing to users**, so it opened no version
 > line.
-> **`v0.1.7`** (patch, **open — not tagged**) ships **CD** (batches are sized by the layers they
+> **`v0.1.7`** (patch) ships **CD** (batches are sized by the layers they
 > cross, and the prune check runs at claim as well as at finish). It changes `AGENTS.md` and two
-> procedures, which every install receives on `upgrade`, so it opens a version line.
-> **Nothing is claimable right now** — every batch below is `[NOT READY]`, so the next move is the
-> user's: cut `v0.1.7`, or promote one of them.
+> procedures, which every install receives on `upgrade`, so it opened a version line.
+> **Current release: `v0.1.7`. `v0.1.8` is open** — **LW** (ledger weight) is claimable below.
 > **Post-v0.1 queue below:**
+> **Batch LW** (ledger weight — claimable) ·
 > **Batch NX** (`next` file spread) · **Batch W** (workflow config) · **Batch NB** (`--new-batch`) ·
 > **Batch E** (enforcement, research-first) · **Batch P** (npm-wrapper front-end) · Homebrew tap.
+
+---
+
+## Batch LW — Ledger weight: bound the entry, not just the count
+
+**Goal.** Pruning bounds the ledgers by **count** (`CLAIMS.md` to 5 completed entries;
+`BUILD_QUEUE.md` to zero completed batches). Nothing bounds the size of a *single* entry, or the
+prose that is not an entry at all. Reported from a downstream install running at its prescribed
+retention of 5 with a 27 KB `CLAIMS.md`; reproduced here (`CLAIMS.md` 20 KB / 249 lines at
+retention 5, and 59 of `BUILD_QUEUE.md`'s 149 lines sit above the first `## Batch`). Three parts:
+
+1. **Write the narrative once.** `finish-batch` currently asks for prose about one batch twice, in
+   two files, independently authored. `CLAIMS.md` keeps a **stub** — metadata, at most 8 lines of
+   "What shipped", and a pointer — and the full narrative goes to
+   `specflow/history/BUILD_QUEUE_DONE.md`. `specflow finish` grows `--stub-file` (with
+   `--summary-file` kept as an alias) and rejects an over-length stub. No waiver: moving prose to
+   the done-file is lossless, so there is no judgment call to put to the user.
+2. **Cap the queue preamble.** Everything above the first `## Batch` heading is capped at 45 lines
+   (template baseline is 30) with the `specflow:size-ok` stop-and-ask shipped in Batch SZ, re-asking
+   every +15. `prune-ledgers` gains a third section that audits those paragraphs into
+   delete / relocate-via-`spec-edit` / keep. The preamble is where an agent parks a durable fact when
+   it cannot decide which spec file owns it: at finish time the queue is already open, and nothing
+   ever prunes it.
+3. **Report weight.** `specflow next` and `specflow verify` report ledger line counts and warn past
+   the bounds. Count is checked today; weight is not, and weight is what reached 27 KB while the
+   count stayed correct. Absorbs the optional companion carried by **Batch NX** (warn when
+   `## Completed` holds more than five entries), which NX no longer needs to carry.
+
+### Files this batch creates/edits
+- `spec/architecture.md` (*Ledger lifecycle*) · `spec/roadmap.md` (receives the relocated version
+  lines) · `BUILD_QUEUE.md` · `specflow/procedures/{finish-batch,prune-ledgers}.md` ·
+  `templates/base/specflow/procedures/{finish-batch,prune-ledgers}.md` ·
+  `templates/base/BUILD_QUEUE.md` · `internal/kit/queue.go` · `cmd/specflow/main.go` ·
+  `cmd/specflow/main_test.go`.
+
+### Verification
+- `test -z "$(gofmt -l cmd internal)" && go vet ./... && go test ./...`
+- This repo's own preamble lands under the cap once its version lines move to `spec/roadmap.md`.
 
 ---
 
