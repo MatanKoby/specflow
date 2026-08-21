@@ -40,6 +40,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch CD — Batch-width and prune discipline in the procedures
+- Owner: claude
+- Started: 2026-08-21 06:14
+
 ## Completed
 
 ### Batch RN — Authored release notes
