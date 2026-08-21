@@ -37,6 +37,14 @@ in-scope-vs-new-scope test). The **one open piece** is the *mechanism*:
   shared files like `CLAUDE.md` (never user content). *(decision pending)*
 - **NO_COLOR / non-TTY — approved for v0.1.** Real bug: the CLI always emits ANSI, so piped/
   redirected output embeds escape codes. Fix: plain text when stdout isn't a TTY (or `NO_COLOR` set).
+- **A write-side context rule** — the cost is re-emitting a file's contents in order to change part
+  of it, whichever tool does it (a whole-file heredoc rewrite, or a read-then-edit of a large file).
+  Raised as "edit through the file-editing tool, not the shell, and that outranks a harness mode
+  asking for shell edits"; **not adopted in that form** on 2026-08-21, for two reasons: the tool is a
+  proxy for the mechanism and gets it wrong in both directions, and a rule instructing agents to
+  override their harness will be wrong in some install the repo cannot see. Open: whether the
+  mechanism alone is worth a line in `architecture.md` → *Context economy*, given that every bullet
+  there is read by every agent in every session.
 - **`next` prints each batch's file spread** — the declared file list's count and the top-level paths
   it touches, printed beside each claimable batch, so a batch that is too wide (see `architecture.md`
   → *Batch size*) is visible before it is claimed rather than after. Read-only, no new state.
