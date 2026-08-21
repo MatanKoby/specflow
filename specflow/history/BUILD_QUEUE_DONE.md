@@ -10,6 +10,9 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch CD — Batch-width and prune discipline in the procedures
+Two guidance changes distilled from a session that exhausted a 373 K-token context window. Batches are now sized by **the layers they cross**, not the deliverables they list (`AGENTS.md` → *The work queue*, plus `spec-edit.md` where batch sections get written); a batch spanning more layers than its goal needs is split on the layer seam, which also gives the pieces the disjoint file lists that parallel claiming requires. What counts as a layer stays per project on purpose. And `claim-batch.md` now tests the ledger-retention rule **before** claiming, not only at finish — more than 5 completed `CLAIMS.md` entries means prune first — because pruning only on the way out leaves the next agent reading the overgrown file on the way in, which is where the cost actually lands. A third item from the same report (a write-side rule preferring the file-editing tool over shell edits, overriding harness modes) was discussed and **not adopted**; it is parked with its reasoning in `spec/open-questions.md`. Design: `spec/architecture.md` → *Batch size* and *Ledger lifecycle*.
+
 ## Batch RN — Authored release notes
 **Batch RN — Authored release notes.** The GitHub Release body is now written, not generated:
 `.github/release-notes/<tag>.md` is authored in the same commit as the version bump and passed to

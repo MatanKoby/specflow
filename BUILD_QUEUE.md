@@ -46,40 +46,14 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > **RN** (the release body is authored in the release commit, not generated from the commit list)
 > landed after v0.1.6 but is **repo-internal and ships nothing to users**, so it opened no version
 > line.
-> **Claimable now: Batch CD** (batch-width + prune discipline in the procedures). Every other
-> batch below is `[NOT READY]`, so beyond CD the next move is the user's: promote one of them.
+> **`v0.1.7`** (patch, **open — not tagged**) ships **CD** (batches are sized by the layers they
+> cross, and the prune check runs at claim as well as at finish). It changes `AGENTS.md` and two
+> procedures, which every install receives on `upgrade`, so it opens a version line.
+> **Nothing is claimable right now** — every batch below is `[NOT READY]`, so the next move is the
+> user's: cut `v0.1.7`, or promote one of them.
 > **Post-v0.1 queue below:**
-> **Batch CD** (procedure discipline) · **Batch NX** (`next` file spread) · **Batch W** (workflow config) ·
-> **Batch NB** (`--new-batch`) · **Batch E** (enforcement, research-first) · **Batch P** (npm-wrapper
-> front-end) · Homebrew tap.
-
----
-
-## Batch CD — Batch-width and prune discipline in the procedures
-
-Two guidance changes, both in the shipped docs, from a session that exhausted a 373 K-token context
-window. Design: `spec/architecture.md` → *Batch size* and *Ledger lifecycle*. A third item from the
-same report (a write-side context rule) was **not adopted** — it is parked in
-`spec/open-questions.md` → *CLI / upgrade behavior*, and is not part of this batch.
-
-**Goal.**
-1. **Batch width.** `AGENTS.md` → *The work queue* (full-only) and `procedures/spec-edit.md` (which is
-   where batch sections actually get written) say a batch is sized by **the layers it crosses**, not
-   the deliverables it lists. The layer list itself stays per-project and is not enumerated.
-2. **Prune at claim, not only at finish.** `procedures/claim-batch.md` tests the retention condition
-   before claiming: more than five entries under `CLAIMS.md` `## Completed` means run `prune-ledgers`
-   first. No new threshold, and the test rides the heading grep the claim already runs. The reporting
-   session read a 435-line `CLAIMS.md` on the way in and archived 47 entries on the way out.
-
-### Files this batch creates/edits
-- `templates/base/AGENTS.md` · `templates/base/specflow/procedures/claim-batch.md` ·
-  `templates/base/specflow/procedures/spec-edit.md` · `AGENTS.md` ·
-  `specflow/procedures/claim-batch.md` · `specflow/procedures/spec-edit.md` ·
-  `specflow/config.json` — the last four are the managed-region refresh, done by a self-hosted upgrade.
-
-### Verification
-- `init` into a temp repo in **both** modes; confirm the new text lands and spec-only never names the
-  queue. Run `config.check`.
+> **Batch NX** (`next` file spread) · **Batch W** (workflow config) · **Batch NB** (`--new-batch`) ·
+> **Batch E** (enforcement, research-first) · **Batch P** (npm-wrapper front-end) · Homebrew tap.
 
 ---
 

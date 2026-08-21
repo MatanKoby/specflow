@@ -40,11 +40,42 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch CD — Batch-width and prune discipline in the procedures
 - Owner: claude
 - Started: 2026-08-21 06:14
+- Finished: 2026-08-21 06:17
+- Commit: e2ef30c
 
-## Completed
+**What shipped**
+- **`AGENTS.md` → *The work queue*** (full-only) now states the sizing rule: a batch is sized by the
+  **layers it crosses**, not the deliverables it lists, and one spanning more layers than its goal
+  needs gets split on the layer seam. The split pieces declare disjoint file lists, which is what the
+  parallelism rule directly above it already required.
+- **`specflow/procedures/spec-edit.md`** carries the same rule where batch sections are actually
+  written (persisting a decision → step 3), so an agent turning a decision into queue entries meets it
+  at the moment it matters, not only when reading `AGENTS.md`.
+- **What counts as a layer is deliberately per project.** Seams differ per repo (this one has spec,
+  templates, root managed files, CLI, tests); an enumerated list shipped in a template would be wrong
+  in most installs and would read as a contract rather than a heuristic.
+- **`specflow/procedures/claim-batch.md`** tests the retention rule **before claiming**, in the
+  eligibility section next to the heading-grep guidance:
+  `sed -n '/^## Completed/,$p' CLAIMS.md | grep -c '^### '` — more than 5 means run `prune-ledgers`
+  and commit it on its own before the claim. Pruning at finish alone doesn't help whoever claims next:
+  they still read the overgrown ledger on the way in, and that read is the cost. Same 5 that `finish`
+  enforces, so no second threshold and no stop-and-ask.
+- **Verification:** `init` into temp repos in both modes — full carries both changes, spec-only
+  carries neither and still never names the queue. `specflow verify` clean, `config.check` green,
+  managed regions refreshed by a self-hosted upgrade.
+
+**Not shipped, on purpose**
+- The report's write-side context rule (edit via the file tool, not the shell, outranking harness
+  modes) was **dropped after discussion with Matan**: the tool is a proxy for the real cost, which is
+  re-emitting a file's contents to change part of it, and the "outranks your harness" clause has
+  specflow claiming jurisdiction over the host environment. Parked with its reasoning in
+  `spec/open-questions.md` → *CLI / upgrade behavior*, alongside the optional `next` file-spread item
+  (**Batch NX**, `[NOT READY]`).
 
 ### Batch RN — Authored release notes
 - Owner: claude
@@ -216,38 +247,3 @@ own managed files, `drift none`, and the repo now records its own check command.
 **Follow-ups deferred.** `upgrade` does not backfill `check` into installs that predate it: the key
 stays absent, which reads as "not set", and `status` prints the one-line hint on how to add it.
 Batch QV depends on this batch and is next.
-
-### Batch RD — Release auto-publish, and the user approves every release
-- Owner: claude
-- Started: 2026-08-16 13:05
-- Finished: 2026-08-16 13:10
-- Commit: e279fb9
-
-**What shipped.** `.goreleaser.yaml` `release.draft` flipped `true` → `false`, so a pushed `v*` tag
-now publishes a public release with its archives attached and no manual step. Plus the counterpart
-rule at the top of this file (*Releases need the user's approval*) and the decision recorded in
-`spec/architecture.md` → artifact host.
-
-**Why.** The draft gate put the release *copy* in front of the *binaries*. v0.1.3 and v0.1.4 were
-both created by hand in the GitHub UI instead of published from GoReleaser's draft, so each shipped
-a release with **zero assets** while the real draft sat unpublished beside it. `install.sh:55`
-resolves `releases/latest` and downloads `specflow_<ver>_<os>_<arch>.tar.gz` from it, so the public
-`curl … | sh` install 404'd both times until it was noticed and repaired by hand. v0.1.1 has no
-release at all for the same reason. A body can be edited after publish; a missing archive cannot.
-
-**The trade, and where the checkpoint went.** Auto-publish means the release notes are GoReleaser's
-generated commit list (the `^meta:`/`^spec:`/`^docs:` filters leave just the `batch-*:` lines — two
-of them for v0.1.4) rather than the user's prose, which is now an edit made after publishing. It
-also means a tag push is instantly public and effectively irreversible, so the human checkpoint did
-not disappear, it moved earlier: from "publish the draft" to "should we tag at all", which is the
-user's call every time.
-
-**Verification.** `goreleaser check` passes against `@latest` v2 — matching what the workflow's
-`version: "~> v2"` resolves to. (v2.5.0 rejects the config on `archives.formats`, a field added
-later; that is a stale-pin artifact, not a config defect.) `go test ./...` green, `specflow verify`
-clean on all 7 managed files.
-
-**Follow-ups deferred.** Changelog prettification (`release.header`, `changelog.groups`) — the
-generated body is adequate. Backfilling a v0.1.1 release. The end-to-end proof is the next tag push:
-confirm it lands published with 6 assets and no manual step.
-

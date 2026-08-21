@@ -7,6 +7,40 @@ Written by `specflow/procedures/prune-ledgers.md`, which keeps the 5 newest comp
 `CLAIMS.md` and moves everything older here. Don't hand-move entries; run the procedure (Claude:
 the `prune-ledgers` skill) so the retention rule stays consistent.
 
+### Batch RD — Release auto-publish, and the user approves every release
+- Owner: claude
+- Started: 2026-08-16 13:05
+- Finished: 2026-08-16 13:10
+- Commit: e279fb9
+
+**What shipped.** `.goreleaser.yaml` `release.draft` flipped `true` → `false`, so a pushed `v*` tag
+now publishes a public release with its archives attached and no manual step. Plus the counterpart
+rule at the top of this file (*Releases need the user's approval*) and the decision recorded in
+`spec/architecture.md` → artifact host.
+
+**Why.** The draft gate put the release *copy* in front of the *binaries*. v0.1.3 and v0.1.4 were
+both created by hand in the GitHub UI instead of published from GoReleaser's draft, so each shipped
+a release with **zero assets** while the real draft sat unpublished beside it. `install.sh:55`
+resolves `releases/latest` and downloads `specflow_<ver>_<os>_<arch>.tar.gz` from it, so the public
+`curl … | sh` install 404'd both times until it was noticed and repaired by hand. v0.1.1 has no
+release at all for the same reason. A body can be edited after publish; a missing archive cannot.
+
+**The trade, and where the checkpoint went.** Auto-publish means the release notes are GoReleaser's
+generated commit list (the `^meta:`/`^spec:`/`^docs:` filters leave just the `batch-*:` lines — two
+of them for v0.1.4) rather than the user's prose, which is now an edit made after publishing. It
+also means a tag push is instantly public and effectively irreversible, so the human checkpoint did
+not disappear, it moved earlier: from "publish the draft" to "should we tag at all", which is the
+user's call every time.
+
+**Verification.** `goreleaser check` passes against `@latest` v2 — matching what the workflow's
+`version: "~> v2"` resolves to. (v2.5.0 rejects the config on `archives.formats`, a field added
+later; that is a stale-pin artifact, not a config defect.) `go test ./...` green, `specflow verify`
+clean on all 7 managed files.
+
+**Follow-ups deferred.** Changelog prettification (`release.header`, `changelog.groups`) — the
+generated body is adequate. Backfilling a v0.1.1 release. The end-to-end proof is the next tag push:
+confirm it lands published with 6 assets and no manual step.
+
 ### Batch PR — Ledger pruning (`prune-ledgers`, the fourth procedure)
 - Owner: claude
 - Started: 2026-08-14 11:03
