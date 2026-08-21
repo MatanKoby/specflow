@@ -16,13 +16,132 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 
 ## Un-done batches
 
-> **Pick-order pointer.** Current release: **`v0.1.8`**; no version line is open. Which batch shipped
-> in which release lives in `spec/roadmap.md` → *Release lines*, and the milestone goals live there
-> too — not here. This file holds un-done work only.
+> **Pick-order pointer.** Current release: **`v0.1.8`**; **`v0.1.9` is open** and ships **RC** ·
+> **MC** · **FS** · **ED**. Which batch shipped in which release lives in `spec/roadmap.md` →
+> *Release lines*, and the milestone goals live there too, not here. This file holds un-done work only.
 >
-> **Claimable:** nothing right now.
+> **Claimable:** **RC** (drift reconciliation) · **MC** (`migrate-claims`) · **FS** (stub contract) ·
+> **ED** (em dash sweep). Pick order RC, MC, FS, and **ED last** so it sweeps the prose the others
+> add. MC and FS share `internal/kit/queue.go`; FS and ED share `templates/base/**`.
 > **Not ready:** **NX** (`next` file spread) · **W** (workflow config) · **NB** (`--new-batch`) ·
 > **E** (enforcement, research-first) · **P** (npm-wrapper front-end) · Homebrew tap.
+
+---
+
+## Batch RC - drift is a state you can leave
+
+**Goal.** Two defects in one loop: reconciling a drifted managed file is destructive for
+marker-delimited files, and it never actually clears the drift.
+
+**(a) The sidecar is the wrong bytes for a region file.** `upDrift` writes the rendered template
+*whole* (`internal/kit/kit.go:729`), which for an adapter is right (every byte is specflow's) and for
+a marker-delimited file is a footgun: the warning tells the user to reconcile, the obvious
+reconciliation is `mv`, and `mv` throws away everything outside the region. A downstream install hit
+exactly this: 27 managed lines in `CLAUDE.md` and 73 lines of project guidance below the markers, with
+one warning string (`cmd/specflow/main.go:516`) covering both cases and the correct action opposite in
+each. Fix: the sidecar carries the *on-disk file with the fresh region spliced in*
+(`before + markers + fresh region + after`), so `mv` is correct for both tiers and the warning can say
+`mv` outright. Drift in a marker-delimited file is by definition drift inside the markers, which is
+what the user then diffs.
+
+**(b) Drift is terminal.** The adapter path adopts a file already identical to the current template
+(`kit.go:853`, check 2). The region path has no such check, and `Upgrade` carries the old baseline
+forward for a drifted file (`kit.go:976`). So after following the printed advice the region matches
+the *new* template while the baseline is still the *old* hash: the next `upgrade` re-drifts it, writes
+the sidecar again, and `verify` warns forever. The only exit today is restoring bytes that hash to the
+old baseline, which means discarding the edit. Two parts: add adopt-on-identical to `decideUpgrade`
+(mirrors the adapter check, self-heals every reconciled file), and add **`specflow adopt <file>...`**
+(`--all` for the whole drifted set) to re-record a baseline over a deliberate local edit. `adopt`
+changes no bytes; it says "I have reconciled this", which is what makes the warning list mean
+something again.
+
+**Spec.** `architecture.md` → *init / upgrade* documents the drift contract but not what the sidecar
+contains, nor how drift ends. Both rules land there.
+
+### Files this batch creates/edits
+- `internal/kit/kit.go` · `cmd/specflow/main.go` · `cmd/specflow/main_test.go` ·
+  `spec/architecture.md` · `README.md`.
+
+---
+
+## Batch MC - migrate-claims, so 0.1.8's ledger shape reaches old entries
+
+**Goal.** The stub + pointer shape applies only to entries written *after* the upgrade, so an install
+arriving at 0.1.8 still carries every legacy essay: the exact weight Batch LW exists to remove, in the
+file that is re-read on every claim, finish, and prune. Add **`specflow migrate-claims [--dry-run]`**:
+rewrite legacy `### Batch` entries in `CLAIMS.md` and `specflow/history/CLAIMS_DONE.md` to metadata
+plus a stub within `StubMaxLines` plus the pointer, and **relocate** the displaced prose into
+`specflow/history/BUILD_QUEUE_DONE.md` under that batch's heading. It never deletes prose: where a
+section for the batch already exists, the relocated text is appended under a divider, never
+overwritten. Writes nothing anywhere if either ledger fails to parse, same contract as `finish`.
+
+**The hazard, and the reason this is a verb rather than a snippet in a procedure.** A hand-rolled
+retrofit downstream lost a `- Progress note (2026-08-20, ...)` line and its 15 wrapped continuation
+lines by reading the continuation as body prose. specflow's own archiver kept a multi-line
+`- Overlap note:` intact in the same run, because it copies entries verbatim. So the parsing subtlety
+is already solved here and nowhere else: metadata lines and every continuation line survive, and the
+stub is cut from the body only. Both halves get a test.
+
+**Note:** shares `internal/kit/queue.go` and `cmd/specflow/main.go` with Batch FS, so the two do not
+run in parallel; either order is fine.
+
+### Files this batch creates/edits
+- `internal/kit/queue.go` · `cmd/specflow/main.go` · `cmd/specflow/main_test.go` ·
+  `templates/base/specflow/procedures/prune-ledgers.md` · `README.md`.
+
+---
+
+## Batch FS - the stub contract says what the code already does
+
+**Goal.** Three loose ends left by Batch LW, all cheap, all reported from a real install.
+
+- **The cap counts prose only.** `stubLines` already skips blank lines and the pointer
+  (`internal/kit/queue.go:815`), which is why a 10-line stub file is accepted against an 8-line cap.
+  Correct behavior, undocumented: `finish-batch.md` step 3 and `templates/base/CLAIMS.md` state the
+  cap without saying what counts, so an agent budgets against the wrong number. Say it where the cap
+  is stated.
+- **The pointer is unvalidated free text.** It is matched only to exclude it from the count
+  (`queue.go:64`), while `finish` writes the done-file heading itself (`queue.go:622`) and therefore
+  knows the target. Emit the pointer when the stub omits it, and refuse one that names a different
+  batch.
+- **The archive's header still promises the old shape.** `templates/base/BUILD_QUEUE.md:5` and
+  `prune-ledgers.md:60` describe `BUILD_QUEUE_DONE.md` as "one-paragraph summaries", which is what it
+  was before LW made it the home of the full narrative.
+
+**Note:** shares `internal/kit/queue.go` with Batch MC and `templates/base/**` with Batch ED, so it
+runs alone against either.
+
+### Files this batch creates/edits
+- `internal/kit/queue.go` · `cmd/specflow/main.go` · `cmd/specflow/main_test.go` ·
+  `templates/base/BUILD_QUEUE.md` · `templates/base/CLAIMS.md` ·
+  `templates/base/specflow/procedures/finish-batch.md` ·
+  `templates/base/specflow/procedures/prune-ledgers.md`.
+
+---
+
+## Batch ED - one mechanical pass, no rewording
+
+**Goal.** Everything specflow ships carries em dashes: 87 across the managed set, `AGENTS.md` alone
+holding 31. They land in every install, where they collide with a repo rule that forbids them, and a
+downstream repo that sweeps them locally is punished twice: the sweep is drift, so `upgrade` stops
+refreshing those files (Batch RC is the other half of that story) and the next clean upgrade puts the
+dashes back. Fixing it upstream is the only version that holds. Replace every em dash and en dash in
+prose with a plain hyphen, a comma, a colon, or a sentence break, choosing per sentence but
+**rewording nothing**, across `templates/**` and `specflow/**` plus this repo's own managed copies
+(`AGENTS.md`, `.claude/skills/**`, the `CLAUDE.md` region) so a self-hosted `upgrade` agrees.
+
+**Out of scope on purpose:** `spec/**`, `README.md`, and the ledgers. They are this repo's own prose,
+not shipped content, and mixing them in makes the diff unreviewable. Sweep them later if wanted.
+
+**Watch item:** the marker-parsing separator list (`internal/kit/queue.go:190`) accepts ` - ` as well
+as ` — `, so heading separators may be swept; a dash that is *data* rather than prose must not be.
+Verification is a grep for zero em/en dashes under the swept paths, plus `go test ./...`.
+
+**Run last** of the four, so it also sweeps whatever prose RC, MC, and FS add.
+
+### Files this batch creates/edits
+- `templates/**` · `specflow/procedures/*.md` · `AGENTS.md` · `.claude/skills/*/SKILL.md` ·
+  `CLAUDE.md` (managed region only).
 
 ---
 
