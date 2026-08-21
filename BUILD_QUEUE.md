@@ -16,9 +16,9 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 
 ## Un-done batches
 
-> **Pick-order pointer.** Current release: **`v0.1.7`**; **`v0.1.8` is open** (LW is built, not yet
-> tagged). Which batch shipped in which release lives in `spec/roadmap.md` → *Release lines*, and
-> the milestone goals live there too — not here. This file holds un-done work only.
+> **Pick-order pointer.** Current release: **`v0.1.8`**; no version line is open. Which batch shipped
+> in which release lives in `spec/roadmap.md` → *Release lines*, and the milestone goals live there
+> too — not here. This file holds un-done work only.
 >
 > **Claimable:** nothing right now.
 > **Not ready:** **NX** (`next` file spread) · **W** (workflow config) · **NB** (`--new-batch`) ·

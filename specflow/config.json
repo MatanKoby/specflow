@@ -8,7 +8,7 @@
   },
   "initializedAt": "2026-06-17",
   "kit": "specflow",
-  "kitVersion": "0.1.7",
+  "kitVersion": "0.1.8",
   "managed": {
     ".claude/hooks/specflow-handoff-reminder.sh": "9fea5b4f18baca779901fa4d93b2f90794aded84f8fc322d24d05f3e3558ead9",
     ".claude/skills/claim-batch/SKILL.md": "f0d812557db00a00df93e074afb4c1af172470dd7b629b6ebeb115e22ad4d863",
