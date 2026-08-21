@@ -48,6 +48,10 @@ refuses a stub over 8 lines. Entries above the LW line predate the rule and are 
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch RC — drift is a state you can leave
+- Owner: claude
+- Started: 2026-08-21 14:26
+
 ## Completed
 
 ### Batch LW — Ledger weight: bound the entry, not just the count
