@@ -40,6 +40,10 @@ Entry format:
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch LW — Ledger weight: bound the entry, not just the count
+- Owner: claude
+- Started: 2026-08-21 13:30
+
 ## Completed
 
 ### Batch CD — Batch-width and prune discipline in the procedures
