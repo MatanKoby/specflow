@@ -46,7 +46,7 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > **RN** (the release body is authored in the release commit, not generated from the commit list)
 > landed after v0.1.6 but is **repo-internal and ships nothing to users**, so it opened no version
 > line.
-> **Claimable now: Batch CD** (context + batch-width discipline in the procedures). Every other
+> **Claimable now: Batch CD** (batch-width + prune discipline in the procedures). Every other
 > batch below is `[NOT READY]`, so beyond CD the next move is the user's: promote one of them.
 > **Post-v0.1 queue below:**
 > **Batch CD** (procedure discipline) · **Batch NX** (`next` file spread) · **Batch W** (workflow config) ·
@@ -55,20 +55,18 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 
 ---
 
-## Batch CD — Context and batch-width discipline in the procedures
+## Batch CD — Batch-width and prune discipline in the procedures
 
-Three guidance changes, all in the shipped docs, from a session that exhausted a 373 K-token context
-window. Design: `spec/architecture.md` → *Context economy*, *Ledger lifecycle*, *Batch size*.
+Two guidance changes, both in the shipped docs, from a session that exhausted a 373 K-token context
+window. Design: `spec/architecture.md` → *Batch size* and *Ledger lifecycle*. A third item from the
+same report (a write-side context rule) was **not adopted** — it is parked in
+`spec/open-questions.md` → *CLI / upgrade behavior*, and is not part of this batch.
 
 **Goal.**
-1. **Write-side economy.** `AGENTS.md` → *Working economically* gains a bullet: edit through the
-   file-editing tool, not shell `sed`/heredocs, with the explicit note that this **outranks a harness
-   mode that asks for shell edits**. Mode-neutral (applies to spec-only installs too). This item was
-   17% of the reporting session's window.
-2. **Batch width.** `AGENTS.md` → *The work queue* (full-only) and `procedures/spec-edit.md` (which is
+1. **Batch width.** `AGENTS.md` → *The work queue* (full-only) and `procedures/spec-edit.md` (which is
    where batch sections actually get written) say a batch is sized by **the layers it crosses**, not
    the deliverables it lists. The layer list itself stays per-project and is not enumerated.
-3. **Prune at claim, not only at finish.** `procedures/claim-batch.md` tests the retention condition
+2. **Prune at claim, not only at finish.** `procedures/claim-batch.md` tests the retention condition
    before claiming: more than five entries under `CLAIMS.md` `## Completed` means run `prune-ledgers`
    first. No new threshold, and the test rides the heading grep the claim already runs. The reporting
    session read a 435-line `CLAIMS.md` on the way in and archived 47 entries on the way out.
