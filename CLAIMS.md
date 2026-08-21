@@ -101,26 +101,8 @@ destroy the edit being blessed.
 - **`specflow/procedures/spec-edit.md`** carries the same rule where batch sections are actually
   written (persisting a decision → step 3), so an agent turning a decision into queue entries meets it
   at the moment it matters, not only when reading `AGENTS.md`.
-- **What counts as a layer is deliberately per project.** Seams differ per repo (this one has spec,
-  templates, root managed files, CLI, tests); an enumerated list shipped in a template would be wrong
-  in most installs and would read as a contract rather than a heuristic.
-- **`specflow/procedures/claim-batch.md`** tests the retention rule **before claiming**, in the
-  eligibility section next to the heading-grep guidance:
-  `sed -n '/^## Completed/,$p' CLAIMS.md | grep -c '^### '` — more than 5 means run `prune-ledgers`
-  and commit it on its own before the claim. Pruning at finish alone doesn't help whoever claims next:
-  they still read the overgrown ledger on the way in, and that read is the cost. Same 5 that `finish`
-  enforces, so no second threshold and no stop-and-ask.
-- **Verification:** `init` into temp repos in both modes — full carries both changes, spec-only
-  carries neither and still never names the queue. `specflow verify` clean, `config.check` green,
-  managed regions refreshed by a self-hosted upgrade.
 
-**Not shipped, on purpose**
-- The report's write-side context rule (edit via the file tool, not the shell, outranking harness
-  modes) was **dropped after discussion with Matan**: the tool is a proxy for the real cost, which is
-  re-emitting a file's contents to change part of it, and the "outranks your harness" clause has
-  specflow claiming jurisdiction over the host environment. Parked with its reasoning in
-  `spec/open-questions.md` → *CLI / upgrade behavior*, alongside the optional `next` file-spread item
-  (**Batch NX**, `[NOT READY]`).
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch CD
 
 ### Batch RN — Authored release notes
 - Owner: claude
@@ -134,28 +116,8 @@ destroy the edit being blessed.
   `--release-notes=<path>`. Confirmed against the real GoReleaser v2 binary that the flag exists and
   "will skip GoReleaser changelog generation", so the authored body replaces the commit list rather
   than sitting beside it.
-- **The fallback is the default branch**, not an error branch: no notes file → the exact args the
-  workflow ran before, plus a `⚠` line in the job summary. Neither branch can fail the job. A
-  release that ships no archives is far worse than one with a plain body, and that failure mode
-  (v0.1.3, v0.1.4) is the reason `draft: false` exists in the first place.
-- **`CLAIMS.md` → *Releases need the user's approval*** now states that `meta: release vX.Y.Z`
-  covers the notes file as well as the version bump, and why a missed file stays missed (fixing a
-  published body needs an API token; `git push` over SSH doesn't provide one).
-- **`.github/release-notes/v0.1.6.md`** backfilled as the worked example, in the shape the spec
-  specifies. The published v0.1.6 release keeps its generated body — the user explicitly didn't want
-  it updated.
-- **Scope addition:** a comment in `.goreleaser.yaml` above `changelog:` marking that block as the
-  fallback path, since `--release-notes` bypasses it entirely and the config otherwise reads as
-  live on every release.
 
-**Verification.** Both workflow branches simulated locally against real `GITHUB_OUTPUT` /
-`GITHUB_STEP_SUMMARY` files: present → `release --clean --release-notes=.github/release-notes/v0.1.6.md`;
-absent → `release --clean` plus the warning. Both YAML files parse. `act` isn't available here, so
-the job itself is unproven until the next tag — the first real test is the next release.
-
-**Follow-up.** The notes file is a convention the workflow can't enforce at commit time (it only
-sees the tag). If a release ever ships with the generated body again, the next lever is a `ci.yml`
-check on `meta: release` commits.
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch RN
 
 ### Batch AF — Adapter files upgrade like everything else
 - Owner: claude
@@ -171,31 +133,5 @@ check on `meta: release` commits.
   the stamp's `managed` map (`adapterEntries` / `decideAdapter` / `adapterDecisions`), and both
   tiers funnel through one `applyDecision`, so a region and an adapter in the same state are
   written and reported identically.
-- **The one-time adoption.** Every install made before this has no adapter baselines at all. On the
-  next `upgrade` each adapter is compared to the current template: identical → record the baseline
-  silently; anything else → `.specflow-bak` then replace. That is what carries existing installs
-  across; from then on the normal clean/drift rules apply. Verified on this repo: `upgrade` adopted
-  all four stubs, the hook was already current, and the four backups were byte-identical to `HEAD`.
-- **`verify` and `status` read the same decisions.** `verify` now lists the adapters (a deleted,
-  truncated, or hand-mangled one used to pass clean); `status` gained a **stale** row, separating
-  "you edited it" from "specflow moved and this file didn't" — it printed the 4 behind stubs on this
-  repo before the upgrade and `none` after.
-- **The stubs learned the verbs.** A skill loads *before* the procedure, so its "In short:" is what
-  gets acted on, and all four described hand-editing markdown only. Each now names its verb
-  (`specflow claim`, `specflow finish`, and for `prune-ledgers` the fact that `specflow finish`
-  already does the `CLAIMS.md` half); `spec-edit`'s addition is `full-only`-gated so a spec-only
-  install still names no queue machinery.
-- **Drive-by fix.** `normalizePath` in `internal/kit/queue.go` trimmed a leading `.` along with
-  trailing prose punctuation, so `.claude/…`, `.github/…`, and `.cursor/…` compared as different
-  files and were invisible to `specflow next`'s overlap check. Caught by this batch's own file list.
 
-**Verification.** 10 new tests in `cmd/specflow/main_test.go` (init baselines the adapters; a stale
-adapter refreshes with no backup; a no-baseline install adopts, backing up only what differs; an
-edited adapter is untouched with a `.specflow-new` sidecar; a deleted one is caught by `verify` and
-restored by `upgrade`; each stub names its verb; the spec-only `spec-edit` stub names none; dotfile
-paths keep their leading dot). `gofmt`/`go vet`/`go test ./...` clean, and the whole flow was run
-end-to-end against this repo's own install.
-
-**Follow-up.** An existing install gets one `.specflow-bak` per adapter it didn't already match —
-expected and reported by `upgrade`, but worth a line in the release notes so users know to delete
-them.
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch AF
