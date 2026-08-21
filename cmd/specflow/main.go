@@ -49,7 +49,7 @@ func printClaudeHookNotice() {
 }
 
 // version is overridden at build time via -ldflags "-X main.version=x.y.z".
-var version = "0.1.6"
+var version = "0.1.7"
 
 // useColor gates ANSI output — set once in main(): on only for an interactive terminal with
 // NO_COLOR unset, so piped/redirected output (and CI / agent capture) stays clean plain text.
