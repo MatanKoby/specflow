@@ -4,10 +4,10 @@
 Run this before editing any file under `spec/**`, or when persisting a design decision the
 user just made. `AGENTS.md` carries only the pointer to this file.
 
-## Decide where to write — concern-matching
+## Decide where to write - concern-matching
 
 The spec lives in `spec/`, organized into concern-focused files (and sub-folders as it grows).
-Open the relevant index **first** — don't read the whole spec:
+Open the relevant index **first** - don't read the whole spec:
 
 - Start at `spec/README.md` for the file map.
 - When a sub-folder has its own `README.md`, open that before reading individual files in it.
@@ -15,7 +15,7 @@ Open the relevant index **first** — don't read the whole spec:
   section you need. Spec files run to hundreds of lines and a given change usually touches one.
 
 Pick the **single** file whose concern matches the change. If the change naturally crosses
-multiple files, that's a signal the concern might be miscarved — **flag it to the user before
+multiple files, that's a signal the concern might be miscarved - **flag it to the user before
 duplicating content.** Don't just write to both files.
 
 For example, roadmap, milestones, and "what's next" are one concern: they live in
@@ -24,26 +24,26 @@ other files.
 
 ## Cross-reference, don't restate
 
-When file A needs a concept that lives in file B, link by **file path** — e.g.
+When file A needs a concept that lives in file B, link by **file path** - e.g.
 `see schema.md → Tables` or `see signals/zone.md`. Don't restate the concept; restating creates
 a second source of truth that will drift.
 
 ## Move stale content to `archive.md`
 
 The spec describes the **current intended design**, not the history. When a section stops
-reflecting live code — an abandoned approach, a removed table, a deprecated flow — move it to
+reflecting live code (an abandoned approach, a removed table, a deprecated flow), move it to
 `spec/archive.md` rather than leaving it inline. `archive.md` is the institutional memory;
 everything else is current.
 
-## Research notes — the pre-design exception
+## Research notes - the pre-design exception
 
 Exploratory research (prior-art scans, option/tradeoff analysis) comes *before* design and is
-**not yet design**, so it lives outside the rules above — in an optional `spec/research/`
+**not yet design**, so it lives outside the rules above - in an optional `spec/research/`
 sub-folder (dated snapshots, `YYYY-MM-topic.md`):
 
 - **Gate-free.** A note asserts no design, so write and update it freely. Only *graduating a
   conclusion* into the spec (e.g. `open-questions.md` / `roadmap.md`) needs the user's sign-off.
-- **Write as you go.** Checkpoint findings during the session, not only at the end — the
+- **Write as you go.** Checkpoint findings during the session, not only at the end - the
   transcript isn't durable (the reason this procedure exists), so a crashed session loses nothing.
 - **Dated snapshots, exempt from the archive rule.** A note records what was true when written;
   don't rewrite it to stay current. Conclusions graduate upward; the note stays as the evidence trail.
@@ -88,7 +88,7 @@ rewrite. Neither has a concern to split off, so the ask would have no good answe
 
 <!-- specflow:full-only:start -->
 A decision lives in two places: the **spec** (durable design) and the **queue** (work that
-flows from it). The transcript is not durable — if you don't write it down, a future agent will
+flows from it). The transcript is not durable - if you don't write it down, a future agent will
 re-litigate it or silently contradict it.
 
 **Decision made *with* the user (working session):**
@@ -96,7 +96,7 @@ re-litigate it or silently contradict it.
 1. Update the relevant `spec/` file(s) to reflect the new design, with a `spec:` commit.
 2. Update `BUILD_QUEUE.md`: revise the relevant in-flight batch, or add new batches that flow
    from the decision, with a `meta:` commit. **Never** put claim state (Owner / Started /
-   Finished) into `BUILD_QUEUE.md` — that lives in `CLAIMS.md` only. The queue holds *design
+   Finished) into `BUILD_QUEUE.md` - that lives in `CLAIMS.md` only. The queue holds *design
    intent*; the claims file holds *execution state*.
 3. Then proceed to implementation.
 
@@ -104,11 +104,11 @@ re-litigate it or silently contradict it.
 it lists: every layer crossed pulls in its own files, conventions, and verification, and the agent
 holds all of them at once until the batch closes. What counts as a layer is per project. When the
 work flowing from a decision spans more layers than one batch needs, write it as two, split on the
-layer seam — each then declares a file list of its own, and disjoint lists are what let them run in
+layer seam - each then declares a file list of its own, and disjoint lists are what let them run in
 parallel.
 <!-- specflow:full-only:end -->
 <!-- specflow:spec-only:start -->
-A decision belongs in the **spec** (durable design), not just the transcript — if you don't
+A decision belongs in the **spec** (durable design), not just the transcript - if you don't
 write it down, a future agent will re-litigate it or silently contradict it.
 
 **Decision made *with* the user (working session):**
@@ -121,11 +121,11 @@ write it down, a future agent will re-litigate it or silently contradict it.
 
 Do **not** quietly make and persist the decision. Instead:
 
-1. Surface it to the user — describe the choice and the tradeoffs.
+1. Surface it to the user - describe the choice and the tradeoffs.
 2. Wait for their call.
 3. Once decided, follow the working-session flow above.
 
-Scope: this applies to **design/spec** — architecture, data model, public behavior<!-- specflow:full-only:start -->, batch
+Scope: this applies to **design/spec** - architecture, data model, public behavior<!-- specflow:full-only:start -->, batch
 scope<!-- specflow:full-only:end -->. Day-to-day implementation forks (library choice, internal file naming, refactor shape)
 stay agent discretion.
 

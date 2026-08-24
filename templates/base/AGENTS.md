@@ -1,16 +1,16 @@
 <!-- specflow:start - managed by specflow; do not edit inside these markers (your edits block specflow upgrade). Add your own notes outside them. -->
-# AGENTS.md — Shared Agent Protocol (specflow)
+# AGENTS.md - Shared Agent Protocol (specflow)
 
 > **Managed by [specflow](https://github.com/MatanKoby/specflow).** Everything between the
-> `specflow:start` / `specflow:end` markers is generated — `specflow upgrade` refreshes that
+> `specflow:start` / `specflow:end` markers is generated - `specflow upgrade` refreshes that
 > region and **only** that region; text outside the markers is preserved. Add repo-specific
 > notes *outside* the markers (project identity is better in `README.md` / `CLAUDE.md` / your
-> agent's own config). Don't edit *inside* the markers — `upgrade` flags an edited region and
+> agent's own config). Don't edit *inside* the markers - `upgrade` flags an edited region and
 > leaves it untouched rather than clobbering it, so your change blocks future refreshes.
 
 This is the single source of truth for how one or more AI coding agents collaborate on this
 repo. **Every agent must read this before starting work.** It applies to *all* agents equally
-(Claude Code, Cursor, Copilot, and any other) — agent-specific quirks live in that agent's own
+(Claude Code, Cursor, Copilot, and any other) - agent-specific quirks live in that agent's own
 config file, not here.
 
 ## The model in one paragraph
@@ -19,28 +19,28 @@ config file, not here.
 Work is **specced** before it is built (`spec/`), broken into **batches** (`BUILD_QUEUE.md`),
 and each batch is **claimed** in git before code is written (`CLAIMS.md`) so the record of
 "who is doing what / what is done" survives a crashed laptop and lets multiple agents (or
-people) work the same branch without colliding. Three procedures — **claim a batch**, **edit
-the spec**, **finish a batch** — carry the discipline; their full steps live in
+people) work the same branch without colliding. Three procedures (**claim a batch**, **edit
+the spec**, **finish a batch**) carry the discipline; their full steps live in
 `specflow/procedures/`.
 <!-- specflow:full-only:end -->
 <!-- specflow:spec-only:start -->
 Work is **specced** before it is built: the design lives in `spec/`, organized one concern per
-file, and agents keep it current — creating, updating, splitting, and archiving spec files as
+file, and agents keep it current - creating, updating, splitting, and archiving spec files as
 the design evolves. This is a **spec-only** install: just the spec discipline, with no batch
-queue or claim ledger. One procedure — **edit the spec** — carries it; its full steps live in
+queue or claim ledger. One procedure, **edit the spec**, carries it; its full steps live in
 `specflow/procedures/`.
 <!-- specflow:spec-only:end -->
 
 ## Repo & branches
 
-- There is one **shared working branch** (default `main` — substitute your team's if different).
+- There is one **shared working branch** (default `main` - substitute your team's if different).
   Agents commit directly to it, subject to the **commit/push levers** below. Always
   `git pull --ff-only` before you start work.
 - No feature branches in the normal flow. (Teams that prefer PR-per-batch can layer that on;
   the default is direct-commit.)
 - **Never** force-push the shared branch. Recover from a rejected push with `git pull --rebase`
   (never force), then re-push.<!-- specflow:full-only:start --> The one exception is a rejected
-  **claim** commit, which is resolved with `git fetch` + `reset` — see `claim-batch.md`.<!-- specflow:full-only:end -->
+  **claim** commit, which is resolved with `git fetch` + `reset` - see `claim-batch.md`.<!-- specflow:full-only:end -->
 
 ## Commit & push authority
 
@@ -48,15 +48,15 @@ Two independent levers in `specflow/config.json` (`config.commit` / `config.push
 agent may do with code it has written. **Read them before any commit or push step** in the
 procedures:
 
-- **`commit: agent`** — the agent creates commits itself. **`commit: user`** — the agent does
+- **`commit: agent`** - the agent creates commits itself. **`commit: user`** - the agent does
   **not** commit; on reaching a sensible commit point it **alerts the user and supplies a short
   suggested commit message** (in the convention below), and the user makes the commit.
-- **`push: agent`** — the agent pushes after committing. **`push: user`** — the agent commits but
+- **`push: agent`** - the agent pushes after committing. **`push: user`** - the agent commits but
   **never pushes**; the user pushes on their own terms. (Only meaningful when `commit: agent`.)
 
 Where the procedures say "commit … and push," honor these levers: substitute an alert + suggested
 message when `commit: user`, and stop before pushing when `push: user`. The default is
-`agent` / `agent` — the agent commits and pushes.
+`agent` / `agent` - the agent commits and pushes.
 
 ## File ownership
 
@@ -77,15 +77,15 @@ The golden rule: **the queue declares work; the claims file records execution st
 never mix. The user can overwrite `BUILD_QUEUE.md` at any time without breaking agent state,
 because no Owner / Started / Finished / Status ever lives in it.
 
-## The work queue — `BUILD_QUEUE.md`
+## The work queue - `BUILD_QUEUE.md`
 
 Lists only **un-done** batches, in full (completed ones collapse to summaries in
 `specflow/history/BUILD_QUEUE_DONE.md`). Eligibility is read from the tag in each batch heading:
 
-- **No tag** — claimable, subject to the dependency check below.
-- `[MANUAL]` — the user executes this (e.g. infra provisioning). Agents skip entirely.
-- `[NOT READY]` — blocked on external work or undecided design. Don't claim.
-- Any tag you don't recognize — treat as exclusionary and ask the user.
+- **No tag** - claimable, subject to the dependency check below.
+- `[MANUAL]` - the user executes this (e.g. infra provisioning). Agents skip entirely.
+- `[NOT READY]` - blocked on external work or undecided design. Don't claim.
+- Any tag you don't recognize - treat as exclusionary and ask the user.
 
 A batch may list `Depends on: Batch X[, Batch Y]`. It's only eligible once **every** listed
 dependency appears in `CLAIMS.md` `## Completed` (or `specflow/history/CLAIMS_DONE.md`).
@@ -96,17 +96,17 @@ don't overlap. When they touch the same files, run them sequentially.
 **Size a batch by the layers it crosses, not the deliverables it lists.** Three edits inside one
 layer is a small batch; one edit each to the spec, a template, the code, and its tests is a wide one,
 however short each item reads in the queue. What counts as a layer is per project. When a batch's
-declared file list spans more layers than its goal needs, split it along the layer seam — the pieces
+declared file list spans more layers than its goal needs, split it along the layer seam - the pieces
 then declare disjoint file lists, which is what makes the parallel rule above usable.
 
-## The claims file — `CLAIMS.md`
+## The claims file - `CLAIMS.md`
 
 Two sections: `## In progress` (one entry per active claim) and `## Completed` (recent finishes,
 newest first). It is a **bounded working set, not a log**: `## Completed` holds the **5** newest
 entries and `prune-ledgers` moves the rest to `specflow/history/CLAIMS_DONE.md`. Entry format:
 
 ```
-### Batch N — <short title>
+### Batch N - <short title>
 - Owner: <agent>
 - Started: YYYY-MM-DD HH:MM        (UTC)
 - Finished: YYYY-MM-DD HH:MM       (only in Completed)
@@ -117,24 +117,24 @@ entries and `prune-ledgers` moves the rest to `specflow/history/CLAIMS_DONE.md`.
 
 ## The procedures
 
-Detailed steps live in `specflow/procedures/`. **Read the relevant file before acting** —
+Detailed steps live in `specflow/procedures/`. **Read the relevant file before acting**:
 don't reconstruct it from memory.
 
-- **`specflow/procedures/spec-edit.md`** — before editing any `spec/**` file or persisting a
+- **`specflow/procedures/spec-edit.md`** - before editing any `spec/**` file or persisting a
   design decision: concern-matching, cross-reference-don't-restate, archive rule<!-- specflow:full-only:start -->,
   propagation to `BUILD_QUEUE.md`<!-- specflow:full-only:end -->. **Run before any spec change.**
   Its *Research notes* section also covers the optional pre-design step: exploratory research
-  (prior-art scans, option/tradeoff analysis) has a gate-free home in `spec/research/` — dated
-  snapshots written on the go — whose conclusions graduate up into the spec (e.g.
+  (prior-art scans, option/tradeoff analysis) has a gate-free home in `spec/research/` (dated
+  snapshots written on the go) whose conclusions graduate up into the spec (e.g.
   `open-questions.md` / `roadmap.md`).
 <!-- specflow:full-only:start -->
-- **`specflow/procedures/claim-batch.md`** — pull, eligibility + dependency + parallelism
+- **`specflow/procedures/claim-batch.md`** - pull, eligibility + dependency + parallelism
   checks, write the `CLAIMS.md` entry, `meta: claim` commit, push-race recovery, handoff,
   stale-claim reclaim. **Run before starting any new batch.**
-- **`specflow/procedures/finish-batch.md`** — final commit + SHA, move the entry to
+- **`specflow/procedures/finish-batch.md`** - final commit + SHA, move the entry to
   `## Completed`, summarize, move the batch out of `BUILD_QUEUE.md` into `specflow/history/BUILD_QUEUE_DONE.md`,
   prune the ledgers, `meta: complete` commit. **Run when wrapping up.**
-- **`specflow/procedures/prune-ledgers.md`** — keep `CLAIMS.md` `## Completed` to its 5 newest
+- **`specflow/procedures/prune-ledgers.md`** - keep `CLAIMS.md` `## Completed` to its 5 newest
   entries (older ones move verbatim to `specflow/history/CLAIMS_DONE.md`) and sweep `BUILD_QUEUE.md`
   of sections whose batch is already completed, dissolved, or absorbed. **`finish-batch` delegates
   here**; also runnable by hand whenever a ledger has grown long. An install that predates this
@@ -158,7 +158,7 @@ don't reconstruct it from memory.
 | `spec: <change>` | Edits to any `spec/**` file |
 | `meta: <other>` | Tooling / structural changes |
 
-`git log --oneline` is the change log — there is no separate changelog file.
+`git log --oneline` is the change log - there is no separate changelog file.
 
 ## Working economically
 
@@ -182,12 +182,12 @@ intellectual. These are habits, not politeness:
 
 ## Editing rules
 
-- Treat `spec/**` as the design — propose edits through the `spec-edit` procedure; don't freelance.
+- Treat `spec/**` as the design - propose edits through the `spec-edit` procedure; don't freelance.
 <!-- specflow:full-only:start -->
 - Treat `BUILD_QUEUE.md` and `spec/**` as user-owned for *execution state* (claim/Owner/
   timestamps live in `CLAIMS.md` only). Design intent may be written to both via `spec-edit`.
 - Anyone may add new `CLAIMS.md` entries, but only the current Owner mutates a batch's entry
-  (except stale-claim recovery — see `claim-batch.md`).
+  (except stale-claim recovery - see `claim-batch.md`).
 - Always `git pull --ff-only` before claiming so you don't race another agent.
 <!-- specflow:full-only:end -->
 <!-- specflow:end -->

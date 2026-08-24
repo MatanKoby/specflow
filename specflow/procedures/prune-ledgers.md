@@ -15,7 +15,7 @@ growing logs. This procedure keeps them that way. `AGENTS.md` carries only the p
   (`specflow finish` already applies section 1 as part of completing the batch, so after the verb the
   only thing left here is the section 2 queue sweep.)
 - **When a weight warning fires.** `specflow next` and `specflow verify` report both ledgers' line
-  counts and warn when one is past its bound — the count of completed entries, or the preamble cap in
+  counts and warn when one is past its bound - the count of completed entries, or the preamble cap in
   section 3. The warning names the section to run.
 - **Once per install, after an upgrade that caps the entry.** Retention bounds how many entries
   `CLAIMS.md` holds; the stub cap bounds how big one gets, and it only reaches entries written after
@@ -95,7 +95,7 @@ un-done work, which is exactly what the queue is for. Length is not a reason to 
 Everything above the **first `## Batch` heading** is the queue's preamble: the header links, the
 "How this works" rules, and the pick-order pointer. Sections 1 and 2 bound *entries*; nothing bounds
 this. It is where a durable fact gets parked when whoever wrote it could not decide which `spec/`
-file owns it — at finish time the queue is already open, writing there is one edit, and no rule ever
+file owns it - at finish time the queue is already open, writing there is one edit, and no rule ever
 comes back for it. So it fills.
 
 **The cap is 45 lines**, counted from the top of the file to the line before the first batch:
@@ -107,16 +107,16 @@ awk '/^## Batch /{print NR-1; exit}' BUILD_QUEUE.md
 Under the cap there is nothing to do here. Over it, sort each preamble paragraph into one of three
 piles and put the result to the user:
 
-- **Keep** — the pick-order pointer, and the rules that tell an agent how to read the file. That is
+- **Keep** - the pick-order pointer, and the rules that tell an agent how to read the file. That is
   what a preamble is for.
-- **Relocate** — a durable design fact, a decision, a release history. It belongs in `spec/`: run
+- **Relocate** - a durable design fact, a decision, a release history. It belongs in `spec/`: run
   `spec-edit.md` to find the file whose concern owns it, move it there, and leave behind a link only
   if a reader of the queue actually needs one.
-- **Delete** — stale status (a version line saying "open, not tagged" after the tag was pushed),
+- **Delete** - stale status (a version line saying "open, not tagged" after the tag was pushed),
   notes about a batch that has since shipped, anything the archives already carry.
 
 **This section is a stop-and-ask**, unlike sections 1 and 2. Archiving an entry is mechanical, but
-deciding which spec file should own a stranded paragraph is a judgment call about concerns — the same
+deciding which spec file should own a stranded paragraph is a judgment call about concerns - the same
 call `spec-edit.md` never makes on its own authority. Show the three piles, then act on the answer.
 
 **If the user chooses to keep it over the cap**, record the waiver as the **first line of the file**,

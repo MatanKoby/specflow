@@ -10,17 +10,17 @@
   "kit": "specflow",
   "kitVersion": "0.1.8",
   "managed": {
-    ".claude/hooks/specflow-handoff-reminder.sh": "9fea5b4f18baca779901fa4d93b2f90794aded84f8fc322d24d05f3e3558ead9",
-    ".claude/skills/claim-batch/SKILL.md": "f0d812557db00a00df93e074afb4c1af172470dd7b629b6ebeb115e22ad4d863",
-    ".claude/skills/finish-batch/SKILL.md": "d72f15b86b96e46aae61fbe0cb7934f3a924a8aa9beb8ce2c525a3279effc9a6",
-    ".claude/skills/prune-ledgers/SKILL.md": "5f5633a5c2458a677be7df14cd6cb6b80ac20c59acb4311766175177e083864a",
-    ".claude/skills/spec-edit/SKILL.md": "8385c8138be067b6347114cdf8e73b3ffa6d542d059792b70965f7f4b06cfe9a",
-    "AGENTS.md": "54b68844cc31074e078b70f45a06c57d61f4d60bf4c87fa18e86753e49e64a61",
-    "CLAUDE.md": "409621d57e5cfb93c52b3aa118c9cc4c06dcae4a4b69f1f6cb1fb8c252838693",
-    "specflow/procedures/claim-batch.md": "39820870fbf0b594e300026dbae28d6986b22af61997720459356247e876d4b0",
-    "specflow/procedures/finish-batch.md": "70a1e04babbae10cd1db295d2896721a9cbf08f983bca26f4334511efd1a15e8",
-    "specflow/procedures/prune-ledgers.md": "cc5d00ebbd8d0e251386d1fe264dcf3ec3edb9639a236238db1c340a8a718a47",
-    "specflow/procedures/spec-edit.md": "8d93da7aecc9423229816054da464506729d45b28072256d560cc6cb6e3d431c"
+    ".claude/hooks/specflow-handoff-reminder.sh": "ff295883c23d0af0406f92c0da95fd92c92b437367a976341a2472a9812e1daa",
+    ".claude/skills/claim-batch/SKILL.md": "741eddf107d5994e5859bdf43b60a17147961e0ad53adbaad903c9b6e5302639",
+    ".claude/skills/finish-batch/SKILL.md": "c136110b46280e1d7e73e64303fcef863ca2e2842fa34df2579c4875f5552be7",
+    ".claude/skills/prune-ledgers/SKILL.md": "d19d69314f99da347c7ada9ddd1db9c3fc0a986f031c133581cb6a7a4b6818c0",
+    ".claude/skills/spec-edit/SKILL.md": "dbd1d6215ecadfa96669ba54d68724f5c072b65ef02941cead52300f93795952",
+    "AGENTS.md": "8466eeceab687b520d1c7d402cc133e837fa0f7ab8d7eb0cc17b65913eefbd9c",
+    "CLAUDE.md": "8408d7b73bd7f28b4a1d6922f5e1a0f882a946efe370d58e166f4a99d20367ba",
+    "specflow/procedures/claim-batch.md": "930ace5370ce3c11ede51cd1bd5ba71ea139c5636e5dc16c1a095260fe9c65d4",
+    "specflow/procedures/finish-batch.md": "a2e6e498d023e2938778cce830be6159ed7eb06eb3d4df67a87bda8177a01d59",
+    "specflow/procedures/prune-ledgers.md": "823631d254894cbae1d878fd2673dc14a01190e806270d040824afefea0a0cff",
+    "specflow/procedures/spec-edit.md": "1ee9c5b2a62b8dba9cd07e6a03a0a894ce670a2a148990333ccbb8a2f06950b7"
   },
   "schemaVersion": 1,
   "upgradedAt": "2026-08-24"

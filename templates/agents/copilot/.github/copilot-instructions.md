@@ -8,7 +8,7 @@ This repo uses **specflow**, a shared protocol for AI coding agents.
 specced (`spec/`), split into batches (`BUILD_QUEUE.md`), and each batch is claimed in git
 (`CLAIMS.md`) before code is written.
 
-The four procedures live in `specflow/procedures/` — read the relevant one before acting:
+The four procedures live in `specflow/procedures/` - read the relevant one before acting:
 
 - Before starting any new batch → `specflow/procedures/claim-batch.md`
 - Before editing any `spec/**` file or persisting a design decision → `specflow/procedures/spec-edit.md`
@@ -22,7 +22,7 @@ edits. Never force-push the shared branch. Never write claim state into `BUILD_Q
 **Read `AGENTS.md` at the repo root before doing anything.** It is the full protocol: design is
 written down in `spec/`, and the user approves a design before it is persisted or built.
 
-The spec procedure lives in `specflow/procedures/` — read it before acting:
+The spec procedure lives in `specflow/procedures/` - read it before acting:
 
 - Before editing any `spec/**` file or persisting a design decision → `specflow/procedures/spec-edit.md`
 

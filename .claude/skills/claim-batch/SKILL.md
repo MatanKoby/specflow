@@ -1,11 +1,11 @@
 ---
 name: claim-batch
-description: Use when claiming a batch from BUILD_QUEUE.md — eligibility, dependency, and parallelism checks, the CLAIMS.md entry, the `meta: claim` commit, push-race recovery, and handoff/reclaim flows. Invoke before starting any new batch.
+description: Use when claiming a batch from BUILD_QUEUE.md - eligibility, dependency, and parallelism checks, the CLAIMS.md entry, the `meta: claim` commit, push-race recovery, and handoff/reclaim flows. Invoke before starting any new batch.
 ---
 
 # Claim a batch
 
-Follow **`specflow/procedures/claim-batch.md`** in this repo — that file is the authoritative,
+Follow **`specflow/procedures/claim-batch.md`** in this repo - that file is the authoritative,
 up-to-date procedure (it is kept in sync by `specflow upgrade`; this skill is a thin trigger so
 the steps live in exactly one place).
 
@@ -17,4 +17,4 @@ work with `batch-N:` commits, and invoke `finish-batch` when done.
 **Use the CLI when it's installed:** `specflow next` answers the whole eligibility section in one
 read-only call (tag, already-claimed, dependency, and file-overlap checks, with a reason for every
 blocked batch), and `specflow claim <N>` writes the entry in the exact shape, refusing anything
-`next` wouldn't offer. Neither commits — the `meta: claim` commit is still yours.
+`next` wouldn't offer. Neither commits - the `meta: claim` commit is still yours.

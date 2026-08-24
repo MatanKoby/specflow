@@ -5,12 +5,12 @@ Run this before starting any new batch. `AGENTS.md` carries only the pointer to 
 
 > **Commit & push follow the configured levers** (`config.commit` / `config.push` in
 > `specflow/config.json`; see `AGENTS.md` → *Commit & push authority*). Wherever a step below says
-> "commit" or "push": if `commit: user`, don't commit — alert the user and hand them the suggested
+> "commit" or "push": if `commit: user`, don't commit - alert the user and hand them the suggested
 > message; if `push: user`, commit but don't push. Default is `agent` / `agent`.
 
 ## Pre-flight
 
-1. `git pull --ff-only` on the shared working branch — if it fails, resolve before claiming.
+1. `git pull --ff-only` on the shared working branch - if it fails, resolve before claiming.
 
 ## Eligibility
 
@@ -27,7 +27,7 @@ Then slice the one section you actually need by line number (`sed -n '120,180p' 
 Read a file whole only when the headings genuinely don't answer the question.
 
 **Prune first if `CLAIMS.md` has overgrown.** Pruning at finish alone doesn't help the agent that
-claims next — it still reads the overgrown file on the way in, and that read is the cost. So test the
+claims next - it still reads the overgrown file on the way in, and that read is the cost. So test the
 retention rule here too, before claiming:
 
 ```
@@ -35,7 +35,7 @@ sed -n '/^## Completed/,$p' CLAIMS.md | grep -c '^### '   # more than 5 → prun
 ```
 
 More than **5** completed entries means run `specflow/procedures/prune-ledgers.md` and commit the
-prune on its own, then claim. This is the same retention count `finish` enforces — there is no second
+prune on its own, then claim. This is the same retention count `finish` enforces - there is no second
 threshold, and nothing to ask the user.
 
 **Fast path: `specflow next`.** When the specflow CLI is on the machine, one read-only call answers
@@ -61,7 +61,7 @@ steps below stay authoritative: they are what the verb is doing, and what to do 
 5. Edit `CLAIMS.md`. Add an entry to the **top** of `## In progress`:
 
    ```
-   ### Batch N — <title>
+   ### Batch N - <title>
    - Owner: <your agent name>
    - Started: YYYY-MM-DD HH:MM
    ```
@@ -81,15 +81,15 @@ If `git push` is rejected as non-fast-forward, another agent committed first. Re
 **without force-pushing**:
 
 1. `git fetch` the shared branch.
-2. `git reset --hard <remote>/<branch>` — drops your local claim commit. Safe because the only
+2. `git reset --hard <remote>/<branch>` - drops your local claim commit. Safe because the only
    change was `CLAIMS.md`.
 3. Re-read `CLAIMS.md`:
-   - If your target batch is now `## In progress`, someone else has it — pick a different
+   - If your target batch is now `## In progress`, someone else has it - pick a different
      claimable batch and start over.
    - If your target is still unclaimed (they raced for a *different* batch), re-run this whole
      procedure from step 1 with the same target.
 
-For a rejected push on a *work* commit (`batch-N: ...`), **don't reset** — `git pull --rebase`,
+For a rejected push on a *work* commit (`batch-N: ...`), **don't reset** - `git pull --rebase`,
 resolve conflicts, push again. **Never** `git push --force` on the shared branch.
 
 ## Mid-batch handoff (rare)
@@ -110,7 +110,7 @@ If a batch has been `## In progress` with no new commits for >24h and you want t
 1. Update `Owner:` in the existing entry; add a `Reclaim note:` explaining why.
 2. Commit `meta: reclaim batch-N from <prior owner>` and push.
 
-Use sparingly — prefer to wait or ask the user.
+Use sparingly - prefer to wait or ask the user.
 
 ## Doing the work
 

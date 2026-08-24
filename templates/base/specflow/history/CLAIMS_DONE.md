@@ -1,4 +1,4 @@
-# Claims — Archive
+# Claims - Archive
 
 Older completed entries archived from `CLAIMS.md`. Reference-only, newest archived batch at
 the top. Append-only institutional memory: entries arrive verbatim and are never rewritten.

@@ -5,7 +5,7 @@ description: Use when CLAIMS.md or BUILD_QUEUE.md has grown long, when a specflo
 
 # Prune the ledgers
 
-Follow **`specflow/procedures/prune-ledgers.md`** in this repo — that file is the authoritative,
+Follow **`specflow/procedures/prune-ledgers.md`** in this repo - that file is the authoritative,
 up-to-date procedure (kept in sync by `specflow upgrade`; this skill is a thin trigger).
 
 In short: `CLAIMS.md` `## Completed` keeps its 5 newest entries and the rest move verbatim to the
@@ -19,5 +19,5 @@ that verb the only thing left here is the `BUILD_QUEUE.md` sweep, which has no v
 hand.
 
 An install that predates this procedure may be many entries over: archive them all in one
-catch-up pass. Lossless and mechanical, so no stop-and-ask — **except** the preamble audit, which
+catch-up pass. Lossless and mechanical, so no stop-and-ask - **except** the preamble audit, which
 asks, because deciding which `spec/` file should own a stranded paragraph is a judgment call.

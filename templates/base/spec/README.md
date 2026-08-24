@@ -1,6 +1,6 @@
 # Specification
 
-> Replace this paragraph with one or two sentences describing what this project is — the
+> Replace this paragraph with one or two sentences describing what this project is - the
 > product identity a new reader (or agent) needs before reading anything else.
 
 The spec is split across concern-focused files. Each file is small and edited as a unit. When
@@ -34,17 +34,17 @@ For someone new: README → (the architecture/overview file) → the files for t
 of them. Don't read everything.
 
 <!-- specflow:full-only:start -->
-For an agent claiming a batch: read the queue entry first, then the 2–4 spec files relevant to
+For an agent claiming a batch: read the queue entry first, then the 2-4 spec files relevant to
 the batch's domain. Pull a sub-folder README before reading individual files there.
 <!-- specflow:full-only:end -->
 <!-- specflow:spec-only:start -->
-For an agent picking up a task: read the 2–4 spec files relevant to its domain, not the whole
+For an agent picking up a task: read the 2-4 spec files relevant to its domain, not the whole
 spec. Pull a sub-folder README before reading individual files there.
 <!-- specflow:spec-only:end -->
 
 ## Editing convention
 
 Edit the file matching the concern. If a change crosses multiple files, that's a signal the
-concern might be miscarved — flag it before duplicating content. Cross-reference by file path
+concern might be miscarved - flag it before duplicating content. Cross-reference by file path
 rather than restating. Move historical context to `archive.md` when it stops being part of the
 live system. Full procedure: `specflow/procedures/spec-edit.md`.

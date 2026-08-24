@@ -8,7 +8,7 @@ completion log. The user does not normally edit this. Procedures:
 Entry format:
 
 ```
-### Batch N — <short title>
+### Batch N - <short title>
 - Owner: <agent>
 - Started: YYYY-MM-DD HH:MM        (UTC)
 - Finished: YYYY-MM-DD HH:MM       (only in Completed)
