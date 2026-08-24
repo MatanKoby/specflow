@@ -51,6 +51,10 @@ Entries above the LW line predate the rule and are left as written.
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch ED — one mechanical pass, no rewording
+- Owner: claude
+- Started: 2026-08-24 14:14
+
 ## Completed
 
 ### Batch FS — the stub contract says what the code already does
