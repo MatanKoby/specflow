@@ -25,3 +25,11 @@ on `specflow upgrade`.
 <!-- specflow:end -->
 
 <!-- Add project-specific Claude guidance here, outside the markers above. -->
+
+## Writing style for shipped content
+
+**No em dash (—), en dash (–), or double hyphen (--) in anything specflow ships.** The full rule,
+including the exact managed set it covers, what is deliberately out of scope, and the grep to run
+before committing, lives in [`AGENTS.md`](AGENTS.md) → *Writing style for shipped content*, below
+the specflow markers. Read it before editing anything under `templates/**` or
+`specflow/procedures/`.

@@ -170,3 +170,41 @@ intellectual. These are habits, not politeness:
   (except stale-claim recovery - see `claim-batch.md`).
 - Always `git pull --ff-only` before claiming so you don't race another agent.
 <!-- specflow:end -->
+
+<!-- Repo-specific notes below. Outside the markers, so `specflow upgrade` preserves them. -->
+
+## Writing style for shipped content (specflow repo)
+
+**Nothing specflow ships may contain an em dash (—), an en dash (–), or a double hyphen (--).**
+Batch ED swept them all out; the job now is keeping them out. This binds every agent working in
+this repo, and it applies to new text as much as to edits of existing text.
+
+The managed set this covers:
+
+- `templates/**` (everything a `specflow init` writes into a user's repo)
+- `specflow/procedures/*.md`
+- this repo's own managed copies: `AGENTS.md`, `CLAUDE.md`, `.claude/skills/**`, `.claude/hooks/**`
+- the recorded baselines in `specflow/config.json`, which must stay byte-identical to their templates
+
+Replacements, in order of preference: a comma, a colon, parentheses around a bracketed clause, or
+two sentences. A spaced hyphen (` - `) is the default when none of those reads better. Single
+hyphens in compound words (well-known, read-only, spec-driven) are fine, and so are arrows (→) and
+bullets (·) already in use.
+
+**Deliberately out of scope, and still dashed:** `spec/**`, `README.md`, `BUILD_QUEUE.md`,
+`CLAIMS.md`, `specflow/history/**`, `.github/release-notes/**`, and the Go source under
+`internal/` and `cmd/`. Don't sweep them as a side effect of other work. `internal/kit/queue.go`
+still writes `### Batch N — title` into downstream ledgers and `cmd/specflow` still prints dashes
+to the console; fixing those emitters is a queued follow-up, not an ad-hoc edit.
+
+Check before committing anything under the managed set:
+
+```sh
+grep -rn '—\|–' templates specflow/procedures AGENTS.md CLAUDE.md .claude/skills .claude/hooks
+```
+
+Clean means four hits, all of them this rule naming the characters it forbids (two lines here, one
+in `CLAUDE.md`, one in the code fence above). Anything else is a regression. The grep covers only
+the em and en dash, because `--` is legitimate and everywhere in the managed set (markdown table
+rules, YAML frontmatter, HTML comments, and CLI flags such as `--ff-only` and `--dry-run`); the
+double hyphen is banned **in prose only**, and that one is caught by reading, not grep.
