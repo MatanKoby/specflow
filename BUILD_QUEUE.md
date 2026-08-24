@@ -21,38 +21,10 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > **MC** · **FS** · **ED**. Which batch shipped in which release lives in `spec/roadmap.md` →
 > *Release lines*, and the milestone goals live there too, not here. This file holds un-done work only.
 >
-> **Claimable:** **FS** (stub contract) · **ED** (em dash sweep). Pick order FS, then **ED last** so
-> it sweeps the prose FS adds. FS and ED share `templates/base/**`. **RC** and **MC** are done.
+> **Claimable:** **ED** (em dash sweep), the last of the line — it sweeps the prose the other three
+> added. **RC**, **MC**, and **FS** are done.
 > **Not ready:** **NX** (`next` file spread) · **W** (workflow config) · **NB** (`--new-batch`) ·
 > **E** (enforcement, research-first) · **P** (npm-wrapper front-end) · Homebrew tap.
-
----
-
-## Batch FS - the stub contract says what the code already does
-
-**Goal.** Three loose ends left by Batch LW, all cheap, all reported from a real install.
-
-- **The cap counts prose only.** `stubLines` already skips blank lines and the pointer
-  (`internal/kit/queue.go:815`), which is why a 10-line stub file is accepted against an 8-line cap.
-  Correct behavior, undocumented: `finish-batch.md` step 3 and `templates/base/CLAIMS.md` state the
-  cap without saying what counts, so an agent budgets against the wrong number. Say it where the cap
-  is stated.
-- **The pointer is unvalidated free text.** It is matched only to exclude it from the count
-  (`queue.go:64`), while `finish` writes the done-file heading itself (`queue.go:622`) and therefore
-  knows the target. Emit the pointer when the stub omits it, and refuse one that names a different
-  batch.
-- **The archive's header still promises the old shape.** `templates/base/BUILD_QUEUE.md:5` and
-  `prune-ledgers.md:60` describe `BUILD_QUEUE_DONE.md` as "one-paragraph summaries", which is what it
-  was before LW made it the home of the full narrative.
-
-**Note:** shares `internal/kit/queue.go` with Batch MC and `templates/base/**` with Batch ED, so it
-runs alone against either.
-
-### Files this batch creates/edits
-- `internal/kit/queue.go` · `cmd/specflow/main.go` · `cmd/specflow/main_test.go` ·
-  `templates/base/BUILD_QUEUE.md` · `templates/base/CLAIMS.md` ·
-  `templates/base/specflow/procedures/finish-batch.md` ·
-  `templates/base/specflow/procedures/prune-ledgers.md`.
 
 ---
 

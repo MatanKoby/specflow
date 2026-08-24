@@ -10,6 +10,49 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch FS — the stub contract says what the code already does
+Batch LW moved the batch's narrative out of `CLAIMS.md` and into `BUILD_QUEUE_DONE.md`, leaving
+`CLAIMS.md` a stub with a pointer. Running that shape for real surfaced three gaps, all cheap, none
+of them a design change: the documented contract described neither how the cap counts nor what the
+pointer is worth, and the archive's own header still advertised the pre-LW shape.
+
+**The cap counts prose only.** `stubLines` has always skipped blank lines and the `Full narrative`
+pointer, which is why a 10-line stub file is accepted against an 8-line cap. That is the right
+behavior — penalizing paragraph breaks would push agents toward one long line, and the pointer is
+boilerplate the procedure itself requires — but nothing said so. `finish-batch.md` step 3,
+`templates/base/CLAIMS.md`, and `specflow finish --help` each stated the bound as a bare "8 lines",
+so an agent budgeting against it budgeted against the wrong number, and the natural response to a
+rejection was to delete prose that was never costing anything. All three now say what counts, as
+does the `StubMaxLines` doc comment, which is where the next person reading the code will look.
+
+**The pointer is now checked.** It was matched by exactly one regex, and only to exclude it from the
+line count: `finish` never read it, never wrote it, and never verified it. Meanwhile `finish` is the
+thing that writes the `BUILD_QUEUE_DONE.md` heading the pointer names, so it has always known the
+right answer. Two behaviors follow from that. It **supplies** the pointer when the stub omits one,
+gated on `--done-file` being present — a pointer at a section that was never filed is worse than no
+pointer, so a stub finished without a narrative is left alone. And it **refuses** a pointer naming a
+different batch: that is what a stub copy-pasted from the entry above it looks like, and the damage
+is silent, sending the next reader to someone else's narrative with nothing visibly wrong. Refusing
+beats rewriting, because the mismatch usually means the rest of the stub was copied too, and that is
+the agent's to fix. `migrate-claims` emits its own pointer through the same helper, so there is one
+spelling of the line in the codebase. `FinishResult.PointerAdded` lets the CLI report the addition
+rather than doing it invisibly.
+
+**The archive's header promised the old shape.** `templates/base/BUILD_QUEUE.md` (and this repo's own
+copy) called `BUILD_QUEUE_DONE.md` "one-paragraph summaries of shipped batches", and `prune-ledgers`
+told the agent to confirm the archive carries a batch's "one-paragraph summary" before sweeping the
+section. `spec/architecture.md` said it in three more places, one of which also still named the
+pre-LW `--summary-file` flag. All corrected to the full narrative; the queue template's "How this
+works" bullet now describes the actual split (the section leaves the queue, the narrative lands
+whole in the archive, `CLAIMS.md` keeps a stub pointing there).
+
+Dogfooded: this entry's stub was written without a pointer, and `specflow finish` supplied it.
+
+**Housekeeping worth knowing.** The two procedure files exist twice in this repo — as templates and
+as the self-hosted install — so both copies were edited and `specflow upgrade` re-recorded the
+managed baselines in `specflow/config.json`; `verify` is clean. Batch ED is now the only one left in
+the v0.1.9 line, and it sweeps the prose this batch added.
+
 ## Batch MC — migrate-claims, so 0.1.8's ledger shape reaches old entries
 Shipped `specflow migrate-claims [--dry-run]` in `internal/kit/queue.go` + `cmd/specflow/main.go`.
 Retention bounds how many entries a ledger holds; Batch LW's stub cap bounds how big one gets, but

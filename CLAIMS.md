@@ -51,11 +51,25 @@ Entries above the LW line predate the rule and are left as written.
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch FS — the stub contract says what the code already does
 - Owner: claude
 - Started: 2026-08-21 15:01
+- Finished: 2026-08-24 14:12
+- Commit: 41ae200
 
-## Completed
+**What shipped.** The three loose ends Batch LW left in the stub contract.
+
+- The cap counts **prose lines** (blank lines and the pointer are free). Now stated wherever the
+  cap is stated: `finish-batch.md` step 3, `templates/base/CLAIMS.md`, `finish --help`, and
+  `StubMaxLines`' own doc comment.
+- `finish` supplies the `Full narrative` pointer when the stub omits one (only alongside a
+  `--done-file`), and **refuses** one that names a different batch instead of rewriting it.
+- `BUILD_QUEUE_DONE.md` is no longer described as "one-paragraph summaries" in the queue template,
+  `prune-ledgers.md`, or `spec/architecture.md` — it holds the full narrative.
+
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch FS
 
 ### Batch MC — migrate-claims, so 0.1.8's ledger shape reaches old entries
 - Owner: claude
@@ -121,19 +135,3 @@ destroy the edit being blessed.
   at the moment it matters, not only when reading `AGENTS.md`.
 
 - Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch CD
-
-### Batch RN — Authored release notes
-- Owner: claude
-- Started: 2026-08-20 16:43
-- Finished: 2026-08-20 16:46
-- Commit: 26b2cbc
-
-**What shipped**
-- **`.github/workflows/release.yml`** gained a `Resolve release notes` step: it maps the pushed tag
-  to `.github/release-notes/<tag>.md` and, when that file exists, runs GoReleaser with
-  `--release-notes=<path>`. Confirmed against the real GoReleaser v2 binary that the flag exists and
-  "will skip GoReleaser changelog generation", so the authored body replaces the commit list rather
-  than sitting beside it.
-
-- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch RN
-

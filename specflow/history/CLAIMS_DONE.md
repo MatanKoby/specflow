@@ -7,6 +7,21 @@ Written by `specflow/procedures/prune-ledgers.md`, which keeps the 5 newest comp
 `CLAIMS.md` and moves everything older here. Don't hand-move entries; run the procedure (Claude:
 the `prune-ledgers` skill) so the retention rule stays consistent.
 
+### Batch RN — Authored release notes
+- Owner: claude
+- Started: 2026-08-20 16:43
+- Finished: 2026-08-20 16:46
+- Commit: 26b2cbc
+
+**What shipped**
+- **`.github/workflows/release.yml`** gained a `Resolve release notes` step: it maps the pushed tag
+  to `.github/release-notes/<tag>.md` and, when that file exists, runs GoReleaser with
+  `--release-notes=<path>`. Confirmed against the real GoReleaser v2 binary that the flag exists and
+  "will skip GoReleaser changelog generation", so the authored body replaces the commit list rather
+  than sitting beside it.
+
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch RN
+
 ### Batch AF — Adapter files upgrade like everything else
 - Owner: claude
 - Started: 2026-08-20 13:56
