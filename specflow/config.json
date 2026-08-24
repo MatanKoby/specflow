@@ -18,10 +18,10 @@
     "AGENTS.md": "54b68844cc31074e078b70f45a06c57d61f4d60bf4c87fa18e86753e49e64a61",
     "CLAUDE.md": "409621d57e5cfb93c52b3aa118c9cc4c06dcae4a4b69f1f6cb1fb8c252838693",
     "specflow/procedures/claim-batch.md": "39820870fbf0b594e300026dbae28d6986b22af61997720459356247e876d4b0",
-    "specflow/procedures/finish-batch.md": "9624a0c28e39e37a43463c1e2cd2ee0da6d99fe90322c22b44340b44ed096ba2",
-    "specflow/procedures/prune-ledgers.md": "9d595f93ec56cbcd6f808399ebd50eae877ece353e70d5dd5d1c54812c76aaec",
+    "specflow/procedures/finish-batch.md": "70a1e04babbae10cd1db295d2896721a9cbf08f983bca26f4334511efd1a15e8",
+    "specflow/procedures/prune-ledgers.md": "cc5d00ebbd8d0e251386d1fe264dcf3ec3edb9639a236238db1c340a8a718a47",
     "specflow/procedures/spec-edit.md": "8d93da7aecc9423229816054da464506729d45b28072256d560cc6cb6e3d431c"
   },
   "schemaVersion": 1,
-  "upgradedAt": "2026-08-21"
+  "upgradedAt": "2026-08-24"
 }

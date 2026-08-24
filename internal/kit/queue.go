@@ -27,6 +27,10 @@ const CompletedRetention = 5
 // to BUILD_QUEUE_DONE.md, which nothing reads on the hot path, so the cap is a hard reject rather
 // than a stop-and-ask: moving a paragraph into the done-file loses nothing. Same bound
 // finish-batch.md states in prose.
+//
+// It counts prose lines only (see stubLines): blank lines and the `Full narrative` pointer are
+// free, so a 10-line stub file with two paragraph breaks passes an 8-line cap. Every place that
+// states the cap has to state that too, or the agent budgets against the wrong number.
 const StubMaxLines = 8
 
 // PreambleMaxLines bounds everything above BUILD_QUEUE.md's first `## Batch` heading. That prose is
@@ -534,6 +538,7 @@ type FinishResult struct {
 	Wrote        []string // files touched
 	NoSummary    bool
 	NoParagraph  bool
+	PointerAdded bool // finish supplied the `Full narrative` pointer the stub omitted
 }
 
 // Finish moves a claimed batch to done: the CLAIMS.md entry gains Finished/Commit and the agent's
@@ -561,6 +566,20 @@ func Finish(targetDir, id, commit, summary, paragraph string) (FinishResult, err
 		return res, fmt.Errorf("Batch %s is not in `## In progress` in %s (claim it first)", id, claimsRel)
 	}
 	res.Batch = entry.ID
+
+	// The pointer is the tool's own boilerplate, not the agent's prose: finish writes the archive
+	// heading itself (below), so it knows what the pointer must say. A stub that names a different
+	// batch is a copy-paste from the entry above it, and it sends the next reader to the wrong
+	// narrative, so it is refused rather than silently rewritten.
+	if named, ok := pointerBatch(summary); ok {
+		if named != "" && !strings.EqualFold(named, res.Batch) {
+			return res, fmt.Errorf("the CLAIMS.md stub's `Full narrative` pointer names Batch %s, but this is Batch %s — fix the pointer and retry (nothing was written)", named, res.Batch)
+		}
+	} else if !res.NoParagraph {
+		// Only alongside a filed narrative: a pointer at a section that was never written is a lie.
+		summary = appendPointer(summary, res.Batch)
+		res.PointerAdded = true
+	}
 
 	// Rebuild the entry: Finished + Commit right after Started, the agent's summary at the end.
 	body := completeEntry(claims.lines[entry.Start:entry.End], commit, summary)
@@ -757,7 +776,7 @@ func MigrateClaims(targetDir string, dryRun bool) (MigrateReport, error) {
 				continue
 			}
 
-			stub := append(stubFrom(body, StubMaxLines), "", "- Full narrative: `"+queueDoneRel+"` → Batch "+e.ID)
+			stub := append(stubFrom(body, StubMaxLines), "", stubPointer(e.ID))
 			rebuilt := append([]string{head}, meta...)
 			rebuilt = append(rebuilt, "")
 			rebuilt = append(rebuilt, stub...)
@@ -1112,6 +1131,37 @@ func dedupe(in []string) []string {
 		out = append(out, s)
 	}
 	return out
+}
+
+// stubPointer is the line every stub ends on: where the batch's full narrative was filed.
+func stubPointer(id string) string {
+	return "- Full narrative: `" + queueDoneRel + "` → Batch " + id
+}
+
+// appendPointer puts stubPointer at the end of a stub, as its own paragraph.
+func appendPointer(summary, id string) string {
+	s := strings.TrimRight(summary, "\n")
+	if strings.TrimSpace(s) == "" {
+		return stubPointer(id)
+	}
+	return s + "\n\n" + stubPointer(id)
+}
+
+// pointerBatch reports the batch a stub's `Full narrative` pointer names. found is false when the
+// stub has no pointer at all; id is empty when it has one that names no batch, which is a pointer
+// worth leaving alone rather than a mismatch worth refusing.
+func pointerBatch(summary string) (id string, found bool) {
+	for _, l := range splitLines(summary) {
+		t := strings.TrimSpace(l)
+		if !stubPointerRe.MatchString(t) {
+			continue
+		}
+		found = true
+		if m := qBatchRefRe.FindStringSubmatch(t); m != nil {
+			id = m[1]
+		}
+	}
+	return id, found
 }
 
 // stubLines counts the prose lines of a CLAIMS.md stub. Blank lines and the pointer at the archived

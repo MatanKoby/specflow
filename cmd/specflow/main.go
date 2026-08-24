@@ -904,6 +904,8 @@ batch section from %s, files your narrative in BUILD_QUEUE_DONE.md, and prunes
 The prose about a batch is written once. CLAIMS.md is re-read on every claim, finish,
 and prune, so it gets a stub of at most %d lines; the full narrative goes to the
 archive, which is read on purpose. An over-length stub is refused, and nothing is written.
+The cap counts prose lines: blank lines and the "Full narrative" pointer are free, and
+finish writes that pointer itself when your stub omits it.
 
 specflow owns placement, format, and timestamps; you own every word of prose:
 
@@ -1062,6 +1064,9 @@ func cmdFinish(args []string) error {
 	}
 	if res.NoSummary {
 		fmt.Println(yellow("  ⚠ ") + "no --stub-file: add the \"What shipped\" stub to the entry yourself")
+	}
+	if res.PointerAdded {
+		fmt.Println(green("  ✓ ") + "added the " + cyan("Full narrative") + " pointer the stub omitted")
 	}
 	if len(res.Archived) > 0 {
 		fmt.Println(green("  ✓ ") + fmt.Sprintf("pruned to the %d newest: archived %s", kit.CompletedRetention, strings.Join(res.Archived, ", ")))

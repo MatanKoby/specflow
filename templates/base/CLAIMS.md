@@ -15,14 +15,16 @@ Entry format:
 - Commit: <short SHA>              (only in Completed)
 - Handoff note: ...                (only when a mid-batch handoff occurred)
 
-<up to 8 lines of "What shipped": what changed, where, what a resuming agent must know first>
+<up to 8 prose lines of "What shipped": what changed, where, what a resuming agent must know first>
 - Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch N
 ```
 
 The completed entry is a **stub**, not the record. This file is re-read on every claim, finish, and
 prune, so the batch's full narrative lives in `specflow/history/BUILD_QUEUE_DONE.md` and the stub
 says only enough for a resuming agent to know whether it needs to go read it. `specflow finish`
-refuses a stub over 8 lines.
+refuses a stub over 8 lines. **The cap counts prose lines**: blank lines and the `Full narrative`
+pointer are free, so a stub with paragraph breaks is longer than 8 lines on disk and still passes.
+`finish` writes the pointer itself when the stub omits it, and refuses one naming another batch.
 
 ## In progress
 

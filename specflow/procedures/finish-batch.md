@@ -32,7 +32,9 @@ a value to the user.
    your stub summary (`--stub-file`, or `-` to read stdin; `--summary-file` is the old name and still
    works), deletes the batch section from `BUILD_QUEUE.md`, files your full narrative in
    `specflow/history/BUILD_QUEUE_DONE.md` (`--done-file`), and prunes `## Completed` to its 5 newest.
-   A stub over 8 lines is refused before anything is written, with the count and the fix.
+   A stub over 8 lines of prose is refused before anything is written, with the count and the fix;
+   it supplies the `Full narrative` pointer when your stub omits one, and refuses one that names a
+   different batch.
    specflow owns placement, format, and timestamps; **you still write every word of prose**, and the
    verb does **not** commit, so step 5 is yours. If a ledger doesn't parse it writes nothing and says
    so, rather than rewriting a file over someone's hand edit. Without the CLI, do steps 2 to 4a by
@@ -57,6 +59,11 @@ a value to the user.
    ```
    - Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch N
    ```
+
+   **The cap counts prose lines only.** Blank lines and the pointer are structure this procedure
+   requires, so they are free: budget 8 lines of content, not 8 lines of file. Write the pointer
+   naming *this* batch, or leave it out and let `specflow finish` write it for you — one naming
+   another batch is refused, because it silently sends the next reader to the wrong narrative.
 
    The stub's job is that a future agent (or you, after a context reset) can tell from `CLAIMS.md`
    alone **what this batch did and whether it needs to read further** — not that the whole record

@@ -2645,6 +2645,101 @@ func TestFinishStubCapCountsProseOnly(t *testing.T) {
 	}
 }
 
+// entryOf cuts one `### Batch N` entry out of a CLAIMS.md body. The template's own preamble
+// documents the entry format, pointer line included, so a whole-file Contains proves nothing.
+func entryOf(t *testing.T, claims, id string) string {
+	t.Helper()
+	head := "### Batch " + id + " "
+	i := strings.Index(claims, head)
+	if i < 0 {
+		t.Fatalf("no entry for Batch %s in:\n%s", id, claims)
+	}
+	rest := claims[i+len(head):]
+	if j := strings.Index(rest, "\n### "); j >= 0 {
+		rest = rest[:j]
+	}
+	return rest
+}
+
+// TestFinishSuppliesMissingPointer: finish writes the archive heading itself, so it already knows
+// where the narrative landed. A stub that omits the pointer gets one rather than leaving the next
+// reader with a stub and no way to reach the rest.
+func TestFinishSuppliesMissingPointer(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+	run(t, tmp, "claim", "A")
+
+	stub := filepath.Join(tmp, "stub.md")
+	mustWrite(t, stub, "- The a, shipped.\n")
+	done := filepath.Join(tmp, "done.md")
+	mustWrite(t, done, "The full story of the a.\n")
+
+	r := run(t, tmp, "finish", "A", "--commit", "abc1234", "--stub-file", stub, "--done-file", done)
+	if r.code != 0 {
+		t.Fatalf("finish exit %d: %s%s", r.code, r.stdout, r.stderr)
+	}
+	got := entryOf(t, read(t, filepath.Join(tmp, "CLAIMS.md")), "A")
+	want := "- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch A"
+	if !strings.Contains(got, want) {
+		t.Errorf("finish did not supply the pointer:\n%s", got)
+	}
+	if strings.Count(got, "Full narrative:") != 1 {
+		t.Errorf("expected exactly one pointer:\n%s", got)
+	}
+	if !strings.Contains(r.stdout, "Full narrative") {
+		t.Errorf("finish did not report supplying the pointer: %s", r.stdout)
+	}
+}
+
+// TestFinishLeavesPointerlessStubAloneWithoutNarrative: the pointer names a heading finish only
+// writes when there is a --done-file. Without one, a pointer would send the reader to a section
+// that does not exist.
+func TestFinishLeavesPointerlessStubAloneWithoutNarrative(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+	run(t, tmp, "claim", "A")
+
+	stub := filepath.Join(tmp, "stub.md")
+	mustWrite(t, stub, "- The a, shipped.\n")
+	if r := run(t, tmp, "finish", "A", "--commit", "abc1234", "--stub-file", stub); r.code != 0 {
+		t.Fatalf("finish exit %d: %s%s", r.code, r.stdout, r.stderr)
+	}
+	if got := entryOf(t, read(t, filepath.Join(tmp, "CLAIMS.md")), "A"); strings.Contains(got, "Full narrative:") {
+		t.Errorf("finish pointed at a narrative it never filed:\n%s", got)
+	}
+}
+
+// TestFinishRefusesPointerNamingAnotherBatch: a stub copy-pasted from the entry above it carries
+// that entry's pointer, which silently sends the next reader to the wrong narrative. finish knows
+// the right target, so it refuses rather than rewriting the agent's line under it.
+func TestFinishRefusesPointerNamingAnotherBatch(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+	run(t, tmp, "claim", "A")
+
+	claimsPath := filepath.Join(tmp, "CLAIMS.md")
+	before := read(t, claimsPath)
+	stub := filepath.Join(tmp, "stub.md")
+	mustWrite(t, stub, "- The a, shipped.\n\n- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch B\n")
+
+	r := run(t, tmp, "finish", "A", "--commit", "abc1234", "--stub-file", stub, "--done-file", stub)
+	if r.code == 0 {
+		t.Fatal("finish accepted a pointer naming another batch")
+	}
+	if !strings.Contains(r.stderr, "Batch B") || !strings.Contains(r.stderr, "Batch A") {
+		t.Errorf("the error did not name both batches: %s", r.stderr)
+	}
+	if read(t, claimsPath) != before {
+		t.Error("finish rewrote CLAIMS.md despite refusing the pointer")
+	}
+	if strings.Contains(read(t, filepath.Join(tmp, "specflow/history/BUILD_QUEUE_DONE.md")), "Batch A") {
+		t.Error("finish filed the archive paragraph despite refusing the pointer")
+	}
+}
+
 // TestFinishAcceptsLegacySummaryFlag: --summary-file is the pre-0.1.8 name. An agent following an
 // older procedure copy must still file its prose rather than silently dropping it.
 func TestFinishAcceptsLegacySummaryFlag(t *testing.T) {

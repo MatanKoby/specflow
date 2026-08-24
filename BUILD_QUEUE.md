@@ -2,12 +2,13 @@
 
 Reference spec: [`spec/`](spec/README.md)
 Agent work tracking: `CLAIMS.md` (managed by coding agents)
-Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUILD_QUEUE_DONE.md) — one-paragraph summaries of shipped batches.
+Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUILD_QUEUE_DONE.md) — the full narrative of each shipped batch.
 
 ## How this works
 
-- This file lists only **un-done batches**, in full. Completed batches collapse to summaries in
-  `specflow/history/BUILD_QUEUE_DONE.md` (git log + `specflow/history/CLAIMS_DONE.md` hold the implementation history).
+- This file lists only **un-done batches**, in full. A completed batch's section leaves this file
+  and its narrative lands whole in `specflow/history/BUILD_QUEUE_DONE.md`; `CLAIMS.md` keeps a stub
+  pointing there (git log + `specflow/history/CLAIMS_DONE.md` hold the implementation history).
 - Dependencies are listed where they exist — the agent decides execution order.
 - Agents claim and track completion in `CLAIMS.md`. **No Owner / Started / Status ever goes here.**
 - See `specflow/procedures/claim-batch.md` before claiming.

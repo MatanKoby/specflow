@@ -60,7 +60,7 @@ growing logs. Each has a matching archive under `specflow/history/`. Mechanics l
 The two are bounded by different rules, because they answer different questions:
 
 - **`BUILD_QUEUE.md` — zero retention, enforced at finish.** A done batch is not queue content at
-  all: `finish-batch` deletes its section outright and collapses it to a one-paragraph summary in
+  all: `finish-batch` deletes its section outright and files its full narrative in
   `BUILD_QUEUE_DONE.md`. That stays in `finish-batch.md` rather than moving here, because removing a
   finished batch is part of *completing* it, not deferrable housekeeping. Pruning only sweeps up what
   leaked past: sections for batches already in `CLAIMS.md` `## Completed`, and batches dissolved or
@@ -80,7 +80,7 @@ outside the retention rule, and both showed up in a downstream install running *
 retention 5 with a 27 KB `CLAIMS.md`:
 
 - **The entry written twice.** Finishing a batch asks for prose about that batch in two places: the
-  "What shipped" summary in `CLAIMS.md` and the one-paragraph summary in `BUILD_QUEUE_DONE.md`.
+  "What shipped" summary in `CLAIMS.md` and the summary in `BUILD_QUEUE_DONE.md`.
   They are authored independently and neither is a superset of the other — measured over five
   consecutive batches downstream, 0 to 2 lines of a `CLAIMS.md` entry reappeared in its
   `BUILD_QUEUE_DONE.md` paragraph — so a batch's story ends up split across a hot file and an
@@ -385,9 +385,12 @@ only when the agent asks:
 - **`specflow claim <N>`** — writes the `## In progress` entry (heading, `Owner` from
   `config.agents`, `Started` in UTC) at the top of `CLAIMS.md`.
 - **`specflow finish <N> --commit <sha>`** — moves the entry to the top of `## Completed` with
-  `Finished` and `Commit`, appends the agent's summary (`--summary-file`, or stdin), deletes the
-  batch section from `BUILD_QUEUE.md`, appends the agent's one-paragraph summary
+  `Finished` and `Commit`, appends the agent's stub (`--stub-file`, or stdin; `--summary-file` is
+  the old name), deletes the batch section from `BUILD_QUEUE.md`, appends the agent's full narrative
   (`--done-file`) to `BUILD_QUEUE_DONE.md`, and prunes `CLAIMS.md` to its 5 newest completed entries.
+  The stub is capped at 8 prose lines (blank lines and the `Full narrative` pointer are free) and the
+  pointer is checked against the batch being finished: supplied when absent, refused when it names
+  another batch.
 
 **The division of labor: the CLI owns placement, format, and timestamps; the agent owns every word of
 prose.** No verb composes a sentence a human will read, and **no verb commits** — committing stays

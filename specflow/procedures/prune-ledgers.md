@@ -83,7 +83,7 @@ section for a batch that is:
 - already present in `CLAIMS.md` `## Completed` or `specflow/history/CLAIMS_DONE.md`; or
 - marked **dissolved**, **absorbed** into another batch, or otherwise no longer work to be done.
 
-For each one, confirm `specflow/history/BUILD_QUEUE_DONE.md` carries its one-paragraph summary
+For each one, confirm `specflow/history/BUILD_QUEUE_DONE.md` carries its narrative
 (add it if `finish-batch` missed it), then remove the section and drop the batch from any
 **pick-order pointer** at the top of the file.
 
