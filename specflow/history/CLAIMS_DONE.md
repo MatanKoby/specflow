@@ -7,6 +7,23 @@ Written by `specflow/procedures/prune-ledgers.md`, which keeps the 5 newest comp
 `CLAIMS.md` and moves everything older here. Don't hand-move entries; run the procedure (Claude:
 the `prune-ledgers` skill) so the retention rule stays consistent.
 
+### Batch CD — Batch-width and prune discipline in the procedures
+- Owner: claude
+- Started: 2026-08-21 06:14
+- Finished: 2026-08-21 06:17
+- Commit: e2ef30c
+
+**What shipped**
+- **`AGENTS.md` → *The work queue*** (full-only) now states the sizing rule: a batch is sized by the
+  **layers it crosses**, not the deliverables it lists, and one spanning more layers than its goal
+  needs gets split on the layer seam. The split pieces declare disjoint file lists, which is what the
+  parallelism rule directly above it already required.
+- **`specflow/procedures/spec-edit.md`** carries the same rule where batch sections are actually
+  written (persisting a decision → step 3), so an agent turning a decision into queue entries meets it
+  at the moment it matters, not only when reading `AGENTS.md`.
+
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch CD
+
 ### Batch RN — Authored release notes
 - Owner: claude
 - Started: 2026-08-20 16:43

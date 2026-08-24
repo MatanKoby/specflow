@@ -10,6 +10,49 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch ED — one mechanical pass, no rewording
+Everything specflow shipped carried em dashes, which land in every install and collide with the
+no-em-dash rule a downstream repo may hold. A downstream sweep is drift, so `upgrade` stops
+refreshing the swept files and the next clean upgrade puts the dashes back: fixing it upstream is
+the only version that holds.
+
+**The sweep.** 214 em dashes and 2 en dashes, across `templates/**`, `specflow/procedures/*.md`,
+`AGENTS.md`, `CLAUDE.md`, `.claude/skills/**`, and `.claude/hooks/**`. The default replacement is a
+spaced hyphen, applied mechanically. Three spots needed a judgment call instead, all of them a dash
+*pair* bracketing a clause that already carried commas, where a hyphen pair would have read as a
+list: `AGENTS.md`'s "Three procedures (claim a batch, edit the spec, finish a batch) carry the
+discipline", `spec-edit.md`'s archive list, and `finish-batch.md` step 5's commit coverage became
+parentheses. Two more read better as a colon (`AGENTS.md`'s "Read the relevant file before acting:",
+the queue template's "(example: replace or delete)"), and the en dashes were numeric ranges in
+`spec/README.md`'s template ("2-4 spec files"). Nothing was reworded.
+
+**The watch item held.** `parseFileLine` (`internal/kit/queue.go:190`) accepts ` - ` alongside ` — `
+in its separator list, so every swept file line and batch heading parses exactly as before; the
+queue heading regex captures the title after the id either way. No dash that was *data* was touched.
+
+**Self-hosted copies and the baselines.** The repo's own managed copies were swept alongside their
+templates, which stales the hashes in `specflow/config.json` and makes `verify` report six drifted
+files. The fix is the reconciliation path Batch RC landed: because each swept region now equals the
+swept template region, a locally built `specflow upgrade` re-records the baseline instead of
+reporting drift. Built the binary from the working tree, ran `upgrade` against this repo, committed
+the resulting `config.json`. A future batch that edits managed files should do the same rather than
+hand-computing hashes: the hash is over the region for marker-managed files and over the whole file
+for adapters, so hand-computing gets it wrong.
+
+**Verification.** Zero em/en dashes under the swept paths; `go test ./...` green (uncached);
+`specflow verify` clean with no drift; and a fresh `specflow init --agents claude` into a scratch
+git repo produced an install containing zero em dashes, which is the real acceptance test.
+
+**Deferred, out of this batch's declared file scope.** The Go source still emits em dashes into
+downstream repos: `internal/kit/queue.go:517` writes the `### Batch N — title` claim entry and
+`queue.go:1047` the archive heading, so every `specflow claim` and `specflow finish` reintroduces one
+into a downstream ledger. `cmd/specflow/main.go` carries roughly ninety more in console output and
+help text, which is chrome rather than shipped file content. Also untouched, as the batch declared:
+`spec/**`, `README.md`, this repo's ledgers, and `specflow/history/**`. A small follow-up batch could
+take the queue.go writers, which are the ones that actually persist into someone else's files.
+
+Key commit `358dd08`.
+
 ## Batch FS — the stub contract says what the code already does
 Batch LW moved the batch's narrative out of `CLAIMS.md` and into `BUILD_QUEUE_DONE.md`, leaving
 `CLAIMS.md` a stub with a pointer. Running that shape for real surfaced three gaps, all cheap, none

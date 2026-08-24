@@ -21,36 +21,11 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > **MC** · **FS** · **ED**. Which batch shipped in which release lives in `spec/roadmap.md` →
 > *Release lines*, and the milestone goals live there too, not here. This file holds un-done work only.
 >
-> **Claimable:** **ED** (em dash sweep), the last of the line — it sweeps the prose the other three
-> added. **RC**, **MC**, and **FS** are done.
+> **Claimable:** nothing. Every batch below is `[NOT READY]`; promoting one is the user's call.
+> **RC**, **MC**, **FS**, and **ED** are all done, so `v0.1.9` is complete and waiting on the user's
+> go-ahead to tag.
 > **Not ready:** **NX** (`next` file spread) · **W** (workflow config) · **NB** (`--new-batch`) ·
 > **E** (enforcement, research-first) · **P** (npm-wrapper front-end) · Homebrew tap.
-
----
-
-## Batch ED - one mechanical pass, no rewording
-
-**Goal.** Everything specflow ships carries em dashes: 87 across the managed set, `AGENTS.md` alone
-holding 31. They land in every install, where they collide with a repo rule that forbids them, and a
-downstream repo that sweeps them locally is punished twice: the sweep is drift, so `upgrade` stops
-refreshing those files (Batch RC is the other half of that story) and the next clean upgrade puts the
-dashes back. Fixing it upstream is the only version that holds. Replace every em dash and en dash in
-prose with a plain hyphen, a comma, a colon, or a sentence break, choosing per sentence but
-**rewording nothing**, across `templates/**` and `specflow/**` plus this repo's own managed copies
-(`AGENTS.md`, `.claude/skills/**`, the `CLAUDE.md` region) so a self-hosted `upgrade` agrees.
-
-**Out of scope on purpose:** `spec/**`, `README.md`, and the ledgers. They are this repo's own prose,
-not shipped content, and mixing them in makes the diff unreviewable. Sweep them later if wanted.
-
-**Watch item:** the marker-parsing separator list (`internal/kit/queue.go:190`) accepts ` - ` as well
-as ` — `, so heading separators may be swept; a dash that is *data* rather than prose must not be.
-Verification is a grep for zero em/en dashes under the swept paths, plus `go test ./...`.
-
-**Run last** of the four, so it also sweeps whatever prose RC, MC, and FS add.
-
-### Files this batch creates/edits
-- `templates/**` · `specflow/procedures/*.md` · `AGENTS.md` · `.claude/skills/*/SKILL.md` ·
-  `CLAUDE.md` (managed region only).
 
 ---
 
