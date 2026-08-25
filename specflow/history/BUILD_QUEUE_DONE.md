@@ -10,6 +10,74 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch FL - a finish leaves the queue smaller
+**The problem.** The preamble cap (45 lines) only reports after the fact, and one step (a finish)
+appended to the preamble every batch. Measured in the install that produced the report: 446
+preamble lines across roughly 50 batches, about 9 lines per finish, so a queue pruned back under
+the cap is over it again inside five batches. Batch QD made the fill visible and Batch PD made the
+cleanup cheap; neither changed the slope. FL closes the inlet.
+
+**What changed.**
+
+- `templates/base/specflow/procedures/finish-batch.md` step 4 now opens with "the queue edit is
+  subtractive: delete and rewrite, never append", says why (the narrative already has a home in
+  `BUILD_QUEUE_DONE.md`, and `specflow finish` already files it there), and replaces the old
+  "drop the batch from any pick-order pointer line" bullet with "rewrite the pick-order pointer in
+  place", naming the markers and the 20-line cap. It closes with a paragraph sending a fact that
+  outlives the batch to `spec/` via `spec-edit.md`.
+- `templates/base/BUILD_QUEUE.md` wraps its pick-order pointer in
+  `<!-- specflow:pointer:start -->` / `<!-- specflow:pointer:end -->` and gains one bullet in
+  `How this works`. The template preamble went 34 → 38 lines of the 45-line cap; the two extra
+  bullets first drafted for this were cut back to one to keep real headroom, which is what the
+  batch asked for.
+- `internal/kit/queue.go`: `PointerMaxLines = 20`, the `qPointerStartRe` / `qPointerEndRe`
+  matchers, `pointerBlock`, `pointerWarnings`, and three `Weight` fields (`PointerBlock`,
+  `PointerLines`, `PointerLimit`, all in `--json`). The cap counts the block's content, not its
+  markers, matching how the CLAIMS.md stub cap counts prose only. A start marker with no end is
+  reported by line number rather than guessed at.
+- `cmd/specflow/main.go`: `printWeight` prints `pointer N/20` beside `preamble N/45` when the
+  block exists, and `cmdFinish` calls `printWeight(kit.Weigh(target))` before the "nothing is
+  committed" line. `finish --help` says so.
+
+**The decision that needed the user.** The batch asked `specflow finish` to report *whether the
+preamble grew during the batch*. There is no baseline that is free: `kit` shells out to git
+nowhere, and at finish time HEAD is the final work commit the agent just made, so a HEAD diff
+always reads zero. The alternatives put to the user were (a) find the `meta: claim batch-N` commit
+by grepping git log and diff against that, (b) print the counts with no growth claim, (c) diff the
+file finish read against the file it writes. The user chose (b): the pointer cap is what actually
+bounds the append, and printing `preamble N/45, pointer N/20` at finish puts the number in front
+of the agent at the last moment it can act, one step before `meta: complete`. `kit` stays
+git-free. The 20-line cap was confirmed at the batch's proposed value: the shipped template's
+pointer is 3 lines, this repo's is 11, and one appended status paragraph clears 20 immediately, so
+the cap sits where an honest pointer stays silent (the same calibration as `staleRefFloor`).
+
+**Compatibility.** Absent markers mean no separate measurement, not an error: every install
+upgrading from 0.1.9 has an unmarked pointer and is measured exactly as before, with the preamble
+cap still catching bulk on its own. `TestQueueWithoutPointerMarkersIsMeasuredAsBefore` pins that,
+including that an unmarked pointer grown past 20 lines is still not warned about against the block
+cap. The markers use the `specflow:<tag>:start` shape the render regions use and deliberately not
+the `specflow:start` token the managed-file check matches, since a queue is a seed file and never a
+managed region.
+
+**Spec.** `spec/architecture.md` → *Ledger lifecycle* gained "The preamble is bounded because the
+append is" (the two rules, the calibration of 20, and why neither stops and asks), and the
+"Weight is reported" paragraph now names `specflow finish` as a third reporter with the reason.
+The stale "the shipped template is 30" figure was corrected to 38.
+
+**Tests.** `TestPointerBlockIsMeasuredAgainstItsOwnCap`,
+`TestQueueWithoutPointerMarkersIsMeasuredAsBefore`, `TestUnclosedPointerBlockIsNamed`, and
+`TestFinishReportsLedgerWeight`, plus the `growPointer` / `stripPointerMarkers` helpers.
+
+**Verification.** `test -z "$(gofmt -l cmd internal)" && go vet ./... && go test ./...` clean;
+`specflow verify` clean after a self-hosted `upgrade` (which refreshed the two `config.json`
+baselines); the managed-set dash grep still at its documented 5 hits.
+
+**Follow-up.** Batch OD is next and depends on this one. `prune-ledgers.md` section 3 was
+deliberately left alone (PD had just rewritten it) and does not yet mention the pointer block;
+worth a line the next time that section is touched.
+
+Key commit: `bfd3c61`.
+
 ## Batch PD - prune-ledgers section 3, duplication-first
 Section 3 told the agent to sort every preamble paragraph into keep / relocate / delete and put the
 three piles to the user. That is right at the size it was written for: this repo dogfooded it in

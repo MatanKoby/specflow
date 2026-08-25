@@ -24,55 +24,13 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > which release lives in `spec/roadmap.md` → *Release lines*, and the milestone goals live there
 > too, not here. This file holds un-done work only.
 >
-> **Claimable: FL**, then **OD**, which depends on it. FL stops the preamble filling at finish time
-> (subtractive queue edit, bounded replace-only pointer block); OD lets a batch declare it is waiting
-> on what an earlier batch *found*, which is the other reason facts get parked in queue prose. The
-> queue warning is diagnostic and section 3 greps before it judges, but both of those are cleanup:
-> these two are the ones that change the slope.
+> **Claimable: OD.** Batch FL closed the first inlet that fills this preamble (a finish is now
+> subtractive, and the pointer you are reading is a bounded replace-only block). OD closes the
+> second: a batch that waits on what an earlier batch *found* has no way to say so, so the fact
+> gets parked in prose here instead.
 > **Not ready:** **NX** (`next` file spread) · **W** (workflow config) · **NB** (`--new-batch`) ·
 > **E** (enforcement, research-first) · **P** (npm-wrapper front-end) · Homebrew tap.
 <!-- specflow:pointer:end -->
-
----
-
-## Batch FL - a finish leaves the queue smaller
-
-**Goal.** `BUILD_QUEUE.md`'s preamble fills at finish time, one appended status paragraph per batch,
-under a cap that only reports after the fact. Batch QD made the fill visible and Batch PD made the
-cleanup cheap; neither changes the slope. The install both came from accumulated 446 preamble lines
-across roughly 50 batches, about 9 lines per finish, so a pruned queue there is back over the
-45-line cap inside five batches. Stop the append.
-
-- **`finish-batch` step 4 says the queue edit is subtractive.** Delete the section, rewrite the
-  pointer, never append. The narrative already has a home and `finish` already writes it there.
-- **The pick-order pointer becomes a bounded, replace-only block**, inside
-  `<!-- specflow:pointer:start -->` / `end` markers with its own cap (propose 20 lines), measured by
-  `Weigh` and reported beside the preamble count. An append-only region under a cap is the whole
-  bug: bound it by a number rather than by discipline. Markers are the same shape the managed-file
-  regions already use, and an install without them keeps working (absent markers mean no separate
-  measurement, not an error).
-- **The queue template gains one line** in `How this works`: a fact that will outlive the batch goes
-  to `spec/`, not here.
-- **`specflow finish` reports whether the preamble grew** during the batch (it already reads and
-  rewrites the file, so this is a diff of two counts). Report, not refuse: the cheapest enforcement
-  that needs no new state, and the point where an agent can still fix it.
-
-### Files this batch creates/edits
-- `templates/base/specflow/procedures/finish-batch.md` · `templates/base/BUILD_QUEUE.md` ·
-  `templates/agents/claude/.claude/skills/finish-batch/SKILL.md` · `internal/kit/queue.go`
-  (`Weight`, `Weigh`, the pointer block) · `cmd/specflow/main.go` (`printWeight`, `finish` output) ·
-  `cmd/specflow/main_test.go` · `spec/architecture.md` (Ledger lifecycle: the preamble is bounded
-  because the append is, run through `spec-edit.md`) · this repo's managed copies + `config.json`
-  baselines.
-
-### Does NOT touch
-- `prune-ledgers.md` (PD just rewrote section 3) and the batch format itself (Batch OD).
-
-### Verification
-- `test -z "$(gofmt -l cmd internal)" && go vet ./... && go test ./...`
-- New tests: the pointer block is measured and warned about separately; a queue without markers is
-  reported exactly as it is today; `finish` names a preamble that grew.
-- `specflow verify` clean after a self-hosted `upgrade`.
 
 ---
 

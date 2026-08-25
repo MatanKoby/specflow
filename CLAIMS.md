@@ -51,11 +51,23 @@ Entries above the LW line predate the rule and are left as written.
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch FL - a finish leaves the queue smaller
 - Owner: claude
 - Started: 2026-08-25 11:15
+- Finished: 2026-08-25 11:49
+- Commit: bfd3c61
 
-## Completed
+**What shipped**
+- The `BUILD_QUEUE.md` preamble is now bounded at its inlet, not just measured: `finish-batch`
+  step 4 states the queue edit is subtractive, and the pick-order pointer is a replace-only block
+  between `<!-- specflow:pointer:start -->` / `end` markers under its own 20-line cap.
+- `Weigh` measures that block (`kit.PointerMaxLines`) and `printWeight` reports it beside the
+  preamble count; `specflow finish` now prints the weight line on its way out.
+- A queue with no markers is measured exactly as before, so no install needs to act on upgrade.
+
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch FL
 
 ### Batch PD - prune-ledgers section 3, duplication-first
 - Owner: claude
@@ -128,20 +140,3 @@ where `internal/kit/queue.go` still writes `### Batch N — title` into downstre
 
 - Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch ED
 
-### Batch FS — the stub contract says what the code already does
-- Owner: claude
-- Started: 2026-08-21 15:01
-- Finished: 2026-08-24 14:12
-- Commit: 41ae200
-
-**What shipped.** The three loose ends Batch LW left in the stub contract.
-
-- The cap counts **prose lines** (blank lines and the pointer are free). Now stated wherever the
-  cap is stated: `finish-batch.md` step 3, `templates/base/CLAIMS.md`, `finish --help`, and
-  `StubMaxLines`' own doc comment.
-- `finish` supplies the `Full narrative` pointer when the stub omits one (only alongside a
-  `--done-file`), and **refuses** one that names a different batch instead of rewriting it.
-- `BUILD_QUEUE_DONE.md` is no longer described as "one-paragraph summaries" in the queue template,
-  `prune-ledgers.md`, or `spec/architecture.md` — it holds the full narrative.
-
-- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch FS
