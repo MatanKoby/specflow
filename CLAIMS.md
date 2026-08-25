@@ -51,11 +51,26 @@ Entries above the LW line predate the rule and are left as written.
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch QD - the queue warning says what is wrong, not just how long
 - Owner: claude
 - Started: 2026-08-25 10:35
+- Finished: 2026-08-25 10:39
+- Commit: 218dc17
 
-## Completed
+**What shipped.** `Weigh` reports four things about the queue preamble instead of one line count:
+the count with an address (`N lines above the first "## Batch" heading`, plus the heading holding
+the bulk), the split between archived and live batch ids it names, a `claimable` line pointing at a
+batch that has shipped, and a heading that reads as a batch but misses the declared shape.
+
+The ratio is the diagnostic: 43 archived ids against 2 live says a file is narrating history, which
+a line count cannot say at any length. `verify` gets all four, `--json` carries the numbers.
+
+**The near-miss check is also the guard on the count itself**: an unparsed heading is preamble
+prose, so it inflates the number and hides batches from `next` at the same time.
+
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch QD
 
 ### Batch EM — the emitters obey the rule ED wrote
 - Owner: claude
@@ -123,20 +138,3 @@ prose; `## In progress` untouched. Run once per install after an upgrade that ca
 
 - Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch MC
 
-### Batch RC — drift is a state you can leave
-- Owner: claude
-- Started: 2026-08-21 14:26
-- Finished: 2026-08-21 14:36
-- Commit: 2bda486
-
-Reconciling a drifted managed file was destructive and never cleared. The `.specflow-new` sidecar
-now carries your file with the fresh region spliced in, so `mv` is the correct reconciliation for
-both managed tiers; a region that already matches the template is adopted, so taking the sidecar
-ends the drift instead of re-drifting forever; and `specflow waive <file>` (`--all`, `--clear`)
-keeps a deliberate edit without a baseline re-record, which would have let the next `upgrade`
-destroy the edit being blessed.
-
-**The waiver is the design correction to make before building on this**: the queue entry proposed
-`specflow adopt` as a baseline re-record, and that shape is a trap, not a nicety.
-
-- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch RC

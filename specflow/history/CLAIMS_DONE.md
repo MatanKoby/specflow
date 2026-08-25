@@ -7,6 +7,24 @@ Written by `specflow/procedures/prune-ledgers.md`, which keeps the 5 newest comp
 `CLAIMS.md` and moves everything older here. Don't hand-move entries; run the procedure (Claude:
 the `prune-ledgers` skill) so the retention rule stays consistent.
 
+### Batch RC — drift is a state you can leave
+- Owner: claude
+- Started: 2026-08-21 14:26
+- Finished: 2026-08-21 14:36
+- Commit: 2bda486
+
+Reconciling a drifted managed file was destructive and never cleared. The `.specflow-new` sidecar
+now carries your file with the fresh region spliced in, so `mv` is the correct reconciliation for
+both managed tiers; a region that already matches the template is adopted, so taking the sidecar
+ends the drift instead of re-drifting forever; and `specflow waive <file>` (`--all`, `--clear`)
+keeps a deliberate edit without a baseline re-record, which would have let the next `upgrade`
+destroy the edit being blessed.
+
+**The waiver is the design correction to make before building on this**: the queue entry proposed
+`specflow adopt` as a baseline re-record, and that shape is a trap, not a nicety.
+
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch RC
+
 ### Batch LW — Ledger weight: bound the entry, not just the count
 - Owner: claude
 - Started: 2026-08-21 13:30

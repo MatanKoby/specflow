@@ -10,6 +10,57 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch QD - the queue warning says what is wrong, not just how long
+`specflow next` printed `BUILD_QUEUE.md preamble is 467 lines, over its 45-line cap`, and the user
+who saw it read it as a bug in specflow. It was not: the install's queue really did hold 446 lines
+of prose above its first batch. But the message gave a number with no anchor. "Preamble" is defined
+only inside `prune-ledgers.md` section 3 and the queue template's own header, nothing said the
+boundary is the first `## Batch` heading, and the three tidy batches visible right above the warning
+made 467 look impossible.
+
+Four diagnostics, all in `Weigh` so `verify` reports them too, all read-only.
+
+**The count now carries an address.** `dominantSection` attributes preamble lines to the nearest
+heading above them and names the biggest block, so the warning reads `467 lines above the first
+"## Batch" heading (446 of them under "## Un-done batches")`. The reader can go straight there.
+
+**The staleness split is the diagnostic the length never was.** `refSplit` counts the distinct
+batch ids the preamble names, divided by whether each is still in the queue or already has a
+narrative in `BUILD_QUEUE_DONE.md`. The install that prompted this named 43 archived batches and 2
+live ones: 446 lines about work that shipped, in a file whose own header says it lists un-done
+batches only. That fires correctly on a short rotten preamble and stays quiet on a long current one,
+which is exactly what a line count cannot do. The floor is `staleRefFloor` (3) plus the requirement
+that archived outnumber live, so a healthy pick-order pointer naming a shipped dependency stays
+silent.
+
+**A stale `claimable` line is named with its line number.** It is the only preamble defect that
+misdirects rather than merely reading old: the field case said `Claimable now: 50` while the queue
+held 49, 51 and 58, and Batch 50 had shipped weeks earlier. An agent following it would claim a
+batch that no longer exists. `batchCandidates` matches both `Batch 50` and a bare `50`, because
+prose drops the keyword once the subject is established, and the candidates are intersected with
+the archive so an ordinary word costs nothing. Single-character tokens are skipped: a one-letter id
+would match the word "a" everywhere, and an id that short is only recognizable in its `Batch X`
+form, which the explicit pass already catches.
+
+**A near-miss heading is named too**, and this one guards the count itself. `Weigh` finds the
+preamble boundary with `qBatchHeadRe`, the same matcher `ParseQueue` uses, so a heading that misses
+the declared shape (an h3, a lower-case "batch", a colon after it) is not a batch anywhere: it is
+prose. It inflates the preamble count and vanishes from `next` at the same time, and until now
+nothing said so. That is the one case where the number could be wrong rather than merely
+unexplained.
+
+Verified with `gofmt`, `go vet`, `go test`, five new tests (the address names its section, the
+archived/live split warns, a current pointer stays quiet, the stale claimable line is caught with
+its line number, a near-miss heading is named and never offered), and a run of the built binary
+against the downstream install that prompted the batch, which produced all three of its warnings
+including `BUILD_QUEUE.md:66`. `TestNextReportsLedgerWeight`'s waiver assertion was updated to the
+reworded message. Key commit `218dc17`.
+
+**What this deliberately does not do:** it does not loosen the preamble boundary to accept a
+near-miss heading. That would silently bless the old shape, and would truncate the count on an
+innocent `### Batch history` heading inside real preamble prose, hiding a genuine sink. Over-counting
+is noisy but visible; under-counting is silent.
+
 ## Batch EM - the emitters obey the rule ED wrote
 Batch ED swept every em dash out of what specflow ships as files, but the CLI went on *writing*
 them: `internal/kit/queue.go` put `### Batch N — title` into a downstream `CLAIMS.md` on every

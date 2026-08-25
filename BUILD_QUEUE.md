@@ -21,48 +21,12 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > no line is open. Which batch shipped in which release lives in `spec/roadmap.md` →
 > *Release lines*, and the milestone goals live there too, not here. This file holds un-done work only.
 >
-> **Claimable: QD** (queue diagnostics), then **PD** (prune-ledgers section 3), which depends on it.
-> Both came out of a downstream install whose queue preamble reached 446 lines of shipped-batch
-> narrative: the warning that caught it was read as a specflow bug, and the procedure that fixes it
-> asks for judgment where a grep would do.
+> **Claimable: PD** (prune-ledgers section 3). **QD shipped**, so the queue warning now names the
+> section holding the bulk, the archived-to-live ratio, a stale claimable line, and a near-miss
+> heading. PD is the other half: the procedure that warning sends you to still asks for judgment
+> where a grep would do.
 > **Not ready:** **NX** (`next` file spread) · **W** (workflow config) · **NB** (`--new-batch`) ·
 > **E** (enforcement, research-first) · **P** (npm-wrapper front-end) · Homebrew tap.
-
----
-
-## Batch QD - the queue warning says what is wrong, not just how long
-
-**Goal.** `specflow next` reports a preamble line count with no anchor, so a downstream install read
-its 467-line warning as a bug in specflow rather than a finding about its own queue. Four
-diagnostics, all read-only, all in `Weigh` so `verify` gets them too:
-
-- **Address the count.** Name the boundary and the heading holding the bulk: `467 lines above the
-  first "## Batch" heading (445 of them under "## Un-done batches")`.
-- **Staleness, which is the number that actually diagnoses this.** Count preamble references to
-  batch ids archived in `BUILD_QUEUE_DONE.md` against ones live in the queue, and warn when there
-  are at least 3 archived and more archived than live. That fires on a short rotten preamble and
-  stays quiet on a long current one, which a line count cannot do.
-- **Claimability contradiction.** A preamble line saying a batch is claimable when the queue has no
-  such section is a hard warning naming the line: it is the one that misleads an agent into
-  claiming a batch that shipped weeks ago.
-- **Near-miss headings.** A line that reads as a batch heading but fails the declared shape is
-  parsed as prose, so it silently inflates the preamble count and never appears in `next`. Name its
-  line number and the shape it missed.
-
-`--json` carries every new number. No format change, no new state, nothing written.
-
-### Files this batch creates/edits
-- `internal/kit/queue.go` (`Weight`, `Weigh`) · `cmd/specflow/main.go` (`printWeight`) ·
-  `cmd/specflow/main_test.go`.
-
-### Does NOT touch
-- The batch format, the parsers, or any procedure. Reporting only.
-
-### Verification
-- `test -z "$(gofmt -l cmd internal)" && go vet ./... && go test ./...`
-- New tests: the address names the dominant heading; staleness fires on archived-heavy and stays
-  quiet on a current pointer; a stale claimable line warns with its line number; a near-miss
-  heading warns and is counted as prose.
 
 ---
 
