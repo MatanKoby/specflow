@@ -46,6 +46,7 @@ Member batches: **CFG** (config + commit/push levers + safety), **BI** (brownfie
 | `v0.1.7` | **CD** (batches are sized by the layers they cross; the prune check runs at claim as well as at finish) |
 | `v0.1.8` | **LW** (ledger weight: the `CLAIMS.md` stub + archived narrative, the queue-preamble cap, and weight reporting in `next` / `verify`) |
 | `v0.1.9` | **RC** (drift is a state you can leave: a reconcilable sidecar, adoption on identical bytes, and `specflow waive`) · **MC** (`specflow migrate-claims`, retrofitting the 0.1.8 stub shape onto legacy entries) · **FS** (the stub contract says what the code already does: the cap counts prose, `finish` supplies and checks the pointer) · **ED** (one mechanical pass: no em dash in anything specflow ships as files) · **EM** (and none in anything it writes at runtime) |
+| `v0.1.10` | **FL** (a finish leaves the queue smaller: the queue edit is subtractive, and the pick-order pointer is a bounded replace-only block reported against its own cap) · **OD** (a batch can wait on an outcome, not just on a finish: the free-text `Blocked on:` gate) |
 
 **A batch only opens a version line when it changes something a user installs.** Two batches landed
 without opening one: **RD** (a pushed tag publishes the release directly) between v0.1.4 and v0.1.5,

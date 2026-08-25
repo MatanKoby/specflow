@@ -20,7 +20,7 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 ## Un-done batches
 
 <!-- specflow:pointer:start - replace-only, 20 lines max: rewrite this block, never append to it. -->
-> **Pick-order pointer.** Current release: **`v0.1.9`**; no line is open. Which batch shipped in
+> **Pick-order pointer.** Current release: **`v0.1.10`**; no line is open. Which batch shipped in
 > which release lives in `spec/roadmap.md` → *Release lines*, and the milestone goals live there
 > too, not here. This file holds un-done work only.
 >
