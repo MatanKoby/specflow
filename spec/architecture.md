@@ -447,12 +447,41 @@ Decided 2026-08-20.
 `next` cannot answer the overlap check while "Files this batch creates/edits" is a prose convention
 that batches follow when they remember to. Each batch section in `BUILD_QUEUE.md` therefore declares
 a fixed shape, which the shipped template demonstrates: the heading
-(`## Batch <id> [TAG] — <title>`), an optional `**Depends on:** Batch X[, Batch Y]` line, and a
-`### Files this batch creates/edits` list. Everything else in the section stays free prose.
+(`## Batch <id> [TAG] — <title>`), an optional `**Depends on:** Batch X[, Batch Y]` line, an
+optional `**Blocked on:** <text>` line, and a `### Files this batch creates/edits` list. Everything
+else in the section stays free prose.
 
 Parsing is line-oriented and forgiving, and **fails loudly rather than silently**: a batch missing a
 declared field is reported by `next` as unparseable, never quietly treated as claimable. The queue
 remains user-owned and hand-editable, so the parser must never be the reason a user's edit is lost.
+
+**`Blocked on:` gates on an outcome, not on a finish.** `Depends on:` takes batch ids and means
+*completed*, so a batch that waits on what an earlier batch **found** has no field to say so in.
+Downstream that fact got parked in the queue preamble as a prose caveat, where `next` cannot read it
+and no retention rule reaches it: the format could not express the fact, so it was written where
+nothing enforces it. That is the second inlet filling a preamble, the appended finish above being the
+first (*Ledger lifecycle*). A batch section may therefore also carry an optional
+`**Blocked on:** <free text>` line:
+
+- **It makes the batch non-claimable, and `next` prints the text verbatim** as the block reason. Free
+  text rather than a machine-readable predicate, because what a batch is waiting for is a judgment a
+  person makes, not a state the repo holds. The *gate* is the part that has to be machine-readable;
+  the reason only has to reach the eye of the agent already reading `next`.
+- **It coexists with a tag, and its text replaces the tag's canned gloss.** A tag is the category, a
+  `Blocked on:` line is the specific why, and a batch can honestly carry both: `next` reports
+  `[NOT READY] waiting on Batch 46's package-presence answer`. Printing gloss and text together says
+  the same thing twice; printing the gloss alone is what hid the specific reason to begin with.
+- **Deleting the line clears it.** `Blocked on: none` is accepted as cleared, the same liberality
+  `Depends on:` already gives that word, but the procedures say delete: a leftover "none" is a line
+  that states nothing and that nothing prunes, which is the residue this field exists to stop
+  leaving behind.
+- **An empty line still blocks**, with "no reason given" as the reason. A gate nobody can act on is a
+  defect in the queue, not a claimable batch, and reading it as absent would let a truncated line
+  quietly re-open a batch someone meant to close.
+
+`Depends on:` is untouched: a batch id still means completed, and the two gates are evaluated
+separately, so a batch can be waiting on both.
+
 
 ### Batch size
 
