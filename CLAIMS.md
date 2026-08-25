@@ -51,6 +51,10 @@ Entries above the LW line predate the rule and are left as written.
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch OD - a batch can wait on an outcome, not just on a finish
+- Owner: claude
+- Started: 2026-08-25 12:47
+
 ## Completed
 
 ### Batch FL - a finish leaves the queue smaller
