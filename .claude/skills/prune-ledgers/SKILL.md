@@ -12,12 +12,15 @@ In short: `CLAIMS.md` `## Completed` keeps its 5 newest entries and the rest mov
 top of `specflow/history/CLAIMS_DONE.md` (never touch `## In progress`) → sweep `BUILD_QUEUE.md` of
 sections whose batch is already completed, dissolved, or absorbed, leaving `[NOT READY]` /
 `[DEFERRED]` / `[MANUAL]` alone → audit the queue **preamble** (everything above the first
-`## Batch`) against its 45-line cap → commit `meta: prune ledgers (N claims entries archived)`.
+`## Batch`) against its 45-line cap **and against what specflow's other three preamble warnings
+say** → commit `meta: prune ledgers (N claims entries archived)`.
 
 **`specflow finish` already applies the `CLAIMS.md` half** as part of completing a batch, so after
 that verb the only thing left here is the `BUILD_QUEUE.md` sweep, which has no verb and is done by
 hand.
 
 An install that predates this procedure may be many entries over: archive them all in one
-catch-up pass. Lossless and mechanical, so no stop-and-ask - **except** the preamble audit, which
-asks, because deciding which `spec/` file should own a stranded paragraph is a judgment call.
+catch-up pass. Lossless and mechanical, so no stop-and-ask - **except** the part of the preamble
+audit that survives the grep. Section 3 is duplication-first: a paragraph already carried by the
+archives or `spec/` is cited and deleted with no ask, and only what nothing else holds becomes a
+judgment call, put to the user once as piles rather than paragraph by paragraph.

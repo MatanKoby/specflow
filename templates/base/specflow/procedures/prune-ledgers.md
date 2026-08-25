@@ -15,8 +15,10 @@ growing logs. This procedure keeps them that way. `AGENTS.md` carries only the p
   (`specflow finish` already applies section 1 as part of completing the batch, so after the verb the
   only thing left here is the section 2 queue sweep.)
 - **When a weight warning fires.** `specflow next` and `specflow verify` report both ledgers' line
-  counts and warn when one is past its bound - the count of completed entries, or the preamble cap in
-  section 3. The warning names the section to run.
+  counts and warn when one is past its bound: the count of completed entries (section 1), the
+  preamble cap, the preamble naming more archived batches than live ones, a `claimable` line
+  pointing at a batch that shipped, or a heading the parser cannot see (all section 3). The warning
+  names the section to run.
 - **Once per install, after an upgrade that caps the entry.** Retention bounds how many entries
   `CLAIMS.md` holds; the stub cap bounds how big one gets, and it only reaches entries written after
   the upgrade. `specflow migrate-claims` retrofits the shape onto the rest (section 1a).
@@ -104,20 +106,64 @@ comes back for it. So it fills.
 awk '/^## Batch /{print NR-1; exit}' BUILD_QUEUE.md
 ```
 
-Under the cap there is nothing to do here. Over it, sort each preamble paragraph into one of three
-piles and put the result to the user:
+`specflow next` and `specflow verify` print that number with the section holding the bulk, and warn
+on three other things: the preamble naming more archived batches than live ones (it is narrating
+shipped work), a `claimable` line pointing at a batch that has already shipped, and a heading that
+reads as a batch but misses the declared shape, which is prose the parser cannot see. **The
+length is the weakest of the four.** A 40-line preamble that names a dozen shipped batches is
+rotten; a 60-line one that is all live pick-order may be fine.
+
+### 3a. Grep first, judge second
+
+Do **not** open with the three piles. Nearly everything that fills a preamble is already written
+down somewhere else, and a grep settles that faster and more reliably than a judgment call. For each
+paragraph, take a distinctive phrase or identifier from it and look for a home:
+
+```
+grep -rn "<distinctive phrase>" specflow/history/ CLAIMS.md spec/
+```
+
+**A paragraph with a citation is a delete, mechanically, no ask.** That is the same losslessness bar
+sections 1 and 2 act on without asking: the content is not being destroyed, it is being read where
+it already lives. Record the file and line as the evidence.
+
+Two presumptions worth carrying into the grep, neither of which replaces it:
+
+- A paragraph naming a `spec/**.md` path is usually pointing at the file that already owns it.
+- A paragraph naming a batch that has a section in `specflow/history/BUILD_QUEUE_DONE.md` is
+  usually history, not queue.
+
+**A paragraph with no citation is the only kind that needs a decision.** Sort those, and only those,
+into three piles:
 
 - **Keep** - the pick-order pointer, and the rules that tell an agent how to read the file. That is
   what a preamble is for.
 - **Relocate** - a durable design fact, a decision, a release history. It belongs in `spec/`: run
-  `spec-edit.md` to find the file whose concern owns it, move it there, and leave behind a link only
-  if a reader of the queue actually needs one.
-- **Delete** - stale status (a version line saying "open, not tagged" after the tag was pushed),
-  notes about a batch that has since shipped, anything the archives already carry.
+  `spec-edit.md` to find the file whose concern owns it, move it there **verbatim** (relocation is
+  lossless: nothing is reworded or summarized on the way out), and leave behind a link only if a
+  reader of the queue actually needs one.
+- **Delete** - stale status a live file contradicts: a version line saying "open, not tagged" after
+  the tag was pushed, a build number the device notes have moved past, a batch said to be claimable
+  that shipped.
 
-**This section is a stop-and-ask**, unlike sections 1 and 2. Archiving an entry is mechanical, but
-deciding which spec file should own a stranded paragraph is a judgment call about concerns - the same
-call `spec-edit.md` never makes on its own authority. Show the three piles, then act on the answer.
+**The stop-and-ask is this pile only**, and it is put **once, as piles with counts**, not one
+paragraph at a time. Deciding which spec file should own a stranded paragraph is a judgment call
+about concerns, the same call `spec-edit.md` never makes on its own authority - but asking it 70
+times is how an audit gets abandoned half-done. Above roughly 20 paragraphs, summarize each pile
+with a count and two or three representative lines.
+
+### 3b. The report
+
+Whether you are acting on it now or handing it back, the audit is reported the same way:
+
+- **One row per paragraph**: line range, first few words, pile, evidence (file and line) or
+  destination, one-line reason.
+- **Content that lives nowhere else**, listed separately. It is the only part whose loss would be
+  real, so it is the part the user should actually read.
+- **The projected preamble line count** after applying the report, and whether it clears the cap.
+- **Anything you could not classify**, with the question you need answered.
+
+Then act on the answer.
 
 **If the user chooses to keep it over the cap**, record the waiver as the **first line of the file**,
 above the `#` heading, exactly as the spec-file cap does:
