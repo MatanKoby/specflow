@@ -34,7 +34,9 @@ a value to the user.
    `specflow/history/BUILD_QUEUE_DONE.md` (`--done-file`), and prunes `## Completed` to its 5 newest.
    A stub over 8 lines of prose is refused before anything is written, with the count and the fix;
    it supplies the `Full narrative` pointer when your stub omits one, and refuses one that names a
-   different batch.
+   different batch. It closes by printing the ledger weight - the preamble and pointer counts
+   against their caps - because this is the last moment you can still fix an appended preamble
+   before the `meta: complete` commit in step 5.
    specflow owns placement, format, and timestamps; **you still write every word of prose**, and the
    verb does **not** commit, so step 5 is yours. If a ledger doesn't parse it writes nothing and says
    so, rather than rewriting a file over someone's hand edit. Without the CLI, do steps 2 to 4a by
@@ -72,7 +74,15 @@ a value to the user.
    by restating step 4, and don't thin out step 4 to compensate.
 
 4. **Move the batch out of `BUILD_QUEUE.md`.** That file lists only *un-done* batches - a
-   completed batch must not linger there or the next agent re-reads it as open work. Three edits:
+   completed batch must not linger there or the next agent re-reads it as open work.
+
+   **The queue edit is subtractive: delete and rewrite, never append.** The batch's narrative
+   already has a home in `specflow/history/BUILD_QUEUE_DONE.md`, and `specflow finish` already
+   files it there, so a status paragraph added at the top of the queue is a second copy sitting in
+   the file every future agent re-reads on its way in - and no retention rule ever reaches it.
+   One appended paragraph per finish is what turns a queue preamble into a changelog: measured in
+   the field, about 9 lines per batch, which clears a pruned 45-line preamble inside five batches.
+   Three edits:
    - Delete the batch's full section from `BUILD_QUEUE.md` (`grep -nE '^## ' BUILD_QUEUE.md` gives
      you its line range without reading the file).
    - **File the full narrative** in `specflow/history/BUILD_QUEUE_DONE.md` - what changed and where,
@@ -80,7 +90,19 @@ a value to the user.
      otherwise have to reconstruct from the diff. This is the batch's durable record and the one
      place the prose is meant to run long; the `CLAIMS.md` stub in step 3 points at it. Match the
      existing style (heading + prose + key commit).
-   - Drop the batch from any **pick-order pointer** line at the top of `BUILD_QUEUE.md`.
+   - **Rewrite the pick-order pointer in place.** It is the block between the
+     `<!-- specflow:pointer:start -->` and `<!-- specflow:pointer:end -->` markers near the top of
+     `BUILD_QUEUE.md`, and it is **replace-only, 20 lines at most**: drop the batch you just
+     finished, say what is claimable now and what it waits on, and leave the block no longer than
+     you found it. That is the one region of the preamble a finish is expected to touch, so it is
+     bounded by a number rather than by discipline - `specflow next` and `specflow finish` report
+     its size beside the preamble count. A queue with no markers still works and is simply not
+     measured separately; add them the next time you rewrite the block.
+
+   **A fact that will outlive this batch does not go in the queue at all.** A decision, a
+   constraint, or a finding goes to the `spec/` file whose concern owns it, via `spec-edit.md`.
+   The preamble is where such a fact gets parked when nobody decided which file owns it, and
+   nothing prunes it there.
 
 4a. **Prune the ledgers.** Run `specflow/procedures/prune-ledgers.md` (Claude: the `prune-ledgers`
    skill). `CLAIMS.md` keeps only the 5 most recent `## Completed` entries; the entry you just wrote

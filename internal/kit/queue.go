@@ -35,9 +35,22 @@ const StubMaxLines = 8
 
 // PreambleMaxLines bounds everything above BUILD_QUEUE.md's first `## Batch` heading. That prose is
 // not an entry, so no retention rule reaches it, and it is where a durable fact gets parked when
-// nobody decided which spec/ file owns it. The shipped template is 33 lines. Same bound
+// nobody decided which spec/ file owns it. The shipped template is 38 lines. Same bound
 // prune-ledgers.md (section 3) states in prose.
 const PreambleMaxLines = 45
+
+// PointerMaxLines bounds the pick-order pointer block, the one region of the preamble a finish is
+// expected to rewrite. A cap that only reports after the fact does not hold a region some step
+// appends to every batch: measured downstream, 446 preamble lines over roughly 50 batches is about
+// 9 lines per finish, so a queue pruned back under PreambleMaxLines is over it again inside five
+// batches. Bounding the pointer by a number is what makes "rewrite, don't append" checkable rather
+// than a matter of discipline.
+//
+// 20 is set where an honest pointer stays silent: what is claimable, what is not ready, and why.
+// The shipped template's is 3 lines and this repo's runs about 12, while one status paragraph per
+// batch clears the cap immediately. Same reasoning as staleRefFloor - a warning that fires on the
+// good shape is one the reader learns to skip. Same bound finish-batch.md states in prose.
+const PointerMaxLines = 20
 
 // staleRefFloor is how many archived batches a preamble may name before the count is worth
 // reporting. A live pointer legitimately names a few: what a claimable batch waits on, what just
@@ -84,6 +97,11 @@ var (
 	qBraceRe       = regexp.MustCompile(`^([^{]*)\{([^{}]*)\}(.*)$`)
 	// Both archives are newest-first, so a new block goes above the first existing entry heading.
 	qArchiveEntryRe = regexp.MustCompile(`^#{2,6}\s`)
+	// The pick-order pointer block's delimiters. Same `specflow:<tag>:start` shape the managed-file
+	// regions use, and deliberately not the `specflow:start` token those match: a queue is a seed
+	// file, never a managed region, so the two must not collide.
+	qPointerStartRe = regexp.MustCompile(`(?i)^\s*<!--\s*specflow:pointer:start\b`)
+	qPointerEndRe   = regexp.MustCompile(`(?i)^\s*<!--\s*specflow:pointer:end\b`)
 	// The stub's pointer at the archived narrative, and the user's over-cap waiver.
 	stubPointerRe = regexp.MustCompile(`(?i)^[-*]?\s*\**Full narrative\**:`)
 	sizeWaiverRe  = regexp.MustCompile(`(?i)specflow:size-ok\b.*next check at\s+(\d+)`)
@@ -1219,9 +1237,18 @@ type Weight struct {
 	// that actually diagnoses a rotten preamble: a line count cannot tell 400 lines of live
 	// pick-order from 400 lines narrating work that shipped months ago, and the second is the one
 	// that fills. Archived means it has a section in BUILD_QUEUE_DONE.md.
-	ArchivedRefs int      `json:"archivedRefs"`
-	LiveRefs     int      `json:"liveRefs"`
-	Warnings     []string `json:"warnings,omitempty"`
+	ArchivedRefs int `json:"archivedRefs"`
+	LiveRefs     int `json:"liveRefs"`
+	// The pick-order pointer block, when the queue marks one off. It is the region a finish is
+	// meant to rewrite, so it is the region that grows a line per batch when a finish appends
+	// instead - measuring it separately is what turns "rewrite, don't append" into a number. An
+	// older queue with no markers reports PointerBlock false and is measured exactly as before:
+	// absent markers mean no separate measurement, not an error.
+	PointerBlock bool `json:"pointerBlock"`
+	PointerLines int  `json:"pointerLines,omitempty"`
+	PointerLimit int  `json:"pointerLimit,omitempty"`
+
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // Weigh measures both ledgers. It never fails: a file it cannot read or parse simply contributes
@@ -1243,6 +1270,11 @@ func Weigh(targetDir string) Weight {
 		}
 		preamble := lines[:w.PreambleLines]
 		w.PreambleHeading, w.HeadingLines = dominantSection(preamble)
+		if start, end := pointerBlock(preamble); start >= 0 && end > start {
+			w.PointerBlock = true
+			w.PointerLines = end - start - 1
+			w.PointerLimit = PointerMaxLines
+		}
 		live := liveBatchIDs(lines)
 		archived := archivedBatchIDs(targetDir)
 		w.ArchivedRefs, w.LiveRefs = refSplit(preamble, live, archived)
@@ -1279,6 +1311,25 @@ func dominantSection(preamble []string) (heading string, count int) {
 	}
 	flush(len(preamble))
 	return heading, count
+}
+
+// pointerBlock locates the pick-order pointer region in the preamble, returning the line indexes of
+// its two markers (-1 for a marker that is not there). The block is measured on its content only:
+// the markers are structure this file's own rules require, so charging them against the cap would
+// just make every author budget 18 - the same reason the CLAIMS.md stub cap counts prose lines
+// only. A start with no end is left for preambleWarnings to name rather than guessed at, because
+// closing it at the first batch heading would report a number nobody wrote.
+func pointerBlock(preamble []string) (start, end int) {
+	start, end = -1, -1
+	for i, l := range preamble {
+		switch {
+		case start < 0 && qPointerStartRe.MatchString(l):
+			start = i
+		case start >= 0 && end < 0 && qPointerEndRe.MatchString(l):
+			end = i
+		}
+	}
+	return start, end
 }
 
 // liveBatchIDs are the batches the queue actually declares, lower-cased for comparison against
@@ -1427,6 +1478,7 @@ func preambleWarnings(w Weight, preamble []string, live, archived map[string]boo
 			"BUILD_QUEUE.md preamble names %d archived batch ids and %d live ones - it is narrating shipped work, which belongs in BUILD_QUEUE_DONE.md (prune-ledgers.md, section 3)",
 			w.ArchivedRefs, w.LiveRefs))
 	}
+	out = append(out, pointerWarnings(preamble)...)
 	out = append(out, staleClaimable(preamble, live, archived)...)
 	for i, l := range preamble {
 		if qNearMissRe.MatchString(l) && !qBatchHeadRe.MatchString(l) {
@@ -1436,6 +1488,28 @@ func preambleWarnings(w Weight, preamble []string, live, archived map[string]boo
 		}
 	}
 	return out
+}
+
+// pointerWarnings is what Weigh has to say about the pick-order pointer block: that it is over its
+// cap, or that it was opened and never closed. Both are reported against the block's own bound
+// rather than the preamble's, which is the point of marking it off at all - by the time an
+// append-only pointer shows up in the preamble count it has already been growing for several
+// batches, and the count cannot say which part grew.
+func pointerWarnings(preamble []string) []string {
+	start, end := pointerBlock(preamble)
+	switch {
+	case start < 0:
+		return nil
+	case end < 0:
+		return []string{fmt.Sprintf(
+			"BUILD_QUEUE.md:%d opens a specflow:pointer block that is never closed, so the pointer cap is not measured - add the `<!-- specflow:pointer:end -->` marker",
+			start+1)}
+	case end-start-1 > PointerMaxLines:
+		return []string{fmt.Sprintf(
+			"BUILD_QUEUE.md's pick-order pointer block is %d lines, over the %d-line cap - it is replace-only: rewrite it, don't append a line per batch (finish-batch.md, step 4)",
+			end-start-1, PointerMaxLines)}
+	}
+	return nil
 }
 
 // sizeWaiver reads the `specflow:size-ok … next check at N` line the user's approval leaves at the

@@ -95,15 +95,48 @@ retention 5 with a 27 KB `CLAIMS.md`:
   not an entry, so no retention rule ever reaches it. That preamble is where an agent parks a durable
   fact when it cannot decide which `spec/` file owns it: at finish time the queue is already open,
   writing there is one edit, and nothing ever prunes it. It is a sink, and it fills. The preamble is
-  capped at **45 lines** (the shipped template is 30, which leaves real headroom) under the same
+  capped at **45 lines** (the shipped template is 38, which leaves real headroom) under the same
   `specflow:size-ok` stop-and-ask the 600-line spec cap uses, re-asking every +15. Here an ask *is*
   warranted where the claims cap's would not be: the fix is a judgment call about which spec file
   should own the stranded paragraph. `prune-ledgers` carries the audit — delete, relocate via
   `spec-edit`, or keep.
 
-**Weight is reported, never pruned by.** `specflow next` and `specflow verify` print the ledger line
-counts and warn past the bounds above. That is a signal, not a second retention rule: the cut stays a
-count, for the determinism reasons just given. What a count cannot reveal is a file that reached
+**The preamble is bounded because the append is.** A cap that only reports after the fact does not
+hold a region some step adds to every batch. Measured in the install both failure modes came from,
+446 preamble lines across roughly 50 batches is about 9 lines per finish, so a queue pruned back
+under the cap is over it again inside five batches: the audit is cleanup, not a slope change. Two
+rules close the inlet instead of measuring it.
+
+- **The finish-time queue edit is subtractive.** `finish-batch` deletes the batch's section and
+  rewrites the pick-order pointer; it never appends. The batch's narrative already has a home in
+  `BUILD_QUEUE_DONE.md`, and `specflow finish` already files it there, so an appended status
+  paragraph is a second copy of prose that already exists, sitting in the file every agent re-reads
+  on the way in.
+- **The pick-order pointer is a bounded, replace-only block.** It sits between
+  `<!-- specflow:pointer:start -->` and `<!-- specflow:pointer:end -->` and is capped at **20 lines**
+  of content, measured by `Weigh` and reported beside the preamble count. It is the one region of the
+  preamble a finish is *expected* to rewrite, which is exactly why it is the region that grows a line
+  per batch when a finish appends instead: an append-only region under a cap is the whole failure, so
+  this one is bounded by a number rather than by discipline. The markers use the same
+  `specflow:<tag>:start` shape as the render regions and deliberately not the `specflow:start` token
+  the managed-file check matches, since a queue is a seed file and never a managed region. A queue
+  without markers is measured exactly as before: absent markers mean no separate measurement, not an
+  error, and the cap counts the block's content rather than its markers, for the same reason the stub
+  cap counts prose only. **20** is set where an honest pointer (what is claimable, what it waits on,
+  what is not ready) stays silent: the same calibration as the stale-reference floor, since a warning
+  that fires on the good shape is one the reader learns to skip.
+
+Unlike the preamble cap, neither rule stops and asks. Both are mechanical: what to delete is decided
+by the batch that just finished, and rewriting a pointer loses nothing. The ask stays where the
+judgment is, which is deciding *which* `spec/` file should own a paragraph that was parked in the
+queue.
+
+**Weight is reported, never pruned by.** `specflow next`, `specflow verify`, and `specflow finish` print the
+ledger line counts and warn past the bounds above. That is a signal, not a second retention rule: the
+cut stays a count, for the determinism reasons just given. `finish` prints them on its way out
+because that is the last moment the agent can still fix an appended preamble, one step before the
+`meta: complete` commit; report, not refuse, since it needs no new state and the edit it reports on
+is the one in progress. What a count cannot reveal is a file that reached
 27 KB while its count stayed correct, and reporting closes exactly that gap.
 
 Archiving a claim is **not** gated behind a stop-and-ask, unlike the spec-file cap below and the

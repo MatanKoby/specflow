@@ -2918,6 +2918,144 @@ func TestNearMissBatchHeadingIsNamed(t *testing.T) {
 	}
 }
 
+// ---- Batch FL: a finish leaves the queue smaller ----
+
+// growPointer replaces the seeded pick-order pointer with n quoted lines, the shape a finish that
+// appends a status paragraph per batch produces after a few batches.
+func growPointer(t *testing.T, dir string, n int) {
+	t.Helper()
+	p := filepath.Join(dir, "BUILD_QUEUE.md")
+	body := read(t, p)
+	start := strings.Index(body, "<!-- specflow:pointer:start")
+	endMark := "<!-- specflow:pointer:end -->"
+	end := strings.Index(body, endMark)
+	if start < 0 || end < 0 {
+		t.Fatal("seeded queue has no pointer markers")
+	}
+	head := body[:strings.Index(body[start:], "\n")+start+1]
+	mustWrite(t, p, body[:start]+head+strings.Repeat("> Batch A shipped. Nothing else changed.\n", n)+body[end:])
+}
+
+// stripPointerMarkers returns the queue to the pre-FL shape: a pointer with no markers around it,
+// which every install upgrading from an older specflow has.
+func stripPointerMarkers(t *testing.T, dir string) {
+	t.Helper()
+	p := filepath.Join(dir, "BUILD_QUEUE.md")
+	var kept []string
+	for _, l := range strings.Split(read(t, p), "\n") {
+		if strings.Contains(l, "specflow:pointer:") {
+			continue
+		}
+		kept = append(kept, l)
+	}
+	mustWrite(t, p, strings.Join(kept, "\n"))
+}
+
+// TestPointerBlockIsMeasuredAgainstItsOwnCap: the preamble cap only reports after the fact, so a
+// region a finish appends to every batch clears it again within a few batches. The pointer is the
+// one region a finish is meant to rewrite, so it carries its own bound and its own report.
+func TestPointerBlockIsMeasuredAgainstItsOwnCap(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+
+	out := run(t, tmp, "next").stdout
+	if !strings.Contains(out, fmt.Sprintf("pointer 3/%d", kit.PointerMaxLines)) {
+		t.Errorf("next did not report the shipped pointer block beside the preamble count:\n%s", out)
+	}
+	if strings.Contains(out, "pick-order pointer block is") {
+		t.Errorf("next warned about a pointer well under its cap:\n%s", out)
+	}
+
+	growPointer(t, tmp, kit.PointerMaxLines+1)
+	out = run(t, tmp, "next").stdout
+	if !strings.Contains(out, fmt.Sprintf("pick-order pointer block is %d lines, over the %d-line cap", kit.PointerMaxLines+1, kit.PointerMaxLines)) {
+		t.Errorf("next did not warn about the over-cap pointer block:\n%s", out)
+	}
+	if !strings.Contains(out, "replace-only") {
+		t.Errorf("the warning did not say what to do about it:\n%s", out)
+	}
+
+	var rep kit.NextReport
+	if err := json.Unmarshal([]byte(run(t, tmp, "next", "--json").stdout), &rep); err != nil {
+		t.Fatalf("next --json: %v", err)
+	}
+	if !rep.Weight.PointerBlock || rep.Weight.PointerLines != kit.PointerMaxLines+1 || rep.Weight.PointerLimit != kit.PointerMaxLines {
+		t.Errorf("--json did not carry the pointer measurement: %+v", rep.Weight)
+	}
+}
+
+// TestQueueWithoutPointerMarkersIsMeasuredAsBefore: absent markers mean no separate measurement,
+// not an error. Every install upgrading from an older specflow has a queue in exactly this shape,
+// and a warning there would fire on a file the user has not been told how to fix yet.
+func TestQueueWithoutPointerMarkersIsMeasuredAsBefore(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+	before := run(t, tmp, "next").stdout
+
+	stripPointerMarkers(t, tmp)
+	out := run(t, tmp, "next").stdout
+	if strings.Contains(out, "pointer") {
+		t.Errorf("a queue with no markers was measured for a pointer block anyway:\n%s", out)
+	}
+	if !strings.Contains(out, "preamble") || !strings.Contains(before, "preamble") {
+		t.Errorf("the preamble count did not survive the markers going away:\n%s", out)
+	}
+
+	// Growing an unmarked pointer past the pointer cap must still say nothing: without markers
+	// there is no block to measure, and the preamble cap is what catches it eventually.
+	body := read(t, filepath.Join(tmp, "BUILD_QUEUE.md"))
+	at := strings.Index(body, "## Batch A")
+	mustWrite(t, filepath.Join(tmp, "BUILD_QUEUE.md"),
+		body[:at]+strings.Repeat("> Batch A shipped.\n", kit.PointerMaxLines+1)+"\n"+body[at:])
+	if out := run(t, tmp, "next").stdout; strings.Contains(out, "pick-order pointer block is") {
+		t.Errorf("an unmarked pointer was warned about against the block cap:\n%s", out)
+	}
+}
+
+// TestUnclosedPointerBlockIsNamed: a start marker with no end silently turns the cap off. Reporting
+// it beats guessing where the block ends, which would put a number nobody wrote in front of the
+// reader.
+func TestUnclosedPointerBlockIsNamed(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+	p := filepath.Join(tmp, "BUILD_QUEUE.md")
+	mustWrite(t, p, strings.Replace(read(t, p), "<!-- specflow:pointer:end -->\n", "", 1))
+
+	out := run(t, tmp, "next").stdout
+	if !strings.Contains(out, "never closed") || !strings.Contains(out, "specflow:pointer:end") {
+		t.Errorf("next did not name the unclosed pointer block:\n%s", out)
+	}
+	if strings.Contains(out, "pointer 3/") {
+		t.Errorf("an unclosed block must not be reported as a measured one:\n%s", out)
+	}
+}
+
+// TestFinishReportsLedgerWeight: finish is the last moment an agent can still fix an appended
+// preamble - the `meta: complete` commit is the very next thing it does. Report, not refuse.
+func TestFinishReportsLedgerWeight(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+	growPointer(t, tmp, kit.PointerMaxLines+4)
+	run(t, tmp, "claim", "A")
+
+	done := filepath.Join(tmp, "done.md")
+	mustWrite(t, done, "Shipped the a in `src/a.go`.\n")
+	r := run(t, tmp, "finish", "A", "--commit", "abc1234", "--done-file", done)
+	if r.code != 0 {
+		t.Fatalf("finish exit %d: %s%s", r.code, r.stdout, r.stderr)
+	}
+	if !strings.Contains(r.stdout, "ledger weight") {
+		t.Errorf("finish did not report the ledger weight on its way out:\n%s", r.stdout)
+	}
+	if !strings.Contains(r.stdout, "pick-order pointer block is") {
+		t.Errorf("finish did not warn about the pointer block it just left behind:\n%s", r.stdout)
+	}
+}
+
 // ---- Batch RC: the drift sidecar, adoption on reconcile, and waivers ----
 
 // driftRegion injects a sentinel inside the managed region of a file, simulating a hand edit.

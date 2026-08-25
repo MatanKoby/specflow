@@ -17,6 +17,8 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 - Everything above the first `## Batch` heading is the **preamble**, capped at 45 lines. It holds
   the pick-order pointer and these rules - not design facts or release history, which belong in
   `spec/`. `specflow/procedures/prune-ledgers.md` (section 3) audits it.
+- **A fact that will outlive the batch goes to `spec/`, not here** (`spec-edit.md`): parking it in
+  the preamble, where nothing prunes it, is how this file fills.
 - Each batch below follows a **declared shape**: the `## Batch <id> [TAG] - <title>` heading, an
   optional `**Depends on:** Batch X[, Batch Y]` line, and a `### Files this batch creates/edits`
   list. Everything else in a section is free prose. `specflow next` reads that shape to answer
@@ -26,9 +28,11 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 
 ## Un-done batches
 
+<!-- specflow:pointer:start - replace-only, 20 lines max: rewrite this block, never append to it. -->
 > **Pick-order pointer for "continue".** When the user types "continue" after a context clear,
 > **ask** which un-done batch to claim rather than guessing. (Keep a rough priority order here
 > as the queue fills.)
+<!-- specflow:pointer:end -->
 
 ---
 

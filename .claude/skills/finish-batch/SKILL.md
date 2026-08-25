@@ -14,6 +14,11 @@ from `BUILD_QUEUE.md` and file the **full narrative** in `specflow/history/BUILD
 prune the ledgers → commit `meta: complete batch-N` and push. The prose about a batch is written
 once, in the archive; `CLAIMS.md` is the hot file and only gets the stub.
 
+**The `BUILD_QUEUE.md` edit is subtractive.** Delete the section and rewrite the pick-order pointer
+in place; never append a status paragraph. The pointer is the block between the
+`specflow:pointer` markers and is replace-only, 20 lines at most. A fact that will outlive the
+batch goes to `spec/` via `spec-edit.md`, not to the queue preamble.
+
 **Use the CLI when it's installed:** `specflow finish <N> --commit <sha> --stub-file <path>
 --done-file <path>` does every one of those edits (both ledger moves, the archive entry, and the
 prune) in one call. You still write every word of prose; it owns placement, format, and

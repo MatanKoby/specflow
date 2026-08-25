@@ -12,11 +12,14 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 - Dependencies are listed where they exist — the agent decides execution order.
 - Agents claim and track completion in `CLAIMS.md`. **No Owner / Started / Status ever goes here.**
 - See `specflow/procedures/claim-batch.md` before claiming.
+- **A fact that will outlive the batch goes to `spec/`, not here** (`spec-edit.md`): parking it in
+  the preamble, where nothing prunes it, is how this file fills.
 
 ---
 
 ## Un-done batches
 
+<!-- specflow:pointer:start - replace-only, 20 lines max: rewrite this block, never append to it. -->
 > **Pick-order pointer.** Current release: **`v0.1.9`**; no line is open. Which batch shipped in
 > which release lives in `spec/roadmap.md` → *Release lines*, and the milestone goals live there
 > too, not here. This file holds un-done work only.
@@ -28,6 +31,7 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > these two are the ones that change the slope.
 > **Not ready:** **NX** (`next` file spread) · **W** (workflow config) · **NB** (`--new-batch`) ·
 > **E** (enforcement, research-first) · **P** (npm-wrapper front-end) · Homebrew tap.
+<!-- specflow:pointer:end -->
 
 ---
 

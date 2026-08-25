@@ -914,10 +914,15 @@ specflow owns placement, format, and timestamps; you own every word of prose:
   --commit <sha>         short SHA of the work commit
   -h, --help             show this help
 
+The queue edit is subtractive: the section goes, the pick-order pointer gets rewritten,
+nothing is appended. finish closes by printing the ledger weight, including that pointer
+block against its %d-line cap, because this is the last point you can still fix a preamble
+that grew before the meta: complete commit.
+
 --summary-file is the old name for --stub-file and still works.
 It does not commit. Nothing is written unless every file parses cleanly.
 
-`, bold("specflow finish"), bold("Usage:"), cyan("## Completed"), cyan("BUILD_QUEUE.md"), cyan("CLAIMS.md"), kit.CompletedRetention, kit.StubMaxLines)
+`, bold("specflow finish"), bold("Usage:"), cyan("## Completed"), cyan("BUILD_QUEUE.md"), cyan("CLAIMS.md"), kit.CompletedRetention, kit.StubMaxLines, kit.PointerMaxLines)
 }
 
 func cmdNext(args []string) error {
@@ -973,12 +978,16 @@ func cmdNext(args []string) error {
 // prune, and a count of entries can stay correct while the file behind it grows unreadable, so the
 // size is stated every time and warned about only past a bound.
 func printWeight(w kit.Weight) {
+	pointer := ""
+	if w.PointerBlock {
+		pointer = fmt.Sprintf(", pointer %d/%d", w.PointerLines, w.PointerLimit)
+	}
 	refs := ""
 	if w.ArchivedRefs+w.LiveRefs > 0 {
 		refs = fmt.Sprintf(", names %d archived batch ids and %d live", w.ArchivedRefs, w.LiveRefs)
 	}
-	fmt.Println(dim(fmt.Sprintf("\n  ledger weight: BUILD_QUEUE.md %d lines (preamble %d/%d%s) · CLAIMS.md %d lines (%d completed)",
-		w.QueueLines, w.PreambleLines, w.PreambleLimit, refs, w.ClaimsLines, w.CompletedCount)))
+	fmt.Println(dim(fmt.Sprintf("\n  ledger weight: BUILD_QUEUE.md %d lines (preamble %d/%d%s%s) · CLAIMS.md %d lines (%d completed)",
+		w.QueueLines, w.PreambleLines, w.PreambleLimit, pointer, refs, w.ClaimsLines, w.CompletedCount)))
 	for _, warn := range w.Warnings {
 		fmt.Println(yellow("  ⚠ ") + warn)
 	}
@@ -1075,6 +1084,11 @@ func cmdFinish(args []string) error {
 	if len(res.Archived) > 0 {
 		fmt.Println(green("  ✓ ") + fmt.Sprintf("pruned to the %d newest: archived %s", kit.CompletedRetention, strings.Join(res.Archived, ", ")))
 	}
+	// The queue as finish leaves it, weighed on the way out. This is the last moment the agent can
+	// still fix an appended preamble: the `meta: complete` commit is the next thing it does, and
+	// after that the growth is someone else's to find. Report, not refuse - the numbers need no new
+	// state, and the edit they are about is the one in progress.
+	printWeight(kit.Weigh(target))
 	fmt.Println(dim("\n  Nothing is committed. Commit ") + cyan("meta: complete batch-"+res.Batch) + dim(" per your commit/push levers, then offer the step-6 handoff.\n"))
 	return nil
 }
