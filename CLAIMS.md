@@ -51,11 +51,24 @@ Entries above the LW line predate the rule and are left as written.
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch EM — the emitters obey the rule ED wrote
 - Owner: claude
 - Started: 2026-08-25 08:34
+- Finished: 2026-08-25 08:39
+- Commit: 20ba874
 
-## Completed
+**What shipped.** specflow no longer writes an em dash at runtime. `queue.go`'s claim entry and
+`archiveHeading` join with ` - `, and every emitted string in `queue.go`, `kit.go` and `main.go`
+(console output, `--help`, errors, warnings) uses plain punctuation.
+
+The parsers are deliberately untouched: the `TrimLeft` sets at `queue.go:120` / `:686` and the `sep`
+slice at `:194` still accept the em and en dash, because every install that ran 0.1.9 or earlier has
+em-dash headings that `finish`, `next` and `migrate-claims` locate by heading. Three tests pin both
+halves. Go comments stay as written; `AGENTS.md`'s style rule now covers emitted strings.
+
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch EM
 
 ### Batch ED — one mechanical pass, no rewording
 - Owner: claude
@@ -123,19 +136,3 @@ destroy the edit being blessed.
 `specflow adopt` as a baseline re-record, and that shape is a trap, not a nicety.
 
 - Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch RC
-
-### Batch LW — Ledger weight: bound the entry, not just the count
-- Owner: claude
-- Started: 2026-08-21 13:30
-- Finished: 2026-08-21 13:38
-- Commit: 5dcced8
-
-**What shipped**
-- `CLAIMS.md` entries are now stubs (8 lines max + pointer); the full narrative goes to `BUILD_QUEUE_DONE.md`.
-- `specflow finish --stub-file` refuses an over-length stub before writing; `--summary-file` still works.
-- `BUILD_QUEUE.md`'s preamble is capped at 45 lines, waivable with `specflow:size-ok`; `prune-ledgers` §3 audits it.
-- `next` and `verify` print ledger line counts and warn past a bound.
-- Absorbed the companion Batch NX was carrying, so NX no longer needs it.
-
-- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch LW
-

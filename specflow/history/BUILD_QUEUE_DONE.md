@@ -10,6 +10,61 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch EM - the emitters obey the rule ED wrote
+Batch ED swept every em dash out of what specflow ships as files, but the CLI went on *writing*
+them: `internal/kit/queue.go` put `### Batch N — title` into a downstream `CLAIMS.md` on every
+`specflow claim` and `## Batch N — title` into `BUILD_QUEUE_DONE.md` on every `finish`, so a
+downstream repo that had just been swept clean got a fresh em dash back on its next verb. The
+documented entry format in `AGENTS.md` and `templates/base/CLAIMS.md` already said
+`### Batch N - <short title>`, so the code contradicted the template it ships.
+
+**Scope, widened once before the claim.** The batch as queued named `queue.go`, `main.go` and
+`main_test.go`. `internal/kit/kit.go` was missing and holds 22 emitted strings of its own: every
+`verify` problem and warning, and the `fmt.Errorf` messages on the init, upgrade, add-agent and
+waive paths. Shipping the batch as written would have left `specflow verify` printing em dashes,
+so `kit.go` was added to the declared file list first (commit `dcdf059`).
+
+**The change.** Write sites only. In `queue.go`: the claim entry, `archiveHeading`, and the four
+cap/pointer warning and error strings. In `kit.go`: 19 lines of emitted strings. In `main.go`: 63
+lines of console output and help text. The default replacement is a spaced hyphen; one spot needed
+more than punctuation, the `waive --help` line that began with a dash at column zero, where a
+hyphen would have read as a list bullet, so the clause was folded into the sentence above it with
+a semicolon.
+
+**The compatibility constraint, and how it is pinned.** The parsers must accept the em dash
+forever. The two `TrimLeft` sets (`queue.go:120`, `queue.go:686`) and the separator slice
+(`queue.go:194`) are unchanged, and three tests now hold the line from both sides:
+`TestEmDashEraLedgersStillResolve` hand-writes an In-progress entry exactly as an older binary
+wrote it, then proves `next` still sees the claim, `finish` still moves it, the moved entry keeps
+its em dash verbatim, and the archive heading `finish` *writes* is the hyphen form;
+`TestMigrateClaimsAcceptsEmDashHeadings` does the same for the other heading-matching verb; and
+`TestClaimAndFinishWriteHyphenHeadings` asserts that after a full claim/finish round trip neither
+ledger contains an em dash at all. The existing suite's queue and ledger fixtures were left on the
+em dash on purpose (they are the legacy corpus); only the four assertions about what specflow
+*writes* were flipped to the hyphen.
+
+**Go comments stay as written**, per the AGENTS.md rule: they are not emitted text. Two comments in
+`queue.go` were updated anyway because they document the heading the code now produces, and a stale
+example there would mislead the next reader.
+
+**The rule was updated to match.** `AGENTS.md` → *Writing style for shipped content* now lists
+every string the CLI emits as part of the managed set, moves the Go source from "out of scope" to
+"comments only, plus the separator lists as a named exception", and carries a second grep for the
+Go side. The out-of-scope list keeps `spec/**`, `README.md`, the ledgers, `specflow/history/**` and
+`.github/release-notes/**`. `CLAUDE.md`'s pointer picked up the same qualification.
+
+**No template changed**, so no baseline was re-recorded and a downstream install needs nothing
+beyond the new binary. `specflow verify` is clean without an `upgrade`.
+
+**Verification.** The two greps the rule documents are clean: the managed-set grep returns five
+hits, all of them the rule naming the characters it forbids, and the Go grep returns only comments
+and the three separator lists. `gofmt`/`go vet`/`go test ./...` green. A scratch repo was built
+with a locally compiled binary, then taken through `init`, `next`, `claim` and `finish`: the
+console printed hyphens throughout, and the resulting install contains zero em and en dashes
+anywhere, which is the acceptance test.
+
+Key commit `20ba874`.
+
 ## Batch ED — one mechanical pass, no rewording
 Everything specflow shipped carried em dashes, which land in every install and collide with the
 no-em-dash rule a downstream repo may hold. A downstream sweep is drift, so `upgrade` stops

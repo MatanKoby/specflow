@@ -7,6 +7,21 @@ Written by `specflow/procedures/prune-ledgers.md`, which keeps the 5 newest comp
 `CLAIMS.md` and moves everything older here. Don't hand-move entries; run the procedure (Claude:
 the `prune-ledgers` skill) so the retention rule stays consistent.
 
+### Batch LW — Ledger weight: bound the entry, not just the count
+- Owner: claude
+- Started: 2026-08-21 13:30
+- Finished: 2026-08-21 13:38
+- Commit: 5dcced8
+
+**What shipped**
+- `CLAIMS.md` entries are now stubs (8 lines max + pointer); the full narrative goes to `BUILD_QUEUE_DONE.md`.
+- `specflow finish --stub-file` refuses an over-length stub before writing; `--summary-file` still works.
+- `BUILD_QUEUE.md`'s preamble is capped at 45 lines, waivable with `specflow:size-ok`; `prune-ledgers` §3 audits it.
+- `next` and `verify` print ledger line counts and warn past a bound.
+- Absorbed the companion Batch NX was carrying, so NX no longer needs it.
+
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch LW
+
 ### Batch CD — Batch-width and prune discipline in the procedures
 - Owner: claude
 - Started: 2026-08-21 06:14
