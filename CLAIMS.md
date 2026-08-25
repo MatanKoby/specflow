@@ -51,11 +51,24 @@ Entries above the LW line predate the rule and are left as written.
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch OD - a batch can wait on an outcome, not just on a finish
 - Owner: claude
 - Started: 2026-08-25 12:47
+- Finished: 2026-08-25 13:18
+- Commit: a8d8966
 
-## Completed
+Batch sections now take an optional free-text `Blocked on:` line: a hard gate that
+makes a batch non-claimable, with `next` printing the author's text as the reason
+(`claim` refuses the same batch). It coexists with a tag, replacing that tag's canned
+gloss. Deleting the line clears it; `none` is accepted; an empty line still blocks.
+The decision behind the shape is in `spec/architecture.md` → *Declared batch fields*
+(commit `e7968a4`), settled with the user before any code, as the batch required.
+`next` now also folds a block reason to 72 columns, since this is the one reason
+string the CLI does not author.
+
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch OD
 
 ### Batch FL - a finish leaves the queue smaller
 - Owner: claude
@@ -127,20 +140,3 @@ em-dash headings that `finish`, `next` and `migrate-claims` locate by heading. T
 halves. Go comments stay as written; `AGENTS.md`'s style rule now covers emitted strings.
 
 - Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch EM
-
-### Batch ED — one mechanical pass, no rewording
-- Owner: claude
-- Started: 2026-08-24 14:14
-- Finished: 2026-08-24 14:22
-- Commit: 358dd08
-
-Swept every em and en dash out of what specflow ships: `templates/**`, `specflow/procedures/*.md`,
-and this repo's own managed copies (`AGENTS.md`, `CLAUDE.md`, `.claude/skills/**`,
-`.claude/hooks/**`). Punctuation only, no rewording. A fresh `specflow init` now writes an install
-with no em dash in it. The managed baselines in `specflow/config.json` were re-recorded through a
-locally built `upgrade`, so `verify` is clean and a self-hosted upgrade still agrees with the kit.
-Out of scope on purpose and still dashed: `spec/**`, `README.md`, the ledgers, and the Go source,
-where `internal/kit/queue.go` still writes `### Batch N — title` into downstream ledgers.
-
-- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch ED
-

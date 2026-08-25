@@ -24,46 +24,11 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > which release lives in `spec/roadmap.md` → *Release lines*, and the milestone goals live there
 > too, not here. This file holds un-done work only.
 >
-> **Claimable: OD.** Batch FL closed the first inlet that fills this preamble (a finish is now
-> subtractive, and the pointer you are reading is a bounded replace-only block). OD closes the
-> second: a batch that waits on what an earlier batch *found* has no way to say so, so the fact
-> gets parked in prose here instead.
+> **Nothing is claimable.** FL and OD closed both inlets that fill this preamble, and every batch
+> left is `[NOT READY]`: promoting one is the user's call, not an agent's.
 > **Not ready:** **NX** (`next` file spread) · **W** (workflow config) · **NB** (`--new-batch`) ·
 > **E** (enforcement, research-first) · **P** (npm-wrapper front-end) · Homebrew tap.
 <!-- specflow:pointer:end -->
-
----
-
-## Batch OD - a batch can wait on an outcome, not just on a finish
-
-**Depends on:** Batch FL (both edit `Weigh` and `templates/base/BUILD_QUEUE.md`).
-
-**Goal.** `Depends on:` takes batch ids and means *completed*, so there is no way to say a batch
-waits on what an earlier batch **found**. Downstream, two batches declare `Depends on: ... Batch 46
-having come back answers`; Batch 46 shipped and reported package presence only, so `specflow next`
-offers both as claimable and is wrong. The only thing standing between an agent and a wrong claim
-there is a prose caveat in the queue preamble, which is itself preamble growth: the format could not
-express the fact, so it was parked in prose. That is the second inlet, and FL closes only the first.
-
-**Build a `Blocked on:` field**: free text, makes the batch non-claimable, and `next` prints the
-text as the block reason. Preferred over documenting `[NOT READY]` plus a comment, because the gate
-stays machine-readable and the reason lands where the agent already looks. Settle the shape in a
-`spec-edit` first (the field name, whether it coexists with a tag, what clears it), then build.
-
-### Files this batch creates/edits
-- `spec/architecture.md` or `spec/open-questions.md` (the decision, via `spec-edit.md`) ·
-  `internal/kit/queue.go` (parse + eligibility) · `cmd/specflow/main.go` (`next` reason) ·
-  `templates/base/BUILD_QUEUE.md` (declared shape) · `templates/base/specflow/procedures/claim-batch.md`
-  (the eligibility rules the verb implements) · `cmd/specflow/main_test.go` · managed copies +
-  baselines.
-
-### Does NOT touch
-- `Depends on:` semantics. A batch id still means completed; this is a second, separate gate.
-
-### Verification
-- `test -z "$(gofmt -l cmd internal)" && go vet ./... && go test ./...`
-- New tests: a `Blocked on:` batch is never offered and its reason is printed verbatim; clearing
-  the line makes it claimable; `--json` carries the field.
 
 ---
 

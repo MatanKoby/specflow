@@ -10,6 +10,89 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch OD - a batch can wait on an outcome, not just on a finish
+## Batch OD - a batch can wait on an outcome, not just on a finish
+
+**Key commit:** `a8d8966` (work), `e7968a4` (the spec decision), `384e178` (claim).
+
+**The problem.** `Depends on:` takes batch ids and means *completed*, so there was no way to
+say a batch waits on what an earlier batch **found**. Downstream, two batches declared they
+depended on "Batch 46 having come back answers"; Batch 46 shipped, reported package presence
+only, and `specflow next` went on offering both as claimable. The only thing standing between
+an agent and a wrong claim was a prose caveat in the queue preamble, which is itself preamble
+growth: the format could not express the fact, so it got written where nothing reads it and
+nothing prunes it. That is the second inlet filling a preamble. Batch FL closed the first (the
+appended finish).
+
+**The decision, settled first.** The batch mandated a `spec-edit` before any code, on three
+open points, and the user's call was taken on each before a line was written:
+
+- **Field name `Blocked on:`.** It sits beside `Depends on:` in the same declared-field shape,
+  parses with the same forgiving regex, and "blocked" is already the word `next` prints as its
+  section heading, so the field and the output agree.
+- **It coexists with a tag, and its text replaces the tag's canned gloss.** A tag is the
+  category, the line is the specific why, and a batch can honestly carry both. `next` reports
+  `[NOT READY] blocked on <the author's text>`. Printing gloss and text together would say the
+  same thing twice; printing the gloss alone is exactly what sent the specific reason to the
+  preamble in the first place. An unrecognized tag keeps its "ask the user" advice appended.
+- **Deleting the line clears it.** `Blocked on: none` is accepted (the same liberality
+  `parseDepends` already gives that word), so an agent who writes the word rather than deleting
+  the line does not strand a batch, but the procedures say delete: a leftover "none" is a line
+  that states nothing and that no retention rule reaches, which is the residue this field exists
+  to stop leaving behind.
+
+A fourth point the batch text did not raise, decided the same way: **an empty `Blocked on:` line
+still blocks**, with "no reason given" as the reason. A gate nobody can act on is a defect in the
+queue, not a claimable batch, and reading it as absent would let a truncated line quietly re-open
+a batch someone meant to close.
+
+The decision lives in `spec/architecture.md` → *Declared batch fields*, which also grew the
+`Blocked on:` line into the stated declared shape. 524 to 553 lines, under the 600 cap.
+
+**What changed.**
+
+- `internal/kit/queue.go`: `qBlockedRe` (the same forgiving shape as `qDependsRe`), `parseBlocked`,
+  and `Batch.Blocked` / `Batch.BlockedOn`. The gate and the text are separate fields precisely
+  because an empty line still gates. `blockReason` checks it right after the tag and *ahead of*
+  the parse problem, which loses nothing: an unparseable section is reported separately in
+  `NextReport.Problems` either way, so leading with the author's stated reason is strictly more
+  useful. `NextItem` carries `blocked` / `blockedOn` beside the rendered `reason`, so a `--json`
+  consumer can tell an author's stated block from the ones the verb derives.
+- `cmd/specflow/main.go`: `wrapReason`, folding a block reason to 72 columns with a 16-space
+  continuation indent. Every other reason `next` prints is a string this CLI wrote and kept
+  short; a `Blocked on:` reason is whatever the queue's author typed, and a reason the reader has
+  to scroll sideways for is not a reason landing where they already look. `next --help` names the
+  new check.
+- `templates/base/BUILD_QUEUE.md`: the declared-shape bullet names the optional line (preamble 38
+  to 40 of the 45 cap), and the worked example demonstrates it without gating itself, since a
+  gated example batch would be a demo nobody can claim.
+- `templates/base/specflow/procedures/claim-batch.md`: a new step 3a stating the gate, that only
+  the person who can answer it clears it (not the passing agent, because the batch looks ready),
+  the "none" liberality, the empty-line rule, and the tag coexistence. The skill trigger gained a
+  three-line version of the same.
+- Tests: six, in a new `// ---- Batch OD ----` section, plus a `splitNextSections` helper so a
+  test can assert a batch is absent from the claimable half rather than merely present somewhere
+  on the page. They cover the gate holding and `claim` refusing without writing to `CLAIMS.md`,
+  both ways of clearing it, the empty line, tag coexistence (asserting the gloss is *not* also
+  printed), `--json` carrying the field, and a long reason folding without losing or reordering a
+  word. All five that should have been sensitive to the gate were confirmed to fail with the
+  `b.Blocked` branches disabled, so none of them is vacuous.
+
+**Not touched.** `Depends on:` semantics: a batch id still means completed, and the two gates are
+evaluated separately, so a batch can be waiting on both.
+
+**Verification.** `test -z "$(gofmt -l cmd internal)" && go vet ./... && go test ./...` clean.
+`specflow verify` clean on all 12 managed files; `specflow upgrade` refreshed the two baselines
+for the claim-batch procedure and skill. Dash-rule greps unchanged at 5 and 7 pre-existing hits.
+
+**Worth knowing.** The installed `specflow` binary on this machine was still pre-FL at the start
+of this batch: `specflow next` printed the old weight line with no pointer count while `go run`
+printed the new one. Rebuilding it is part of finishing a batch that changes CLI output, not an
+afterthought, or the next batch measures the queue with the previous batch's ruler.
+
+**Follow-up still open.** `prune-ledgers.md` section 3 does not mention the pointer block (noted
+in FL's narrative, still true). Nothing in OD touched that file.
+
 ## Batch FL - a finish leaves the queue smaller
 **The problem.** The preamble cap (45 lines) only reports after the fact, and one step (a finish)
 appended to the preamble every batch. Measured in the install that produced the report: 446
