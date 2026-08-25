@@ -21,12 +21,87 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > which release lives in `spec/roadmap.md` → *Release lines*, and the milestone goals live there
 > too, not here. This file holds un-done work only.
 >
-> **Claimable: nothing.** The queue warning is diagnostic now, and the procedure it sends you to
-> greps before it judges. **Neither of them stops the leak**: a preamble fills at finish time, one
-> appended status paragraph per batch, and cleanup is still the only thing that empties it. That fix
-> is not queued yet.
+> **Claimable: FL**, then **OD**, which depends on it. FL stops the preamble filling at finish time
+> (subtractive queue edit, bounded replace-only pointer block); OD lets a batch declare it is waiting
+> on what an earlier batch *found*, which is the other reason facts get parked in queue prose. The
+> queue warning is diagnostic and section 3 greps before it judges, but both of those are cleanup:
+> these two are the ones that change the slope.
 > **Not ready:** **NX** (`next` file spread) · **W** (workflow config) · **NB** (`--new-batch`) ·
 > **E** (enforcement, research-first) · **P** (npm-wrapper front-end) · Homebrew tap.
+
+---
+
+## Batch FL - a finish leaves the queue smaller
+
+**Goal.** `BUILD_QUEUE.md`'s preamble fills at finish time, one appended status paragraph per batch,
+under a cap that only reports after the fact. Batch QD made the fill visible and Batch PD made the
+cleanup cheap; neither changes the slope. The install both came from accumulated 446 preamble lines
+across roughly 50 batches, about 9 lines per finish, so a pruned queue there is back over the
+45-line cap inside five batches. Stop the append.
+
+- **`finish-batch` step 4 says the queue edit is subtractive.** Delete the section, rewrite the
+  pointer, never append. The narrative already has a home and `finish` already writes it there.
+- **The pick-order pointer becomes a bounded, replace-only block**, inside
+  `<!-- specflow:pointer:start -->` / `end` markers with its own cap (propose 20 lines), measured by
+  `Weigh` and reported beside the preamble count. An append-only region under a cap is the whole
+  bug: bound it by a number rather than by discipline. Markers are the same shape the managed-file
+  regions already use, and an install without them keeps working (absent markers mean no separate
+  measurement, not an error).
+- **The queue template gains one line** in `How this works`: a fact that will outlive the batch goes
+  to `spec/`, not here.
+- **`specflow finish` reports whether the preamble grew** during the batch (it already reads and
+  rewrites the file, so this is a diff of two counts). Report, not refuse: the cheapest enforcement
+  that needs no new state, and the point where an agent can still fix it.
+
+### Files this batch creates/edits
+- `templates/base/specflow/procedures/finish-batch.md` · `templates/base/BUILD_QUEUE.md` ·
+  `templates/agents/claude/.claude/skills/finish-batch/SKILL.md` · `internal/kit/queue.go`
+  (`Weight`, `Weigh`, the pointer block) · `cmd/specflow/main.go` (`printWeight`, `finish` output) ·
+  `cmd/specflow/main_test.go` · `spec/architecture.md` (Ledger lifecycle: the preamble is bounded
+  because the append is, run through `spec-edit.md`) · this repo's managed copies + `config.json`
+  baselines.
+
+### Does NOT touch
+- `prune-ledgers.md` (PD just rewrote section 3) and the batch format itself (Batch OD).
+
+### Verification
+- `test -z "$(gofmt -l cmd internal)" && go vet ./... && go test ./...`
+- New tests: the pointer block is measured and warned about separately; a queue without markers is
+  reported exactly as it is today; `finish` names a preamble that grew.
+- `specflow verify` clean after a self-hosted `upgrade`.
+
+---
+
+## Batch OD - a batch can wait on an outcome, not just on a finish
+
+**Depends on:** Batch FL (both edit `Weigh` and `templates/base/BUILD_QUEUE.md`).
+
+**Goal.** `Depends on:` takes batch ids and means *completed*, so there is no way to say a batch
+waits on what an earlier batch **found**. Downstream, two batches declare `Depends on: ... Batch 46
+having come back answers`; Batch 46 shipped and reported package presence only, so `specflow next`
+offers both as claimable and is wrong. The only thing standing between an agent and a wrong claim
+there is a prose caveat in the queue preamble, which is itself preamble growth: the format could not
+express the fact, so it was parked in prose. That is the second inlet, and FL closes only the first.
+
+**Build a `Blocked on:` field**: free text, makes the batch non-claimable, and `next` prints the
+text as the block reason. Preferred over documenting `[NOT READY]` plus a comment, because the gate
+stays machine-readable and the reason lands where the agent already looks. Settle the shape in a
+`spec-edit` first (the field name, whether it coexists with a tag, what clears it), then build.
+
+### Files this batch creates/edits
+- `spec/architecture.md` or `spec/open-questions.md` (the decision, via `spec-edit.md`) ·
+  `internal/kit/queue.go` (parse + eligibility) · `cmd/specflow/main.go` (`next` reason) ·
+  `templates/base/BUILD_QUEUE.md` (declared shape) · `templates/base/specflow/procedures/claim-batch.md`
+  (the eligibility rules the verb implements) · `cmd/specflow/main_test.go` · managed copies +
+  baselines.
+
+### Does NOT touch
+- `Depends on:` semantics. A batch id still means completed; this is a second, separate gate.
+
+### Verification
+- `test -z "$(gofmt -l cmd internal)" && go vet ./... && go test ./...`
+- New tests: a `Blocked on:` batch is never offered and its reason is printed verbatim; clearing
+  the line makes it claimable; `--json` carries the field.
 
 ---
 
