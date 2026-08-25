@@ -115,7 +115,7 @@ healthy shape. The staleness warning also fired here, correctly: the pointer enu
 batch ids in `v0.1.9` one line above a cross-reference to `spec/roadmap.md` → *Release lines*, which
 owns exactly that. The enumeration is gone, which is the same dogfooding move Batch LW made.
 
-**Corrected twice more, from the same source** (`SHA_HERE`). The claimable check now reads only the
+**Corrected twice more, from the same source** (`0055bbb`). The claimable check now reads only the
 **sentence** the word sits in: "Claimable: nothing. QD shipped" claims nothing and reports one, and
 warning there teaches the reader to skip the warning. And `staleRefFloor` went 3 to 5, because this
 repo's own pointer reached 3 archived against 2 live while being entirely honest. The floor is set
