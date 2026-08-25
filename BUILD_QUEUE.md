@@ -21,9 +21,84 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > no line is open. Which batch shipped in which release lives in `spec/roadmap.md` →
 > *Release lines*, and the milestone goals live there too, not here. This file holds un-done work only.
 >
-> **Claimable: nothing.** Every batch below is `[NOT READY]`; promoting one is the user's call.
+> **Claimable: QD** (queue diagnostics), then **PD** (prune-ledgers section 3), which depends on it.
+> Both came out of a downstream install whose queue preamble reached 446 lines of shipped-batch
+> narrative: the warning that caught it was read as a specflow bug, and the procedure that fixes it
+> asks for judgment where a grep would do.
 > **Not ready:** **NX** (`next` file spread) · **W** (workflow config) · **NB** (`--new-batch`) ·
 > **E** (enforcement, research-first) · **P** (npm-wrapper front-end) · Homebrew tap.
+
+---
+
+## Batch QD - the queue warning says what is wrong, not just how long
+
+**Goal.** `specflow next` reports a preamble line count with no anchor, so a downstream install read
+its 467-line warning as a bug in specflow rather than a finding about its own queue. Four
+diagnostics, all read-only, all in `Weigh` so `verify` gets them too:
+
+- **Address the count.** Name the boundary and the heading holding the bulk: `467 lines above the
+  first "## Batch" heading (445 of them under "## Un-done batches")`.
+- **Staleness, which is the number that actually diagnoses this.** Count preamble references to
+  batch ids archived in `BUILD_QUEUE_DONE.md` against ones live in the queue, and warn when there
+  are at least 3 archived and more archived than live. That fires on a short rotten preamble and
+  stays quiet on a long current one, which a line count cannot do.
+- **Claimability contradiction.** A preamble line saying a batch is claimable when the queue has no
+  such section is a hard warning naming the line: it is the one that misleads an agent into
+  claiming a batch that shipped weeks ago.
+- **Near-miss headings.** A line that reads as a batch heading but fails the declared shape is
+  parsed as prose, so it silently inflates the preamble count and never appears in `next`. Name its
+  line number and the shape it missed.
+
+`--json` carries every new number. No format change, no new state, nothing written.
+
+### Files this batch creates/edits
+- `internal/kit/queue.go` (`Weight`, `Weigh`) · `cmd/specflow/main.go` (`printWeight`) ·
+  `cmd/specflow/main_test.go`.
+
+### Does NOT touch
+- The batch format, the parsers, or any procedure. Reporting only.
+
+### Verification
+- `test -z "$(gofmt -l cmd internal)" && go vet ./... && go test ./...`
+- New tests: the address names the dominant heading; staleness fires on archived-heavy and stays
+  quiet on a current pointer; a stale claimable line warns with its line number; a near-miss
+  heading warns and is counted as prose.
+
+---
+
+## Batch PD - prune-ledgers section 3, duplication-first
+
+**Depends on:** Batch QD (its warnings are what send an agent here, and section 3 should name them).
+
+**Goal.** Section 3 tells the agent to sort every preamble paragraph into keep / relocate / delete
+and put the piles to the user. Run against a real 446-line preamble, the relocate pile came back
+**empty**: every durable fact was already carried by `BUILD_QUEUE_DONE.md` or `spec/`. The section
+asked for 73 judgment calls to reach an answer that a grep settles. Rewrite it around that:
+
+- **Step 1 is duplication, not judgment.** Grep the archives, `CLAIMS.md` and `spec/` for a
+  distinctive phrase from each paragraph. A cited duplicate is a delete, mechanically, no ask: that
+  is section 3's own losslessness bar, the same one sections 1 and 2 act on without asking.
+- **Only uncited paragraphs reach the stop-and-ask**, and they are put as piles with counts, not one
+  paragraph at a time.
+- **Two presumptions worth stating:** a paragraph naming a `spec/**.md` path is usually pointing at
+  the file that already owns it, and a paragraph naming an archived batch is usually history.
+  Presumption, not proof; the citation is still required.
+- **Prescribe the report shape**: line range, pile, evidence, one-line reason, plus a projected
+  preamble line count and an explicit "content that lives nowhere else" section, which is the only
+  part whose loss would be real.
+
+### Files this batch creates/edits
+- `templates/base/specflow/procedures/prune-ledgers.md` ·
+  `templates/agents/claude/.claude/skills/prune-ledgers/SKILL.md` · this repo's managed copies
+  (`specflow/procedures/prune-ledgers.md`, `.claude/skills/prune-ledgers/SKILL.md`) ·
+  `specflow/config.json` baselines.
+
+### Does NOT touch
+- Sections 1, 2 and 4, and no Go code.
+
+### Verification
+- `test -z "$(gofmt -l cmd internal)" && go vet ./... && go test ./...` (unchanged, but the managed
+  baselines must agree) plus `specflow verify` clean after a self-hosted upgrade.
 
 ---
 
