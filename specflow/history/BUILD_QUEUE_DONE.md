@@ -10,6 +10,52 @@ picking a new claim. The full implementation history is in `git log` + `specflow
 Shipped <what> in <where>. Key commit `<sha>`. <One line on any follow-up deferred.>
 -->
 
+## Batch PD - prune-ledgers section 3, duplication-first
+Section 3 told the agent to sort every preamble paragraph into keep / relocate / delete and put the
+three piles to the user. That is right at the size it was written for: this repo dogfooded it in
+Batch LW at 59 lines. Run against a downstream install at 446 lines and 73 paragraphs, it produced
+two findings the section had not anticipated.
+
+**The relocate pile came back empty.** Every durable fact in that preamble was already carried by
+`BUILD_QUEUE_DONE.md` or `spec/`, including the paragraphs written as generalizable engineering
+lessons rather than as status, which were the ones most at risk. Many cited their own destination in
+their own text. So the expensive half of section 3, deciding which `spec/` file owns a stranded
+paragraph, was answering a question that a grep had already settled 73 times over.
+
+**And 73 asks is an audit that gets abandoned.** The section's stop-and-ask was written as a single
+judgment call and reads, at scale, as one per paragraph.
+
+Section 3 is now two sub-sections. **3a greps first.** For each paragraph, take a distinctive phrase
+and look for a home in `specflow/history/`, `CLAIMS.md` and `spec/`; a paragraph with a citation is
+a delete, mechanically, with no ask, and the file and line are the evidence. That is not a new
+liberty: it is the same losslessness bar sections 1 and 2 already act on without asking, since the
+content is not being destroyed, it is being read where it already lives. Two presumptions ride
+along without replacing the grep: a paragraph naming a `spec/**.md` path is usually pointing at the
+file that owns it, and a paragraph naming an archived batch is usually history. Only uncited
+paragraphs reach the three piles, and the stop-and-ask is put **once**, as piles with counts, with
+two or three representative lines each above roughly 20 paragraphs. **3b prescribes the report**:
+one row per paragraph (line range, opening words, pile, evidence or destination, reason), a separate
+list of content that lives nowhere else, the projected preamble line count, and anything
+unclassifiable with the question it needs answered. Relocation is now explicitly verbatim, since a
+paragraph reworded on its way into `spec/` is no longer the thing that was reviewed.
+
+The section also picks up Batch QD's other three warnings, and states the ordering they imply: the
+length is the weakest of the four signals. A 40-line preamble that names a dozen shipped batches is
+rotten; a 60-line one that is all live pick-order may be fine. The `When to run` list and the
+`prune-ledgers` skill trigger were updated to match, and the skill's "no stop-and-ask except the
+preamble audit" line now says "except the part of the preamble audit that survives the grep".
+
+Docs only, no Go change. `templates/base/specflow/procedures/prune-ledgers.md` and
+`templates/agents/claude/.claude/skills/prune-ledgers/SKILL.md` are the sources; this repo's managed
+copies and the `specflow/config.json` baselines were re-recorded through a locally built `upgrade`,
+so `specflow verify` is clean and a downstream upgrade lands the same text. Key commit `ef8354c`.
+
+**Still open, and deliberately not fixed here:** the leak. Section 3 is a cleanup pass, and a
+preamble fills at finish time, one status paragraph per batch, appended forever under a cap that
+only reports after the fact. Stopping that needs `finish-batch` to say the queue edit is
+subtractive and the pick-order pointer to be a bounded replace-only block, which is a separate
+batch.
+
 ## Batch QD - the queue warning says what is wrong, not just how long
 `specflow next` printed `BUILD_QUEUE.md preamble is 467 lines, over its 45-line cap`, and the user
 who saw it read it as a bug in specflow. It was not: the install's queue really did hold 446 lines

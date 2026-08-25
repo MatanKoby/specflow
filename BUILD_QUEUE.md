@@ -21,48 +21,12 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > which release lives in `spec/roadmap.md` → *Release lines*, and the milestone goals live there
 > too, not here. This file holds un-done work only.
 >
-> **Claimable: PD** (prune-ledgers section 3). **QD shipped**, so the queue warning now names the
-> section holding the bulk, the archived-to-live ratio, a stale claimable line, and a near-miss
-> heading. PD is the other half: the procedure that warning sends you to still asks for judgment
-> where a grep would do.
+> **Claimable: nothing.** QD and PD both shipped, so the queue warning is diagnostic and the
+> procedure it sends you to greps before it judges. **What neither of them does is stop the leak**:
+> a preamble fills at finish time, one appended status paragraph per batch, and cleanup is still
+> the only thing that empties it. That fix is not queued yet.
 > **Not ready:** **NX** (`next` file spread) · **W** (workflow config) · **NB** (`--new-batch`) ·
 > **E** (enforcement, research-first) · **P** (npm-wrapper front-end) · Homebrew tap.
-
----
-
-## Batch PD - prune-ledgers section 3, duplication-first
-
-**Depends on:** Batch QD (its warnings are what send an agent here, and section 3 should name them).
-
-**Goal.** Section 3 tells the agent to sort every preamble paragraph into keep / relocate / delete
-and put the piles to the user. Run against a real 446-line preamble, the relocate pile came back
-**empty**: every durable fact was already carried by `BUILD_QUEUE_DONE.md` or `spec/`. The section
-asked for 73 judgment calls to reach an answer that a grep settles. Rewrite it around that:
-
-- **Step 1 is duplication, not judgment.** Grep the archives, `CLAIMS.md` and `spec/` for a
-  distinctive phrase from each paragraph. A cited duplicate is a delete, mechanically, no ask: that
-  is section 3's own losslessness bar, the same one sections 1 and 2 act on without asking.
-- **Only uncited paragraphs reach the stop-and-ask**, and they are put as piles with counts, not one
-  paragraph at a time.
-- **Two presumptions worth stating:** a paragraph naming a `spec/**.md` path is usually pointing at
-  the file that already owns it, and a paragraph naming an archived batch is usually history.
-  Presumption, not proof; the citation is still required.
-- **Prescribe the report shape**: line range, pile, evidence, one-line reason, plus a projected
-  preamble line count and an explicit "content that lives nowhere else" section, which is the only
-  part whose loss would be real.
-
-### Files this batch creates/edits
-- `templates/base/specflow/procedures/prune-ledgers.md` ·
-  `templates/agents/claude/.claude/skills/prune-ledgers/SKILL.md` · this repo's managed copies
-  (`specflow/procedures/prune-ledgers.md`, `.claude/skills/prune-ledgers/SKILL.md`) ·
-  `specflow/config.json` baselines.
-
-### Does NOT touch
-- Sections 1, 2 and 4, and no Go code.
-
-### Verification
-- `test -z "$(gofmt -l cmd internal)" && go vet ./... && go test ./...` (unchanged, but the managed
-  baselines must agree) plus `specflow verify` clean after a self-hosted upgrade.
 
 ---
 

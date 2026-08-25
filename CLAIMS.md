@@ -51,11 +51,26 @@ Entries above the LW line predate the rule and are left as written.
 
 <!-- One entry per actively claimed batch. -->
 
+## Completed
+
 ### Batch PD - prune-ledgers section 3, duplication-first
 - Owner: claude
 - Started: 2026-08-25 10:41
+- Finished: 2026-08-25 10:43
+- Commit: ef8354c
 
-## Completed
+**What shipped.** `prune-ledgers.md` section 3 is duplication-first. New **3a**: grep the archives,
+`CLAIMS.md` and `spec/` for a distinctive phrase from each preamble paragraph, and a paragraph with
+a citation is a delete, mechanically, no ask, on the same losslessness bar sections 1 and 2 use.
+Only uncited paragraphs become the three piles, and they go to the user **once, as piles with
+counts**, not paragraph by paragraph. New **3b** prescribes the report shape.
+
+The section now also names QD's other three warnings and says **the length is the weakest of the
+four**: a 40-line preamble naming a dozen shipped batches is rotten, a 60-line live one may be fine.
+
+Managed copies and `config.json` baselines re-recorded through a locally built `upgrade`.
+
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch PD
 
 ### Batch QD - the queue warning says what is wrong, not just how long
 - Owner: claude
@@ -126,19 +141,3 @@ where `internal/kit/queue.go` still writes `### Batch N — title` into downstre
   `prune-ledgers.md`, or `spec/architecture.md` — it holds the full narrative.
 
 - Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch FS
-
-### Batch MC — migrate-claims, so 0.1.8's ledger shape reaches old entries
-- Owner: claude
-- Started: 2026-08-21 14:38
-- Finished: 2026-08-21 14:57
-- Commit: a493a09
-
-**What shipped.** `specflow migrate-claims [--dry-run]`: over-cap entries in `CLAIMS.md`
-`## Completed` and `CLAIMS_DONE.md` keep their metadata and a stub, and their narratives move
-whole into `BUILD_QUEUE_DONE.md`. Appends under a divider where a section exists; never deletes
-prose; `## In progress` untouched. Run once per install after an upgrade that caps the entry.
-- Run here already: 24 entries migrated (`5b65de2`), CLAIMS.md 201 → 137, CLAIMS_DONE.md 696 → 328.
-- A metadata bullet owns its wrapped continuation lines, which is the parse this verb exists for.
-
-- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch MC
-

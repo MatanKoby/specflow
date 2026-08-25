@@ -7,6 +7,21 @@ Written by `specflow/procedures/prune-ledgers.md`, which keeps the 5 newest comp
 `CLAIMS.md` and moves everything older here. Don't hand-move entries; run the procedure (Claude:
 the `prune-ledgers` skill) so the retention rule stays consistent.
 
+### Batch MC — migrate-claims, so 0.1.8's ledger shape reaches old entries
+- Owner: claude
+- Started: 2026-08-21 14:38
+- Finished: 2026-08-21 14:57
+- Commit: a493a09
+
+**What shipped.** `specflow migrate-claims [--dry-run]`: over-cap entries in `CLAIMS.md`
+`## Completed` and `CLAIMS_DONE.md` keep their metadata and a stub, and their narratives move
+whole into `BUILD_QUEUE_DONE.md`. Appends under a divider where a section exists; never deletes
+prose; `## In progress` untouched. Run once per install after an upgrade that caps the entry.
+- Run here already: 24 entries migrated (`5b65de2`), CLAIMS.md 201 → 137, CLAIMS_DONE.md 696 → 328.
+- A metadata bullet owns its wrapped continuation lines, which is the parse this verb exists for.
+
+- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch MC
+
 ### Batch RC — drift is a state you can leave
 - Owner: claude
 - Started: 2026-08-21 14:26
