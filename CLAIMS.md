@@ -51,6 +51,10 @@ Entries above the LW line predate the rule and are left as written.
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch EM — the emitters obey the rule ED wrote
+- Owner: claude
+- Started: 2026-08-25 08:34
+
 ## Completed
 
 ### Batch ED — one mechanical pass, no rewording
