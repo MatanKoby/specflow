@@ -21,11 +21,50 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > **MC** · **FS** · **ED**. Which batch shipped in which release lives in `spec/roadmap.md` →
 > *Release lines*, and the milestone goals live there too, not here. This file holds un-done work only.
 >
-> **Claimable:** nothing. Every batch below is `[NOT READY]`; promoting one is the user's call.
-> **RC**, **MC**, **FS**, and **ED** are all done, so `v0.1.9` is complete and waiting on the user's
-> go-ahead to tag.
+> **Claimable:** **EM** (the emitters obey the rule ED wrote). Every other batch below is
+> `[NOT READY]`; promoting one is the user's call.
+> **RC**, **MC**, **FS**, and **ED** are all done. Whether **EM** joins the untagged `v0.1.9` or
+> opens `v0.1.10` is the user's call at tag time.
 > **Not ready:** **NX** (`next` file spread) · **W** (workflow config) · **NB** (`--new-batch`) ·
 > **E** (enforcement, research-first) · **P** (npm-wrapper front-end) · Homebrew tap.
+
+---
+
+## Batch EM - the emitters obey the rule ED wrote
+
+**Goal.** Batch ED swept every em dash out of what specflow ships *as files*, and `AGENTS.md` now
+carries the standing rule. But specflow still *writes* em dashes at runtime.
+`internal/kit/queue.go` puts `### Batch N — title` into a downstream `CLAIMS.md` on every
+`specflow claim` and `## Batch N — title` into `BUILD_QUEUE_DONE.md` on every `finish`, and
+both it and `cmd/specflow` print em dashes to the console and in `--help`. The documented entry
+format already says `### Batch N - <short title>` in `AGENTS.md` and `templates/base/CLAIMS.md`, so
+today the code contradicts the template it ships.
+
+**The compatibility constraint that shapes this batch.** The *parsers* must keep accepting the em
+dash forever: every install that ran 0.1.9 or earlier has ledgers full of em-dash headings, and
+`finish`, `next`, and `migrate-claims` locate entries by that heading. This is a **write-side change
+only**. The separator lists at `queue.go:120`, `queue.go:194`, and `entryTitle` (`queue.go:685`)
+already trim on em dash, en dash, and hyphen; they stay exactly as they are, and a test must pin
+that an em-dash-era ledger still parses after the change.
+
+**Out of scope.** Em dashes in Go *comments* are not emitted text and stay as written, per the
+AGENTS.md rule on writing style for shipped content. No template changes, so no baseline re-record
+and nothing for a downstream install to upgrade beyond the new binary.
+
+**Where the write sites are.** In queue.go: the claim entry near line 517, archiveHeading near line
+1041, and the warning/error strings near lines 551, 576, 1214, 1224. In main.go: console output and
+help text, 72 occurrences.
+
+### Files this batch creates/edits
+- `internal/kit/queue.go` · `cmd/specflow/main.go` · `cmd/specflow/main_test.go`.
+
+### Verification
+- `grep -n` for em and en dash across the two files returns only comment lines and the parsers'
+  separator lists.
+- A round-trip test: a `CLAIMS.md` carrying an em-dash heading from an older install still resolves
+  through `finish` and `migrate-claims`.
+- `claim` then `finish` into a scratch repo write hyphen headings; `specflow verify` clean;
+  `go test ./...` green.
 
 ---
 
