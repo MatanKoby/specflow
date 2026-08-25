@@ -11,13 +11,13 @@
   "kitVersion": "0.1.9",
   "managed": {
     ".claude/hooks/specflow-handoff-reminder.sh": "ff295883c23d0af0406f92c0da95fd92c92b437367a976341a2472a9812e1daa",
-    ".claude/skills/claim-batch/SKILL.md": "741eddf107d5994e5859bdf43b60a17147961e0ad53adbaad903c9b6e5302639",
+    ".claude/skills/claim-batch/SKILL.md": "8d3778033b8e974708ff048976475e1e222c60fc71a0150d0cfe4b1dac1c4b35",
     ".claude/skills/finish-batch/SKILL.md": "f43567ce8d10224efbcdeefa69a9f6da31b29283154a23b18c1020be96988124",
     ".claude/skills/prune-ledgers/SKILL.md": "7276cd7aad5e09c1a6068c7b2ba351e07a513e440599f6e77deef5b2dfcc1901",
     ".claude/skills/spec-edit/SKILL.md": "dbd1d6215ecadfa96669ba54d68724f5c072b65ef02941cead52300f93795952",
     "AGENTS.md": "8466eeceab687b520d1c7d402cc133e837fa0f7ab8d7eb0cc17b65913eefbd9c",
     "CLAUDE.md": "8408d7b73bd7f28b4a1d6922f5e1a0f882a946efe370d58e166f4a99d20367ba",
-    "specflow/procedures/claim-batch.md": "930ace5370ce3c11ede51cd1bd5ba71ea139c5636e5dc16c1a095260fe9c65d4",
+    "specflow/procedures/claim-batch.md": "039738d317ca69f454e8fe01d5434343e0c456110f6ea4e58861533410930631",
     "specflow/procedures/finish-batch.md": "b576e3945e23a72fb322ab2957e5ded524fb7acd9841fced791761a12e4d91d0",
     "specflow/procedures/prune-ledgers.md": "b39040330491e7c66f924ae5a1c2e3ae875350ae9d1a9a7b3d4c93cf3d2f19e4",
     "specflow/procedures/spec-edit.md": "1ee9c5b2a62b8dba9cd07e6a03a0a894ce670a2a148990333ccbb8a2f06950b7"

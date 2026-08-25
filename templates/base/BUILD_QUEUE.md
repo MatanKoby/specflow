@@ -20,9 +20,11 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 - **A fact that will outlive the batch goes to `spec/`, not here** (`spec-edit.md`): parking it in
   the preamble, where nothing prunes it, is how this file fills.
 - Each batch below follows a **declared shape**: the `## Batch <id> [TAG] - <title>` heading, an
-  optional `**Depends on:** Batch X[, Batch Y]` line, and a `### Files this batch creates/edits`
-  list. Everything else in a section is free prose. `specflow next` reads that shape to answer
-  eligibility, and reports a batch missing a field rather than treating it as claimable.
+  optional `**Depends on:** Batch X[, Batch Y]` line, an optional `**Blocked on:** <text>` line
+  (free text; the batch is not claimable while it is there), and a
+  `### Files this batch creates/edits` list. Everything else in a section is free prose.
+  `specflow next` reads that shape to answer eligibility, and reports a batch missing a field
+  rather than treating it as claimable.
 
 ---
 
@@ -40,7 +42,12 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 
 > This is a worked example showing the batch shape. Delete it once you have real batches.
 
-**Depends on:** none.
+**Depends on:** none. Batch ids only, and each one means *completed*.
+
+To gate on something a batch id cannot express (an outcome an earlier batch was supposed to
+establish, an answer you are waiting on), add a `**Blocked on:** <what it waits on>` line. It is free
+text, `specflow next` prints it as the reason, and deleting the line is what clears it - which only
+the person who can answer it should do.
 
 **Goal.** One or two sentences: what this batch delivers and why.
 

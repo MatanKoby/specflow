@@ -39,18 +39,35 @@ prune on its own, then claim. This is the same retention count `finish` enforces
 threshold, and nothing to ask the user.
 
 **Fast path: `specflow next`.** When the specflow CLI is on the machine, one read-only call answers
-this entire section: it applies the tag, already-claimed, dependency, and overlap rules together and
-prints every blocked batch with the reason (`specflow next --json` for the machine-readable form).
+this entire section: it applies the tag, blocked-on, already-claimed, dependency, and overlap rules
+together and prints every blocked batch with the reason (`specflow next --json` for the
+machine-readable form).
 A batch missing its declared fields is reported as unparseable rather than quietly offered. The
 steps below stay authoritative: they are what the verb is doing, and what to do without it.
 
 2. Pick a candidate batch in `BUILD_QUEUE.md` (under "Un-done batches"):
    - **Skip** if it has an exclusionary tag: `[MANUAL]`, `[NOT READY]`, or any tag you don't recognize.
+   - **Skip** if it carries a `Blocked on:` line (see step 3a).
    - **Skip** if it's already listed in `CLAIMS.md` `## In progress` or `## Completed`.
 
 3. **Dependency check.** If the batch lists `Depends on: Batch X[, Batch Y]`, verify each
    listed batch appears in `CLAIMS.md` `## Completed` (or `specflow/history/CLAIMS_DONE.md`). If any are
    missing, pick a different candidate.
+
+3a. **Blocked-on check.** `Depends on:` takes batch ids and means *completed*, so it cannot say that a
+   batch waits on what an earlier batch **found**. An optional `**Blocked on:** <text>` line says
+   that, in free text, and it is a hard gate: the batch is not claimable while the line is there, and
+   `specflow next` prints the text as the reason.
+
+   - **Only the person who can answer it clears it, by deleting the line.** Not you, on the way past,
+     because the batch looks ready. If you believe the block has lifted, say so to the user and let
+     them decide - clearing your own gate is how the wrong claim happens twice.
+   - `Blocked on: none` counts as cleared, but write the deletion instead: a leftover "none" is a
+     line that says nothing and that nothing ever prunes.
+   - A `Blocked on:` line with **no text** still blocks. A gate nobody can act on is a defect in the
+     queue; report it rather than reading it as absent.
+   - It coexists with a tag. `next` reports the tag and the stated reason together, because the tag
+     is the category and the line is the specific why.
 
 4. **Parallelism check.** If any batch is currently `## In progress`, compare your candidate's
    "Files this batch creates/edits" against that batch's same field. If they overlap, pick a

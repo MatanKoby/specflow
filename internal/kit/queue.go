@@ -72,11 +72,16 @@ const (
 const stampFormat = "2006-01-02 15:04"
 
 // Line matchers for the declared batch shape. Everything not matched here is free prose the parser
-// steps over: only the heading, the Depends-on line, and the file list carry machine meaning.
+// steps over: only the heading, the Depends-on and Blocked-on lines, and the file list carry
+// machine meaning.
 var (
 	qBatchHeadRe = regexp.MustCompile(`^##\s+Batch\s+([A-Za-z0-9._-]+)\s*(.*)$`)
 	qTagRe       = regexp.MustCompile("^`?\\[([^\\]]+)\\]`?\\s*")
 	qDependsRe   = regexp.MustCompile(`(?i)^\s*\**Depends on\**:?\**\s*(.*)$`)
+	// Same forgiving shape as Depends-on, because both are hand-written in a user-owned file. The
+	// capture is free text, not a list: what a batch waits on is a judgment, not a state the repo
+	// holds, so only the gate is machine-readable.
+	qBlockedRe   = regexp.MustCompile(`(?i)^\s*\**Blocked on\**:?\**\s*(.*)$`)
 	qFilesHeadRe = regexp.MustCompile(`(?i)^###\s+Files this batch\b`)
 	qBatchRefRe  = regexp.MustCompile(`(?i)Batch\s+([A-Za-z0-9._-]+)`)
 	qTickedRe    = regexp.MustCompile("`([^`]+)`")
@@ -125,6 +130,13 @@ type Batch struct {
 	Title     string   `json:"title"`
 	Heading   string   `json:"-"`
 	DependsOn []string `json:"dependsOn,omitempty"`
+	// Blocked is whether the section carries a `Blocked on:` line at all, and BlockedOn is its text.
+	// The two are separate because an empty line still gates: a reason nobody can act on is a defect
+	// in the queue, not a claimable batch, and reading it as absent would let a truncated line
+	// quietly re-open a batch someone meant to close. `Blocked on: none` clears it, the same
+	// liberality parseDepends gives that word, though the procedures say delete the line instead.
+	Blocked   bool     `json:"blocked,omitempty"`
+	BlockedOn string   `json:"blockedOn,omitempty"`
 	Files     []string `json:"files,omitempty"`
 	Problem   string   `json:"problem,omitempty"`
 	Start     int      `json:"-"`
@@ -156,7 +168,7 @@ func ParseQueue(content string) []Batch {
 			rest = strings.TrimSpace(qTagRe.ReplaceAllString(rest, ""))
 		}
 		b.Title = strings.TrimSpace(strings.TrimLeft(rest, "—–-: "))
-		b.DependsOn, b.Files, b.Problem = parseBatchBody(lines[i+1 : end])
+		b.DependsOn, b.Blocked, b.BlockedOn, b.Files, b.Problem = parseBatchBody(lines[i+1 : end])
 		out = append(out, b)
 		i = end - 1
 	}
@@ -164,13 +176,18 @@ func ParseQueue(content string) []Batch {
 	return out
 }
 
-// parseBatchBody pulls the Depends-on line and the declared file list out of one section body.
-func parseBatchBody(body []string) (deps, files []string, problem string) {
+// parseBatchBody pulls the Depends-on and Blocked-on lines and the declared file list out of one
+// section body.
+func parseBatchBody(body []string) (deps []string, blocked bool, blockedOn string, files []string, problem string) {
 	sawFilesHeading := false
 	for i := 0; i < len(body); i++ {
 		line := body[i]
 		if d := qDependsRe.FindStringSubmatch(line); d != nil && strings.Contains(strings.ToLower(line), "depends on") {
 			deps = parseDepends(d[1])
+			continue
+		}
+		if d := qBlockedRe.FindStringSubmatch(line); d != nil && strings.Contains(strings.ToLower(line), "blocked on") {
+			blocked, blockedOn = parseBlocked(d[1])
 			continue
 		}
 		if qFilesHeadRe.MatchString(line) {
@@ -191,7 +208,19 @@ func parseBatchBody(body []string) (deps, files []string, problem string) {
 	case len(files) == 0:
 		problem = "the `### Files this batch creates/edits` section lists no files"
 	}
-	return deps, dedupe(files), problem
+	return deps, blocked, blockedOn, dedupe(files), problem
+}
+
+// parseBlocked reads a Blocked-on line, returning whether it gates and the reason it gives. "none"
+// clears the gate so an agent that writes the word instead of deleting the line is not left with a
+// batch nobody can claim; the procedures still say delete, because a "none" nothing prunes is
+// exactly the residue the field exists to stop leaving in the queue.
+func parseBlocked(rest string) (bool, string) {
+	rest = strings.TrimSpace(rest)
+	if strings.HasPrefix(strings.ToLower(strings.Trim(rest, "*_`")), "none") {
+		return false, ""
+	}
+	return true, rest
 }
 
 // parseDepends reads `Batch X, Batch Y` out of a Depends-on line, ignoring any parenthetical
@@ -402,11 +431,16 @@ func insertPoint(lines []string, start, end int) int {
 
 // NextItem is one batch as `next` reports it: claimable, or blocked with the reason why.
 type NextItem struct {
-	ID     string   `json:"id"`
-	Title  string   `json:"title"`
-	Tag    string   `json:"tag,omitempty"`
-	Files  []string `json:"files,omitempty"`
-	Reason string   `json:"reason,omitempty"`
+	ID    string   `json:"id"`
+	Title string   `json:"title"`
+	Tag   string   `json:"tag,omitempty"`
+	Files []string `json:"files,omitempty"`
+	// The Blocked-on gate is carried separately from Reason so a consumer can tell an author's
+	// stated block from the ones the verb derives (a tag, a dependency, an overlap). Reason still
+	// renders it, since that is the line a human reads.
+	Blocked   bool   `json:"blocked,omitempty"`
+	BlockedOn string `json:"blockedOn,omitempty"`
+	Reason    string `json:"reason,omitempty"`
 }
 
 // NextReport is the read-only eligibility answer: the whole Eligibility section of claim-batch.md,
@@ -451,7 +485,7 @@ func Next(targetDir string) (NextReport, error) {
 	}
 
 	for _, b := range batches {
-		item := NextItem{ID: b.ID, Title: b.Title, Tag: b.Tag, Files: b.Files}
+		item := NextItem{ID: b.ID, Title: b.Title, Tag: b.Tag, Files: b.Files, Blocked: b.Blocked, BlockedOn: b.BlockedOn}
 		item.Reason = blockReason(b, claims, done, locked)
 		if item.Reason == "" {
 			rep.Claimable = append(rep.Claimable, item)
@@ -468,11 +502,28 @@ func Next(targetDir string) (NextReport, error) {
 // blockReason applies the eligibility rules in the order claim-batch.md states them, returning the
 // first that fires. An empty string means claimable.
 func blockReason(b Batch, claims Claims, done map[string]bool, locked map[string]string) string {
+	// A tag is the category and a `Blocked on:` line is the specific why, so a batch carrying both
+	// reports as both: the stated reason replaces the tag's canned gloss rather than hiding behind
+	// it. Printing gloss and text together would say the same thing twice, and printing the gloss
+	// alone is what sent the specific reason to the queue preamble in the first place.
 	if b.Tag != "" {
-		if why, ok := knownTags[b.Tag]; ok {
-			return "[" + b.Tag + "] " + why
+		why, known := knownTags[b.Tag]
+		if !known {
+			why = "unrecognized tag, treat as exclusionary and ask the user"
 		}
-		return "[" + b.Tag + "] unrecognized tag, treat as exclusionary and ask the user"
+		if b.Blocked {
+			why = blockedReason(b)
+			if !known {
+				why += " (and an unrecognized tag: ask the user)"
+			}
+		}
+		return "[" + b.Tag + "] " + why
+	}
+	// Ahead of the parse problem on purpose: a section can be both, and an unparseable batch is
+	// reported separately in NextReport.Problems either way, so leading with the author's stated
+	// reason loses nothing.
+	if b.Blocked {
+		return blockedReason(b)
 	}
 	if b.Problem != "" {
 		return "unparseable: " + b.Problem
@@ -497,6 +548,17 @@ func blockReason(b Batch, claims Claims, done map[string]bool, locked map[string
 		}
 	}
 	return ""
+}
+
+// blockedReason renders a Blocked-on gate, printing what the author wrote rather than a gloss over
+// it: the reason has to reach the eye of the agent already reading `next`, which is the whole point
+// of the field. An empty line still blocks, because a gate nobody can act on is a defect in the
+// queue and reading it as absent would silently re-open a batch someone meant to close.
+func blockedReason(b Batch) string {
+	if b.BlockedOn == "" {
+		return "blocked on: no reason given - state what it waits on, or delete the line"
+	}
+	return "blocked on " + b.BlockedOn
 }
 
 // completedIDs is every batch id known to be done: the Completed section plus the archive.

@@ -3056,6 +3056,201 @@ func TestFinishReportsLedgerWeight(t *testing.T) {
 	}
 }
 
+// ---- Batch OD: a batch can wait on an outcome, not just on a finish ----
+
+// splitNextSections cuts `next` output into its claimable and blocked halves, so a test can assert a
+// batch is absent from one rather than merely present somewhere on the page. Output is piped here,
+// so useColor is off and the section markers are plain text.
+func splitNextSections(t *testing.T, stdout string) (claimable, blocked string) {
+	t.Helper()
+	claimable = stdout
+	if i := strings.Index(stdout, "\n  blocked:"); i >= 0 {
+		claimable, blocked = stdout[:i], stdout[i:]
+	}
+	for _, end := range []string{"\n  queue problems:", "\n  ledger weight:"} {
+		if j := strings.Index(blocked, end); j >= 0 {
+			blocked = blocked[:j]
+		}
+	}
+	return claimable, blocked
+}
+
+// blockedQueue is twoBatchQueue with a third batch gated on an outcome no batch id can express:
+// Batch A is completed, so nothing but the Blocked-on line stands between C and a claim.
+const blockedReasonText = "Batch A having come back with the package answer"
+
+const blockedQueue = twoBatchQueue + "\n---\n\n## Batch C — Waits on a finding\n\n" +
+	"**Blocked on:** " + blockedReasonText + "\n\n" +
+	"### Files this batch creates/edits\n- `src/c.go`\n"
+
+// TestBlockedOnBatchIsNeverOfferedAndSaysWhy is the core of the batch: the gate holds, the author's
+// own words are what the agent reads, and claim refuses the same batch next declines to offer.
+func TestBlockedOnBatchIsNeverOfferedAndSaysWhy(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, blockedQueue)
+
+	r := run(t, tmp, "next")
+	if r.code != 0 {
+		t.Fatalf("next exit %d: %s%s", r.code, r.stdout, r.stderr)
+	}
+	claimable, blocked := splitNextSections(t, r.stdout)
+	if strings.Contains(claimable, "Batch C") {
+		t.Errorf("next offered a Blocked-on batch as claimable:\n%s", r.stdout)
+	}
+	if !strings.Contains(blocked, "Batch C") {
+		t.Errorf("next did not list Batch C as blocked:\n%s", r.stdout)
+	}
+	if !strings.Contains(r.stdout, blockedReasonText) {
+		t.Errorf("next did not print the Blocked-on reason verbatim:\n%s", r.stdout)
+	}
+
+	c := run(t, tmp, "claim", "C")
+	if c.code == 0 {
+		t.Fatalf("claim accepted a Blocked-on batch: %s%s", c.stdout, c.stderr)
+	}
+	if !strings.Contains(c.stdout+c.stderr, blockedReasonText) {
+		t.Errorf("claim refused without giving the author's reason: %s%s", c.stdout, c.stderr)
+	}
+	if strings.Contains(read(t, filepath.Join(tmp, "CLAIMS.md")), "Batch C") {
+		t.Error("a refused claim still wrote an entry to CLAIMS.md")
+	}
+}
+
+// TestDeletingTheBlockedOnLineClearsIt covers the other half of the gate. "none" is accepted too,
+// so an agent that writes the word rather than deleting the line is not left with a dead batch,
+// but deleting is what the procedures say and what this asserts first.
+func TestDeletingTheBlockedOnLineClearsIt(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, blockedQueue)
+
+	for _, tc := range []struct{ name, replacement string }{
+		{"deleted", ""},
+		{"none", "**Blocked on:** none\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			seedQueue(t, tmp, strings.Replace(blockedQueue,
+				"**Blocked on:** "+blockedReasonText+"\n", tc.replacement, 1))
+			r := run(t, tmp, "next")
+			claimable, _ := splitNextSections(t, r.stdout)
+			if !strings.Contains(claimable, "Batch C") {
+				t.Errorf("clearing the Blocked-on line did not make Batch C claimable:\n%s", r.stdout)
+			}
+		})
+	}
+}
+
+// TestEmptyBlockedOnLineStillBlocks: a gate nobody can act on is a defect in the queue, not a
+// claimable batch. Reading it as absent is how a truncated line silently re-opens a batch.
+func TestEmptyBlockedOnLineStillBlocks(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, strings.Replace(blockedQueue,
+		"**Blocked on:** "+blockedReasonText, "**Blocked on:**", 1))
+
+	r := run(t, tmp, "next")
+	claimable, blocked := splitNextSections(t, r.stdout)
+	if strings.Contains(claimable, "Batch C") {
+		t.Errorf("an empty Blocked-on line was read as absent:\n%s", r.stdout)
+	}
+	if !strings.Contains(blocked, "no reason given") {
+		t.Errorf("next did not name the empty gate as the problem:\n%s", r.stdout)
+	}
+}
+
+// TestBlockedOnCoexistsWithATag: the tag is the category, the line is the specific why. Reporting
+// only the tag's canned gloss is what sent the specific reason to the queue preamble to begin with.
+func TestBlockedOnCoexistsWithATag(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, strings.Replace(blockedQueue,
+		"## Batch C — Waits on a finding", "## Batch C [NOT READY] — Waits on a finding", 1))
+
+	r := run(t, tmp, "next")
+	if !strings.Contains(r.stdout, "[NOT READY]") {
+		t.Errorf("the tag disappeared from the reason:\n%s", r.stdout)
+	}
+	if !strings.Contains(r.stdout, blockedReasonText) {
+		t.Errorf("the tag's gloss hid the stated reason:\n%s", r.stdout)
+	}
+	if strings.Contains(r.stdout, "blocked on external work or undecided design") {
+		t.Errorf("both the gloss and the stated reason were printed:\n%s", r.stdout)
+	}
+}
+
+// TestNextJSONCarriesTheBlockedOnField: the gate is carried separately from the rendered reason, so
+// a consumer can tell an author's stated block from the ones the verb derives.
+func TestNextJSONCarriesTheBlockedOnField(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, blockedQueue)
+
+	r := run(t, tmp, "next", "--json")
+	if r.code != 0 {
+		t.Fatalf("next --json exit %d: %s%s", r.code, r.stdout, r.stderr)
+	}
+	var rep struct {
+		Claimable []struct{ ID string } `json:"claimable"`
+		Blocked   []struct {
+			ID        string `json:"id"`
+			Blocked   bool   `json:"blocked"`
+			BlockedOn string `json:"blockedOn"`
+			Reason    string `json:"reason"`
+		} `json:"blocked"`
+	}
+	if err := json.Unmarshal([]byte(r.stdout), &rep); err != nil {
+		t.Fatalf("next --json is not valid JSON: %v\n%s", err, r.stdout)
+	}
+	var found bool
+	for _, b := range rep.Blocked {
+		if b.ID != "C" {
+			continue
+		}
+		found = true
+		if !b.Blocked {
+			t.Error("--json did not carry the blocked flag")
+		}
+		if b.BlockedOn != blockedReasonText {
+			t.Errorf("--json blockedOn = %q, want %q", b.BlockedOn, blockedReasonText)
+		}
+		if !strings.Contains(b.Reason, blockedReasonText) {
+			t.Errorf("--json reason = %q, want it to carry the stated text", b.Reason)
+		}
+	}
+	if !found {
+		t.Errorf("Batch C is not in the blocked list:\n%s", r.stdout)
+	}
+	for _, b := range rep.Claimable {
+		if b.ID == "C" {
+			t.Error("--json offered the blocked batch as claimable")
+		}
+	}
+}
+
+// TestLongBlockedOnReasonWraps: every other reason `next` prints is a string the CLI wrote and kept
+// short. This one is whatever the queue's author typed, and a reason the reader has to scroll
+// sideways for is not a reason landing where they already look.
+func TestLongBlockedOnReasonWraps(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	long := strings.TrimSpace(strings.Repeat("the package-presence answer is not the same question ", 4))
+	seedQueue(t, tmp, strings.Replace(blockedQueue, blockedReasonText, long, 1))
+
+	r := run(t, tmp, "next")
+	_, blocked := splitNextSections(t, r.stdout)
+	for _, l := range strings.Split(blocked, "\n") {
+		if n := len(l); n > 100 {
+			t.Errorf("blocked line is %d columns wide, unwrapped:\n%s", n, l)
+		}
+	}
+	// Folding is allowed to change the line breaks, never the words.
+	flat := strings.Join(strings.Fields(blocked), " ")
+	if !strings.Contains(flat, long) {
+		t.Errorf("wrapping dropped or reordered words:\n%s", blocked)
+	}
+}
+
 // ---- Batch RC: the drift sidecar, adoption on reconcile, and waivers ----
 
 // driftRegion injects a sentinel inside the managed region of a file, simulating a hand edit.

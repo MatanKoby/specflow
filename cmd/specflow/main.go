@@ -863,9 +863,11 @@ func nextUsage() {
   specflow next [--json]
 
 Applies the whole Eligibility section of claim-batch.md in one call: exclusionary
-tags, batches already in CLAIMS.md, unsatisfied dependencies, and file overlap with
-anything in progress. Blocked batches are listed with the reason. A batch missing its
-declared fields is reported as unparseable, never silently offered as claimable.
+tags, a batch's own Blocked on: line, batches already in CLAIMS.md, unsatisfied
+dependencies, and file overlap with anything in progress. Blocked batches are listed
+with the reason, and a Blocked on: reason is printed as its author wrote it. A batch
+missing its declared fields is reported as unparseable, never silently offered as
+claimable.
 
   --json       machine-readable report
   -h, --help   show this help
@@ -960,7 +962,11 @@ func cmdNext(args []string) error {
 	if len(rep.Blocked) > 0 {
 		fmt.Println(dim("\n  blocked:"))
 		for _, b := range rep.Blocked {
-			fmt.Println(dim("  · ") + fmt.Sprintf("%-12s", "Batch "+b.ID) + dim(b.Reason))
+			lines := wrapReason(b.Reason, 72)
+			fmt.Println(dim("  · ") + fmt.Sprintf("%-12s", "Batch "+b.ID) + dim(lines[0]))
+			for _, l := range lines[1:] {
+				fmt.Println(strings.Repeat(" ", 16) + dim(l))
+			}
 		}
 	}
 	if len(rep.Problems) > 0 {
@@ -977,6 +983,28 @@ func cmdNext(args []string) error {
 // printWeight reports how heavy the ledgers are. Both files are re-read on every claim, finish, and
 // prune, and a count of entries can stay correct while the file behind it grows unreadable, so the
 // size is stated every time and warned about only past a bound.
+// wrapReason folds a block reason onto the terminal, hard-wrapping nothing shorter than width. Every
+// other reason `next` prints is a string this CLI wrote and kept short; a `Blocked on:` reason is
+// whatever the queue's author typed, so it is the one that can run off the screen - and a reason the
+// reader has to scroll sideways for is not the reason landing where they already look.
+func wrapReason(reason string, width int) []string {
+	words := strings.Fields(reason)
+	if len(words) == 0 {
+		return []string{""}
+	}
+	out := []string{}
+	line := words[0]
+	for _, w := range words[1:] {
+		if len(line)+1+len(w) > width {
+			out = append(out, line)
+			line = w
+			continue
+		}
+		line += " " + w
+	}
+	return append(out, line)
+}
+
 func printWeight(w kit.Weight) {
 	pointer := ""
 	if w.PointerBlock {

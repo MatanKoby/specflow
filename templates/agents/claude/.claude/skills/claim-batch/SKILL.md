@@ -14,7 +14,11 @@ add a `## In progress` entry to `CLAIMS.md` → commit `meta: claim batch-N (cla
 recover from any push race with fetch+reset (claim commit) **without force-pushing**. Then do the
 work with `batch-N:` commits, and invoke `finish-batch` when done.
 
+**A `Blocked on:` line is a hard gate.** A batch carrying one is not claimable however ready the rest
+of it looks, and `specflow next` prints the author's own text as the reason. Deleting the line clears
+it, and that is for whoever can answer it, not for you on the way past.
+
 **Use the CLI when it's installed:** `specflow next` answers the whole eligibility section in one
-read-only call (tag, already-claimed, dependency, and file-overlap checks, with a reason for every
-blocked batch), and `specflow claim <N>` writes the entry in the exact shape, refusing anything
+read-only call (tag, blocked-on, already-claimed, dependency, and file-overlap checks, with a reason
+for every blocked batch), and `specflow claim <N>` writes the entry in the exact shape, refusing anything
 `next` wouldn't offer. Neither commits - the `meta: claim` commit is still yours.
