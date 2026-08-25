@@ -51,6 +51,10 @@ Entries above the LW line predate the rule and are left as written.
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch FL - a finish leaves the queue smaller
+- Owner: claude
+- Started: 2026-08-25 11:15
+
 ## Completed
 
 ### Batch PD - prune-ledgers section 3, duplication-first
