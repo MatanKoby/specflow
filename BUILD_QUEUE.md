@@ -21,10 +21,10 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 > which release lives in `spec/roadmap.md` → *Release lines*, and the milestone goals live there
 > too, not here. This file holds un-done work only.
 >
-> **Claimable: nothing.** QD and PD both shipped, so the queue warning is diagnostic and the
-> procedure it sends you to greps before it judges. **What neither of them does is stop the leak**:
-> a preamble fills at finish time, one appended status paragraph per batch, and cleanup is still
-> the only thing that empties it. That fix is not queued yet.
+> **Claimable: nothing.** The queue warning is diagnostic now, and the procedure it sends you to
+> greps before it judges. **Neither of them stops the leak**: a preamble fills at finish time, one
+> appended status paragraph per batch, and cleanup is still the only thing that empties it. That fix
+> is not queued yet.
 > **Not ready:** **NX** (`next` file spread) · **W** (workflow config) · **NB** (`--new-batch`) ·
 > **E** (enforcement, research-first) · **P** (npm-wrapper front-end) · Homebrew tap.
 

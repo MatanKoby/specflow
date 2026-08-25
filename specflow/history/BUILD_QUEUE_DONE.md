@@ -115,6 +115,15 @@ healthy shape. The staleness warning also fired here, correctly: the pointer enu
 batch ids in `v0.1.9` one line above a cross-reference to `spec/roadmap.md` → *Release lines*, which
 owns exactly that. The enumeration is gone, which is the same dogfooding move Batch LW made.
 
+**Corrected twice more, from the same source** (`SHA_HERE`). The claimable check now reads only the
+**sentence** the word sits in: "Claimable: nothing. QD shipped" claims nothing and reports one, and
+warning there teaches the reader to skip the warning. And `staleRefFloor` went 3 to 5, because this
+repo's own pointer reached 3 archived against 2 live while being entirely honest. The floor is set
+where a healthy pointer stays silent rather than where the rot starts; the install this batch came
+from sits at 43, and the preamble cap still catches bulk on its own. Both corrections came from
+running the check against the repo that wrote it, which is the only reason the thresholds are
+calibrated at all.
+
 ## Batch EM - the emitters obey the rule ED wrote
 Batch ED swept every em dash out of what specflow ships as files, but the CLI went on *writing*
 them: `internal/kit/queue.go` put `### Batch N — title` into a downstream `CLAIMS.md` on every

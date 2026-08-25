@@ -2842,11 +2842,11 @@ func TestPreambleWarnsOnArchivedBatchNarration(t *testing.T) {
 	tmp := newRepo(t)
 	run(t, tmp, "init", "--agents=claude", "--check=")
 	seedQueue(t, tmp, twoBatchQueue)
-	archiveBatches(t, tmp, "X", "Y", "Z")
-	preambleQueue(t, tmp, "> Batch X shipped, Batch Y shipped, and Batch Z was dropped.\n")
+	archiveBatches(t, tmp, "X", "Y", "Z", "V", "W")
+	preambleQueue(t, tmp, "> Batch X shipped, Batch Y and Batch V shipped, Batch W and Batch Z were dropped.\n")
 
 	out := run(t, tmp, "next").stdout
-	if !strings.Contains(out, "3 archived batch ids") {
+	if !strings.Contains(out, "5 archived batch ids") {
 		t.Errorf("next did not count the archived batches the preamble narrates:\n%s", out)
 	}
 	if !strings.Contains(out, "narrating shipped work") {
@@ -2894,7 +2894,7 @@ func TestClaimableLineReportingAShippedBatchStaysQuiet(t *testing.T) {
 	run(t, tmp, "init", "--agents=claude", "--check=")
 	seedQueue(t, tmp, twoBatchQueue)
 	archiveBatches(t, tmp, "X")
-	preambleQueue(t, tmp, "> **Claimable: Batch A.** Batch X shipped, so A is unblocked.\n")
+	preambleQueue(t, tmp, "> **Claimable: nothing.** Batch X shipped, so the line is honest.\n")
 
 	if out := run(t, tmp, "next").stdout; strings.Contains(out, "claimable, but it is archived") {
 		t.Errorf("next warned about a batch the line reports as shipped, not as claimable:\n%s", out)

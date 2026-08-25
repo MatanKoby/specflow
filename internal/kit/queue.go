@@ -40,9 +40,12 @@ const StubMaxLines = 8
 const PreambleMaxLines = 45
 
 // staleRefFloor is how many archived batches a preamble may name before the count is worth
-// reporting. One or two is a live pointer saying what a claimable batch is waiting on; a dozen is a
-// file narrating its own history. The floor exists so the healthy shape stays silent.
-const staleRefFloor = 3
+// reporting. A live pointer legitimately names a few: what a claimable batch waits on, what just
+// shipped under it. A file narrating its own history names dozens (43, in the install this came
+// from). The floor is set where a healthy pointer stays silent rather than where the rot starts,
+// because a warning that fires on the good shape is one the reader learns to skip - and the
+// preamble cap still catches bulk on its own.
+const staleRefFloor = 5
 
 // Repo-relative paths of the four files the verbs read and write.
 const (
@@ -76,8 +79,9 @@ var (
 	// that sends an agent at a batch, so a stale one misleads rather than merely reading old.
 	qClaimableRe = regexp.MustCompile(`(?i)\bclaimable\b`)
 	// Bare tokens that could name a batch, for the claimable line that writes "50" and not "Batch 50".
-	qIDTokenRe = regexp.MustCompile(`[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?`)
-	qBraceRe   = regexp.MustCompile(`^([^{]*)\{([^{}]*)\}(.*)$`)
+	qIDTokenRe     = regexp.MustCompile(`[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?`)
+	qSentenceEndRe = regexp.MustCompile(`[.!?]([\s*_)\]]|$)`)
+	qBraceRe       = regexp.MustCompile(`^([^{]*)\{([^{}]*)\}(.*)$`)
 	// Both archives are newest-first, so a new block goes above the first existing entry heading.
 	qArchiveEntryRe = regexp.MustCompile(`^#{2,6}\s`)
 	// The stub's pointer at the archived narrative, and the user's over-cap waiver.
@@ -1342,10 +1346,10 @@ func staleClaimable(preamble []string, live, archived map[string]bool) []string 
 		if m == nil {
 			continue
 		}
-		// Only the first batch named after the word counts. A line reading "Claimable: PD. QD
-		// shipped" names PD and reports QD, and warning on the second half would make every honest
-		// pointer noisy - which is the fastest way to teach a reader to ignore this warning.
-		tok, ok := firstBatchNamed(l[m[1]:], live, archived)
+		// Only the first batch named in the same sentence counts. "Claimable: nothing. QD shipped"
+		// names no claimable batch and reports one, and warning there would make every honest
+		// pointer noisy - the fastest way to teach a reader to ignore this warning.
+		tok, ok := firstBatchNamed(sentenceAfter(l, m[1]), live, archived)
 		if !ok || live[strings.ToLower(tok)] {
 			continue
 		}
@@ -1354,6 +1358,17 @@ func staleClaimable(preamble []string, live, archived map[string]bool) []string 
 			i+1, tok))
 	}
 	return out
+}
+
+// sentenceAfter returns the rest of the sentence starting at from, so a claimable line is read for
+// what it claims rather than for everything else it happens to say. A terminator only counts when
+// followed by space, markup, or end of line, which keeps "v0.1.9" one token.
+func sentenceAfter(line string, from int) string {
+	rest := line[from:]
+	if loc := qSentenceEndRe.FindStringIndex(rest); loc != nil {
+		return rest[:loc[0]]
+	}
+	return rest
 }
 
 // firstBatchNamed returns the first token in rest that names a batch this repo knows, live or
