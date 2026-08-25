@@ -52,11 +52,12 @@ AGENTS.md rule on writing style for shipped content. No template changes, so no 
 and nothing for a downstream install to upgrade beyond the new binary.
 
 **Where the write sites are.** In queue.go: the claim entry near line 517, archiveHeading near line
-1041, and the warning/error strings near lines 551, 576, 1214, 1224. In main.go: console output and
-help text, 72 occurrences.
+1041, and the warning/error strings near lines 551, 576, 1214, 1224. In kit.go: 22 emitted strings,
+the `verify` problems and warnings plus the `fmt.Errorf` messages on the init, upgrade, add-agent
+and waive paths. In main.go: console output and help text, 72 occurrences.
 
 ### Files this batch creates/edits
-- `internal/kit/queue.go` · `cmd/specflow/main.go` · `cmd/specflow/main_test.go`.
+- `internal/kit/queue.go` · `internal/kit/kit.go` · `cmd/specflow/main.go` · `cmd/specflow/main_test.go`.
 
 ### Verification
 - `grep -n` for em and en dash across the two files returns only comment lines and the parsers'
