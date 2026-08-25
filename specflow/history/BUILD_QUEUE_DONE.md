@@ -61,6 +61,14 @@ near-miss heading. That would silently bless the old shape, and would truncate t
 innocent `### Batch history` heading inside real preamble prose, hiding a genuine sink. Over-counting
 is noisy but visible; under-counting is silent.
 
+**Corrected the same day, from its own output** (`b9e8f3b`). The claimable check first read every
+batch id on the line, which warned on this repo's own pointer: `Claimable: PD. QD shipped` names PD
+and *reports* QD. It now takes the first batch named after the word "claimable" and nothing else,
+because which batch a pointer points at is a question about word order. A sixth test pins the
+healthy shape. The staleness warning also fired here, correctly: the pointer enumerated the five
+batch ids in `v0.1.9` one line above a cross-reference to `spec/roadmap.md` → *Release lines*, which
+owns exactly that. The enumeration is gone, which is the same dogfooding move Batch LW made.
+
 ## Batch EM - the emitters obey the rule ED wrote
 Batch ED swept every em dash out of what specflow ships as files, but the CLI went on *writing*
 them: `internal/kit/queue.go` put `### Batch N — title` into a downstream `CLAIMS.md` on every

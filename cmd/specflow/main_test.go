@@ -2886,6 +2886,21 @@ func TestPreambleWarnsOnStaleClaimableLine(t *testing.T) {
 	}
 }
 
+// TestClaimableLineReportingAShippedBatchStaysQuiet: a pointer that names its claimable batch and
+// then says what shipped is the healthy shape. Warning on the second half teaches the reader to
+// ignore the warning, which costs more than the check is worth.
+func TestClaimableLineReportingAShippedBatchStaysQuiet(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+	archiveBatches(t, tmp, "X")
+	preambleQueue(t, tmp, "> **Claimable: Batch A.** Batch X shipped, so A is unblocked.\n")
+
+	if out := run(t, tmp, "next").stdout; strings.Contains(out, "claimable, but it is archived") {
+		t.Errorf("next warned about a batch the line reports as shipped, not as claimable:\n%s", out)
+	}
+}
+
 // TestNearMissBatchHeadingIsNamed: a heading the parser cannot see is preamble prose - never
 // claimable, and silently inflating the count. Without this the count itself looks wrong.
 func TestNearMissBatchHeadingIsNamed(t *testing.T) {

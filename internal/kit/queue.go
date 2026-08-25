@@ -1338,21 +1338,38 @@ func refSplit(preamble []string, live, archived map[string]bool) (staleCount, li
 func staleClaimable(preamble []string, live, archived map[string]bool) []string {
 	var out []string
 	for i, l := range preamble {
-		if !qClaimableRe.MatchString(l) {
+		m := qClaimableRe.FindStringIndex(l)
+		if m == nil {
 			continue
 		}
-		for _, tok := range batchCandidates(l) {
-			id := strings.ToLower(tok)
-			if live[id] || !archived[id] {
-				continue
-			}
-			out = append(out, fmt.Sprintf(
-				"BUILD_QUEUE.md:%d calls Batch %s claimable, but it is archived in BUILD_QUEUE_DONE.md and has no section in the queue - rewrite the pointer",
-				i+1, tok))
-			break
+		// Only the first batch named after the word counts. A line reading "Claimable: PD. QD
+		// shipped" names PD and reports QD, and warning on the second half would make every honest
+		// pointer noisy - which is the fastest way to teach a reader to ignore this warning.
+		tok, ok := firstBatchNamed(l[m[1]:], live, archived)
+		if !ok || live[strings.ToLower(tok)] {
+			continue
 		}
+		out = append(out, fmt.Sprintf(
+			"BUILD_QUEUE.md:%d calls Batch %s claimable, but it is archived in BUILD_QUEUE_DONE.md and has no section in the queue - rewrite the pointer",
+			i+1, tok))
 	}
 	return out
+}
+
+// firstBatchNamed returns the first token in rest that names a batch this repo knows, live or
+// archived. Positional, unlike batchCandidates: which batch a claimable line points at is a
+// question about word order, not about which spelling the author used.
+func firstBatchNamed(rest string, live, archived map[string]bool) (string, bool) {
+	for _, tok := range qIDTokenRe.FindAllString(rest, -1) {
+		if len(tok) < 2 {
+			continue
+		}
+		id := strings.ToLower(tok)
+		if live[id] || archived[id] {
+			return tok, true
+		}
+	}
+	return "", false
 }
 
 // batchCandidates are the tokens on a line that could be naming a batch: the explicit `Batch <id>`

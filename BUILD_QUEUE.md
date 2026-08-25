@@ -17,9 +17,9 @@ Completed history: [`specflow/history/BUILD_QUEUE_DONE.md`](specflow/history/BUI
 
 ## Un-done batches
 
-> **Pick-order pointer.** Current release: **`v0.1.9`** (**RC** · **MC** · **FS** · **ED** · **EM**);
-> no line is open. Which batch shipped in which release lives in `spec/roadmap.md` →
-> *Release lines*, and the milestone goals live there too, not here. This file holds un-done work only.
+> **Pick-order pointer.** Current release: **`v0.1.9`**; no line is open. Which batch shipped in
+> which release lives in `spec/roadmap.md` → *Release lines*, and the milestone goals live there
+> too, not here. This file holds un-done work only.
 >
 > **Claimable: PD** (prune-ledgers section 3). **QD shipped**, so the queue warning now names the
 > section holding the bulk, the archived-to-live ratio, a stale claimable line, and a near-miss
