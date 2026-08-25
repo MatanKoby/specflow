@@ -51,6 +51,10 @@ Entries above the LW line predate the rule and are left as written.
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch QD - the queue warning says what is wrong, not just how long
+- Owner: claude
+- Started: 2026-08-25 10:35
+
 ## Completed
 
 ### Batch EM — the emitters obey the rule ED wrote
