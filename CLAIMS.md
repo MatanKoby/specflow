@@ -51,6 +51,10 @@ Entries above the LW line predate the rule and are left as written.
 
 <!-- One entry per actively claimed batch. -->
 
+### Batch PD - prune-ledgers section 3, duplication-first
+- Owner: claude
+- Started: 2026-08-25 10:41
+
 ## Completed
 
 ### Batch QD - the queue warning says what is wrong, not just how long
