@@ -32,4 +32,6 @@ on `specflow upgrade`.
 including the exact managed set it covers, what is deliberately out of scope, and the grep to run
 before committing, lives in [`AGENTS.md`](AGENTS.md) → *Writing style for shipped content*, below
 the specflow markers. Read it before editing anything under `templates/**` or
-`specflow/procedures/`.
+`specflow/procedures/`, and before adding any string the CLI prints or writes into a downstream
+ledger: since Batch EM those are covered too, while the parsers in `internal/kit/queue.go` keep
+accepting the em dash forever.

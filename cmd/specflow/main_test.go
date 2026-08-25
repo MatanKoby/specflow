@@ -2167,7 +2167,7 @@ func TestClaimWritesEntryAndRefusesIneligible(t *testing.T) {
 	}
 	claims := read(t, filepath.Join(tmp, "CLAIMS.md"))
 	inProgress := claims[strings.Index(claims, "## In progress"):strings.Index(claims, "## Completed")]
-	if !strings.Contains(inProgress, "### Batch A — First thing") {
+	if !strings.Contains(inProgress, "### Batch A - First thing") {
 		t.Errorf("claim did not write the entry heading into In progress:\n%s", inProgress)
 	}
 	if !strings.Contains(inProgress, "- Owner: claude") {
@@ -2227,7 +2227,7 @@ func TestFinishRoundTripAndPrune(t *testing.T) {
 		t.Error("finished batch is still in In progress")
 	}
 	completed := claims[strings.Index(claims, "## Completed"):]
-	for _, want := range []string{"### Batch A — First thing", "- Commit: abc1234", "**What shipped**", "- The a, shipped."} {
+	for _, want := range []string{"### Batch A - First thing", "- Commit: abc1234", "**What shipped**", "- The a, shipped."} {
 		if !strings.Contains(completed, want) {
 			t.Errorf("Completed entry missing %q:\n%s", want, completed)
 		}
@@ -2263,7 +2263,7 @@ func TestFinishRoundTripAndPrune(t *testing.T) {
 		t.Error("finish removed a batch it was not asked about")
 	}
 	qDone := read(t, filepath.Join(tmp, "specflow/history/BUILD_QUEUE_DONE.md"))
-	if !strings.Contains(qDone, "## Batch A — First thing") || !strings.Contains(qDone, "Key commit `abc1234`") {
+	if !strings.Contains(qDone, "## Batch A - First thing") || !strings.Contains(qDone, "Key commit `abc1234`") {
 		t.Errorf("queue archive missing the batch paragraph:\n%s", qDone)
 	}
 	// The paragraph must land as a real entry, not inside the template's worked-example comment.
@@ -3026,7 +3026,7 @@ func TestMigrateClaimsRetrofitsStubShape(t *testing.T) {
 
 	// The narrative moved whole, under this batch's own heading.
 	qDone := read(t, filepath.Join(tmp, "specflow/history/BUILD_QUEUE_DONE.md"))
-	if !strings.Contains(qDone, "## Batch LEG — a legacy essay") {
+	if !strings.Contains(qDone, "## Batch LEG - a legacy essay") {
 		t.Errorf("no BUILD_QUEUE_DONE.md section for the migrated batch:\n%s", qDone)
 	}
 	for _, want := range []string{"**What shipped.** Paragraph one, line one.", "**Why.** Paragraph two, a single line.", "- Paragraph three, line 5."} {
@@ -3137,5 +3137,116 @@ func TestMigrateClaimsDryRunAndUnparseable(t *testing.T) {
 	}
 	if read(t, claimsPath) != broken || read(t, qDonePath) != qBefore {
 		t.Error("migrate-claims wrote despite failing to parse a ledger")
+	}
+}
+
+// ---- Batch EM: the emitters write hyphens, the parsers keep accepting the em dash ----
+
+// TestEmDashEraLedgersStillResolve is the compatibility pin for the write-side switch. Every
+// install that ran 0.1.9 or earlier has ledgers full of `### Batch N — title` headings, written
+// by the CLI itself, and finish/next/migrate-claims all locate entries by that heading. So the
+// parsers must go on accepting the em dash forever, even though nothing writes one any more.
+func TestEmDashEraLedgersStillResolve(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+
+	// An In-progress entry exactly as an older binary's `claim` wrote it.
+	claimsPath := filepath.Join(tmp, "CLAIMS.md")
+	claims := read(t, claimsPath)
+	i := strings.Index(claims, "## In progress")
+	if i < 0 {
+		t.Fatal("installed CLAIMS.md has no In progress section")
+	}
+	j := i + len("## In progress")
+	legacy := "\n\n### Batch A — First thing\n- Owner: claude\n- Started: 2026-01-02 09:00\n"
+	mustWrite(t, claimsPath, claims[:j]+legacy+claims[j:])
+
+	// next sees the em-dash entry as a live claim, so it must not offer A again.
+	if out := run(t, tmp, "next").stdout; !strings.Contains(out, "already in progress (claude)") {
+		t.Errorf("next did not recognise the em-dash-era claim:\n%s", out)
+	}
+
+	sum := filepath.Join(tmp, "sum.md")
+	done := filepath.Join(tmp, "done.md")
+	mustWrite(t, sum, "**What shipped**\n- The a, shipped.\n")
+	mustWrite(t, done, "Shipped the a in `src/a.go`. Key commit `abc1234`.\n")
+	r := run(t, tmp, "finish", "A", "--commit", "abc1234", "--summary-file", sum, "--done-file", done)
+	if r.code != 0 {
+		t.Fatalf("finish over an em-dash-era entry exit %d: %s%s", r.code, r.stdout, r.stderr)
+	}
+
+	claims = read(t, claimsPath)
+	inProgress := claims[strings.Index(claims, "## In progress"):strings.Index(claims, "## Completed")]
+	if strings.Contains(inProgress, "Batch A") {
+		t.Errorf("finish left the em-dash-era entry In progress:\n%s", inProgress)
+	}
+	// The entry moves verbatim: finish relocates what it found, it does not rewrite the heading.
+	completed := claims[strings.Index(claims, "## Completed"):]
+	if !strings.Contains(completed, "### Batch A — First thing") {
+		t.Errorf("the em-dash heading was not carried across verbatim:\n%s", completed)
+	}
+	// What finish *writes* is the new heading: a plain hyphen.
+	qDone := read(t, filepath.Join(tmp, "specflow/history/BUILD_QUEUE_DONE.md"))
+	if !strings.Contains(qDone, "## Batch A - First thing") {
+		t.Errorf("archive heading is not the hyphen form:\n%s", qDone)
+	}
+	if strings.Contains(qDone, "## Batch A — First thing") {
+		t.Errorf("archive heading still writes an em dash:\n%s", qDone)
+	}
+}
+
+// TestMigrateClaimsAcceptsEmDashHeadings pins the same guarantee for the other verb that finds
+// entries by heading: migrate-claims must retrofit a legacy entry whose heading uses the em dash.
+func TestMigrateClaimsAcceptsEmDashHeadings(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+
+	claimsPath := filepath.Join(tmp, "CLAIMS.md")
+	appendTo(t, claimsPath, legacyClaimsEntry("LEG", "a legacy essay"))
+
+	if r := run(t, tmp, "migrate-claims"); r.code != 0 {
+		t.Fatalf("migrate-claims exit %d: %s%s", r.code, r.stdout, r.stderr)
+	}
+	entry := read(t, claimsPath)
+	if !strings.Contains(entry, "### Batch LEG — a legacy essay") {
+		t.Errorf("migrate-claims did not keep the em-dash heading it matched on:\n%s", entry)
+	}
+	if !strings.Contains(entry, "- Full narrative: `specflow/history/BUILD_QUEUE_DONE.md` → Batch LEG") {
+		t.Errorf("migrate-claims did not retrofit the stub pointer:\n%s", entry)
+	}
+	qDone := read(t, filepath.Join(tmp, "specflow/history/BUILD_QUEUE_DONE.md"))
+	if !strings.Contains(qDone, "## Batch LEG - a legacy essay") {
+		t.Errorf("the relocated narrative is not filed under a hyphen heading:\n%s", qDone)
+	}
+}
+
+// TestClaimAndFinishWriteHyphenHeadings is the write-side assertion in one place: nothing the CLI
+// puts into a downstream ledger carries an em dash, which is what makes a fresh install agree with
+// the entry format AGENTS.md and templates/base/CLAIMS.md document.
+func TestClaimAndFinishWriteHyphenHeadings(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+
+	if r := run(t, tmp, "claim", "A"); r.code != 0 {
+		t.Fatalf("claim exit %d: %s%s", r.code, r.stdout, r.stderr)
+	}
+	claimsPath := filepath.Join(tmp, "CLAIMS.md")
+	if got := read(t, claimsPath); !strings.Contains(got, "### Batch A - First thing") {
+		t.Errorf("claim did not write a hyphen heading:\n%s", got)
+	}
+
+	sum := filepath.Join(tmp, "sum.md")
+	done := filepath.Join(tmp, "done.md")
+	mustWrite(t, sum, "**What shipped**\n- The a, shipped.\n")
+	mustWrite(t, done, "Shipped the a in `src/a.go`.\n")
+	if r := run(t, tmp, "finish", "A", "--commit", "abc1234", "--summary-file", sum, "--done-file", done); r.code != 0 {
+		t.Fatalf("finish exit %d: %s%s", r.code, r.stdout, r.stderr)
+	}
+	for _, p := range []string{claimsPath, filepath.Join(tmp, "specflow/history/BUILD_QUEUE_DONE.md")} {
+		if strings.Contains(read(t, p), "—") {
+			t.Errorf("%s carries an em dash after a full claim/finish round trip", filepath.Base(p))
+		}
 	}
 }

@@ -25,11 +25,11 @@ const claudeHookRel = ".claude/hooks/specflow-handoff-reminder.sh"
 // settings.json block to paste, and where. Called when the hook script was just created (claude
 // adapter, full mode) — never for spec-only installs, which have no batch boundary to backstop.
 func printClaudeHookNotice() {
-	fmt.Println(bold("\nClaude Code — activate the step-6 handoff hook") +
+	fmt.Println(bold("\nClaude Code - activate the step-6 handoff hook") +
 		dim("  (deterministic backstop for finish-batch step 6; opt-in)"))
 	fmt.Println(dim("  Dropped a hook script at ") + cyan(claudeHookRel) +
 		dim(". To turn it on, merge this into ") + cyan(".claude/settings.json") +
-		dim(" (recommended — commit it so the whole team's Claude agents get the backstop; or ") +
+		dim(" (recommended - commit it so the whole team's Claude agents get the backstop; or ") +
 		cyan(".claude/settings.local.json") + dim(" for a personal, uncommitted setup):"))
 	fmt.Println(cyan(`
   {
@@ -159,7 +159,7 @@ func confirm(prompt string) bool {
 func askCheck() string {
 	fmt.Println(bold("\nWhat is this repo's check command?") + dim("  (the one command that type-checks / lints / tests)"))
 	fmt.Println(dim("  Agents run it before finishing a batch, so one command beats three separate ones."))
-	fmt.Print("\ne.g. " + cyan("npm run verify") + dim(", ") + cyan("make check") + dim(", ") + cyan("cargo test") + " — or Enter to skip: ")
+	fmt.Print("\ne.g. " + cyan("npm run verify") + dim(", ") + cyan("make check") + dim(", ") + cyan("cargo test") + " - or Enter to skip: ")
 	return strings.TrimSpace(readLine())
 }
 
@@ -202,7 +202,7 @@ func pickAgents(preset string) []string {
 
 func initUsage() {
 	fmt.Printf(`
-%s — scaffold specflow into the current repo
+%s - scaffold specflow into the current repo
 
 %s
   specflow init [--agents=claude,cursor,...] [--all] [--spec-only] [--dry-run]
@@ -210,14 +210,14 @@ func initUsage() {
 %s
   --agents=<list>   comma-separated agents to wire, non-interactive (%s)
   --all             wire every supported agent, non-interactive
-  --spec-only       install the spec discipline only — no queue/claim/batch machinery
+  --spec-only       install the spec discipline only - no queue/claim/batch machinery
   --dry-run         preview the file operations and exit without writing anything
   -h, --help        show this help
 
 Run with no flags to pick agents interactively, then confirm before specflow
 injects its region into any file that already exists. Brownfield-safe: your
 content is preserved (specflow's block sits between markers) and user-owned files
-are never overwritten. %s and %s — review with %s, then commit (e.g. %s).
+are never overwritten. %s and %s - review with %s, then commit (e.g. %s).
 
 %s %s
 `,
@@ -232,7 +232,7 @@ are never overwritten. %s and %s — review with %s, then commit (e.g. %s).
 
 func upgradeUsage() {
 	fmt.Printf(`
-%s — refresh specflow's managed files to the installed version
+%s - refresh specflow's managed files to the installed version
 
 %s
   specflow upgrade
@@ -241,7 +241,7 @@ Refreshes specflow's marker-delimited regions in AGENTS.md, the procedures, and
 each installed agent's instruction file, plus the wholly-generated adapter files
 (skill stubs, hooks), which are managed as whole files. %s: text
 outside the markers is preserved, and any managed file you edited (drift) is left
-untouched with the fresh version written alongside as %s — that
+untouched with the fresh version written alongside as %s - that
 sidecar is your file with the fresh region spliced in, so reconciling is a plain
 %s. Your queue, claims, and spec are never touched, and upgrade never commits.
 
@@ -262,7 +262,7 @@ it, and upgrade will leave the file alone without reporting it.
 
 // printInitPlan renders what `init --dry-run` would do, writing nothing.
 func printInitPlan(plan kit.InitPlan, target, mode string, agentKeys []string, defaulted bool) {
-	fmt.Println(bold("\nspecflow init --dry-run") + dim("  — preview; nothing will be written"))
+	fmt.Println(bold("\nspecflow init --dry-run") + dim("  - preview; nothing will be written"))
 	fmt.Println(dim("  target: ") + target)
 	fmt.Println(dim("  mode:   ") + mode)
 	ag := strings.Join(agentKeys, ", ")
@@ -334,7 +334,7 @@ func cmdInit(args []string) error {
 		return nil
 	}
 	if !kit.IsGitRepo(target) {
-		fmt.Println(yellow("\nspecflow only works in git repositories.") + " Run " + cyan("git init") + " first — nothing was written.")
+		fmt.Println(yellow("\nspecflow only works in git repositories.") + " Run " + cyan("git init") + " first - nothing was written.")
 		return nil
 	}
 
@@ -354,7 +354,7 @@ func cmdInit(args []string) error {
 	}
 	modeLabel := ""
 	if mode == "spec-only" {
-		modeLabel = dim("  (spec-only — spec discipline, no queue/claim/batch)")
+		modeLabel = dim("  (spec-only - spec discipline, no queue/claim/batch)")
 	}
 
 	plan, err := kit.PlanInit(target, specflow.Templates(), agentKeys, mode)
@@ -370,7 +370,7 @@ func cmdInit(args []string) error {
 	// Phase 1 — files specflow will inject its region into (they already exist).
 	allowInject := true
 	if len(plan.Inject) > 0 {
-		fmt.Println(bold("\nPhase 1 — existing files specflow will add its region to") +
+		fmt.Println(bold("\nPhase 1 - existing files specflow will add its region to") +
 			dim("  (your content is preserved; specflow's block is inserted between markers):"))
 		for _, f := range plan.Inject {
 			fmt.Println(dim("    · ") + cyan(f))
@@ -380,7 +380,7 @@ func cmdInit(args []string) error {
 		}
 	}
 	if len(plan.AlreadyWired) > 0 {
-		fmt.Println(dim("\n  Already wired (specflow region or an AGENTS.md pointer present) — left as-is: " + strings.Join(plan.AlreadyWired, ", ")))
+		fmt.Println(dim("\n  Already wired (specflow region or an AGENTS.md pointer present) - left as-is: " + strings.Join(plan.AlreadyWired, ", ")))
 	}
 
 	// Phase 2 — specflow-owned files to create.
@@ -389,7 +389,7 @@ func cmdInit(args []string) error {
 		if mode == "spec-only" {
 			contents = "spec/, specflow/ (spec-edit procedure), agent adapters"
 		}
-		fmt.Println(bold(fmt.Sprintf("\nPhase 2 — %d specflow-owned file(s) to create", len(plan.Create))) +
+		fmt.Println(bold(fmt.Sprintf("\nPhase 2 - %d specflow-owned file(s) to create", len(plan.Create))) +
 			dim("  ("+contents+")."))
 	}
 
@@ -421,7 +421,7 @@ func cmdInit(args []string) error {
 			}
 		}
 		if len(tier1) > 0 {
-			fmt.Println(yellow("\n  ⚠ Declined the AGENTS.md region — specflow can't work properly without it."))
+			fmt.Println(yellow("\n  ⚠ Declined the AGENTS.md region - specflow can't work properly without it."))
 			fmt.Println(dim("    Re-run ") + cyan("specflow init") + dim(" to add it, then ") + cyan("specflow verify") + dim(" to confirm."))
 		}
 		if len(tier3) > 0 {
@@ -431,9 +431,9 @@ func cmdInit(args []string) error {
 	}
 
 	fmt.Println(bold("\nReview, then commit:"))
-	fmt.Println("  1. Inspect the changes with " + cyan("git diff") + " / " + cyan("git status") + " — remove anything you don't want.")
-	fmt.Println(dim("     (specflow may be limited if required pieces are removed — run ") + cyan("specflow verify") + dim(" to check.)"))
-	fmt.Println("  2. Commit when satisfied — ideally its own commit, e.g. " + cyan("meta: install specflow") + ".")
+	fmt.Println("  1. Inspect the changes with " + cyan("git diff") + " / " + cyan("git status") + " - remove anything you don't want.")
+	fmt.Println(dim("     (specflow may be limited if required pieces are removed - run ") + cyan("specflow verify") + dim(" to check.)"))
+	fmt.Println("  2. Commit when satisfied - ideally its own commit, e.g. " + cyan("meta: install specflow") + ".")
 	if mode == "spec-only" {
 		fmt.Println("  3. Fill in " + cyan("spec/README.md") + " and point your agent at " + cyan("AGENTS.md") + ".\n")
 	} else {
@@ -451,9 +451,9 @@ func printUpgradePlan(plan kit.UpgradePlan) {
 		fmt.Println(yellow("\nNo specflow install found here.") + " Run " + cyan("specflow init") + " first.\n")
 		return
 	}
-	fmt.Println(bold("\nspecflow upgrade --dry-run") + dim(fmt.Sprintf("  — preview %s → %s; nothing will be written", plan.From, plan.To)))
+	fmt.Println(bold("\nspecflow upgrade --dry-run") + dim(fmt.Sprintf("  - preview %s → %s; nothing will be written", plan.From, plan.To)))
 	if len(plan.Refresh)+len(plan.Add)+len(plan.Migrate)+len(plan.Drift)+len(plan.Waived) == 0 {
-		fmt.Println(dim("\n  Already current — nothing to refresh.") + "\n")
+		fmt.Println(dim("\n  Already current - nothing to refresh.") + "\n")
 		return
 	}
 	if len(plan.Refresh) > 0 {
@@ -475,13 +475,13 @@ func printUpgradePlan(plan kit.UpgradePlan) {
 		}
 	}
 	if len(plan.Waived) > 0 {
-		fmt.Println(bold(fmt.Sprintf("\n  waived — would leave alone (%d):", len(plan.Waived))) + dim("  (no sidecar, not reported as drift)"))
+		fmt.Println(bold(fmt.Sprintf("\n  waived - would leave alone (%d):", len(plan.Waived))) + dim("  (no sidecar, not reported as drift)"))
 		for _, f := range plan.Waived {
 			fmt.Println(dim("    · " + f))
 		}
 	}
 	if len(plan.Drift) > 0 {
-		fmt.Println(bold(fmt.Sprintf("\n  drifted — would NOT overwrite (%d):", len(plan.Drift))) + dim("  (fresh version → .specflow-new)"))
+		fmt.Println(bold(fmt.Sprintf("\n  drifted - would NOT overwrite (%d):", len(plan.Drift))) + dim("  (fresh version → .specflow-new)"))
 		for _, f := range plan.Drift {
 			fmt.Println(yellow("    ⚠ ") + f)
 		}
@@ -525,7 +525,7 @@ func cmdUpgrade(args []string) error {
 		fmt.Println(yellow("  adopted into specflow's managed set (your previous copy saved as *.specflow-bak): " + strings.Join(res.Migrated, ", ")))
 	}
 	if len(res.Drifted) > 0 {
-		fmt.Println(yellow(fmt.Sprintf("\n  ⚠ %d managed file(s) edited since install — left untouched:", len(res.Drifted))))
+		fmt.Println(yellow(fmt.Sprintf("\n  ⚠ %d managed file(s) edited since install - left untouched:", len(res.Drifted))))
 		for _, f := range res.Drifted {
 			fmt.Println(dim("    · " + f + "  → " + f + ".specflow-new (your file with the fresh region spliced in)"))
 		}
@@ -534,15 +534,15 @@ func cmdUpgrade(args []string) error {
 	if len(res.Waived) > 0 {
 		fmt.Println(dim(fmt.Sprintf("\n  · %d waived file(s) left alone: ", len(res.Waived))) + dim(strings.Join(res.Waived, ", ")))
 		for _, f := range res.WaiverStale {
-			fmt.Println(dim("    · "+f+": specflow has changed this file since you waived it — ") + cyan("specflow waive --clear "+f) + dim(" to see the new version"))
+			fmt.Println(dim("    · "+f+": specflow has changed this file since you waived it - ") + cyan("specflow waive --clear "+f) + dim(" to see the new version"))
 		}
 	}
 	if len(res.Refreshed)+len(res.Added)+len(res.Migrated)+len(res.Drifted)+len(res.Waived) == 0 {
-		fmt.Println(dim("  Already current — nothing to refresh."))
+		fmt.Println(dim("  Already current - nothing to refresh."))
 	}
 	fmt.Println(dim("\n  Your queue, claims, and spec were left untouched."))
 	if res.SchemaChanged {
-		fmt.Println(yellow("  Note: schema changed — review state-file format."))
+		fmt.Println(yellow("  Note: schema changed - review state-file format."))
 	}
 	fmt.Println("")
 	return nil
@@ -550,7 +550,7 @@ func cmdUpgrade(args []string) error {
 
 func verifyUsage() {
 	fmt.Printf(`
-%s — check specflow's installation integrity
+%s - check specflow's installation integrity
 
 %s
   specflow verify
@@ -558,10 +558,10 @@ func verifyUsage() {
 Reports whether the Tier-1 pieces (a valid config.json, AGENTS.md + its region,
 the procedures) are present and intact, flags any managed region edited since
 install (drift), and warns about agent files not wired to AGENTS.md. Reads the
-working tree, so it passes right after %s — before you commit. Exit code is
+working tree, so it passes right after %s - before you commit. Exit code is
 non-zero when a Tier-1 problem is found (handy in CI).
 
-  --batch      (later) check batch/claim discipline — ships with Batch E
+  --batch      (later) check batch/claim discipline - ships with Batch E
   -h, --help   show this help
 `,
 		bold("specflow verify"),
@@ -575,7 +575,7 @@ func cmdVerify(args []string) error {
 		return nil
 	}
 	if hasFlag(args, "--batch") {
-		fmt.Println(yellow("\nspecflow verify --batch") + " — the batch/claim discipline check ships in a later release (Batch E).\n")
+		fmt.Println(yellow("\nspecflow verify --batch") + " - the batch/claim discipline check ships in a later release (Batch E).\n")
 		return nil
 	}
 	target, err := os.Getwd()
@@ -598,7 +598,7 @@ func cmdVerify(args []string) error {
 	if rep.Mode != "" {
 		modeNote = dim("  [mode: " + rep.Mode + "]")
 	}
-	fmt.Println(bold("\nspecflow verify") + dim("  — installation integrity") + modeNote)
+	fmt.Println(bold("\nspecflow verify") + dim("  - installation integrity") + modeNote)
 	for _, o := range rep.OK {
 		fmt.Println(green("  ✓ ") + dim(o))
 	}
@@ -616,27 +616,27 @@ func cmdVerify(args []string) error {
 	fmt.Println("")
 	switch {
 	case len(rep.Problems) > 0:
-		fmt.Println(red("Install incomplete — specflow may not work properly.") + " Re-run " + cyan("specflow init") + " or restore the missing pieces.\n")
+		fmt.Println(red("Install incomplete - specflow may not work properly.") + " Re-run " + cyan("specflow init") + " or restore the missing pieces.\n")
 		os.Exit(1)
 	case len(rep.Warnings) > 0:
 		fmt.Println(yellow("Installed, with warnings above.") + "\n")
 	default:
-		fmt.Println(green("All good — specflow is installed correctly.") + "\n")
+		fmt.Println(green("All good - specflow is installed correctly.") + "\n")
 	}
 	return nil
 }
 
 func addAgentUsage() {
 	fmt.Printf(`
-%s — wire another agent into an existing specflow repo
+%s - wire another agent into an existing specflow repo
 
 %s
   specflow add-agent <name> [<name>...]
 
 Copies the agent's adapter (skip-existing, non-destructive) and records it in
 specflow/config.json. If its instruction file already exists, specflow's marker
-region is injected — your content is preserved. In a spec-only install the
-claim/finish skills are left out. %s — review with %s, then commit.
+region is injected - your content is preserved. In a spec-only install the
+claim/finish skills are left out. %s - review with %s, then commit.
 
   -h, --help   show this help
 
@@ -691,7 +691,7 @@ func cmdAddAgent(args []string) error {
 			return err
 		}
 		if res.AlreadyPresent {
-			fmt.Println(yellow("\n"+name) + " is already installed" + dim(" — nothing to do."))
+			fmt.Println(yellow("\n"+name) + " is already installed" + dim(" - nothing to do."))
 			continue
 		}
 		changed = true
@@ -720,7 +720,7 @@ func cmdAddAgent(args []string) error {
 
 func statusUsage() {
 	fmt.Printf(`
-%s — read-only summary of the specflow install here
+%s - read-only summary of the specflow install here
 
 %s
   specflow status
@@ -762,7 +762,7 @@ func cmdStatus(args []string) error {
 		return v
 	}
 
-	fmt.Println(bold("\nspecflow status") + dim("  — "+target))
+	fmt.Println(bold("\nspecflow status") + dim("  - "+target))
 	if rep.VersionMatch {
 		row("version", green(rep.StampVersion))
 	} else {
@@ -776,7 +776,7 @@ func cmdStatus(args []string) error {
 	row("agents", agents)
 	row("levers", "commit="+lever(rep.Commit)+"  push="+lever(rep.Push))
 	if rep.Check == "" {
-		row("check", dim("not set")+dim("  — add \"check\" to specflow/config.json so agents run one command"))
+		row("check", dim("not set")+dim("  - add \"check\" to specflow/config.json so agents run one command"))
 	} else {
 		row("check", cyan(rep.Check))
 	}
@@ -803,17 +803,17 @@ func cmdStatus(args []string) error {
 	if len(rep.Drifted) == 0 {
 		row("drift", green("none"))
 	} else {
-		row("drift", yellow(fmt.Sprintf("⚠ %d file(s) edited since install", len(rep.Drifted)))+dim(" — "+strings.Join(rep.Drifted, ", ")))
+		row("drift", yellow(fmt.Sprintf("⚠ %d file(s) edited since install", len(rep.Drifted)))+dim(" - "+strings.Join(rep.Drifted, ", ")))
 	}
 	if len(rep.Waived) > 0 {
-		row("waived", fmt.Sprintf("%d file(s) edited on purpose", len(rep.Waived))+dim(" — "+strings.Join(rep.Waived, ", ")))
+		row("waived", fmt.Sprintf("%d file(s) edited on purpose", len(rep.Waived))+dim(" - "+strings.Join(rep.Waived, ", ")))
 	}
 	// Drift and staleness are different questions: one asks whether *you* changed a file, the other
 	// whether *specflow* did. A repo can be clean on the first and behind on the second.
 	if len(rep.Stale) == 0 {
 		row("stale", green("none"))
 	} else {
-		row("stale", yellow(fmt.Sprintf("⚠ %d file(s) behind this binary", len(rep.Stale)))+dim(" — run `specflow upgrade`: "+strings.Join(rep.Stale, ", ")))
+		row("stale", yellow(fmt.Sprintf("⚠ %d file(s) behind this binary", len(rep.Stale)))+dim(" - run `specflow upgrade`: "+strings.Join(rep.Stale, ", ")))
 	}
 	fmt.Println("")
 	return nil
@@ -857,7 +857,7 @@ var valueFlags = map[string]bool{"--commit": true, "--stub-file": true, "--summa
 
 func nextUsage() {
 	fmt.Printf(`
-%s — list the batches claimable right now (read-only)
+%s - list the batches claimable right now (read-only)
 
 %s
   specflow next [--json]
@@ -875,7 +875,7 @@ declared fields is reported as unparseable, never silently offered as claimable.
 
 func claimUsage() {
 	fmt.Printf(`
-%s — write the CLAIMS.md In-progress entry for a batch
+%s - write the CLAIMS.md In-progress entry for a batch
 
 %s
   specflow claim <batch-id> [--as <agent>]
@@ -892,7 +892,7 @@ committing stays with the commit/push levers and claim-batch.md.
 
 func finishUsage() {
 	fmt.Printf(`
-%s — move a claimed batch to done, across all four ledger files
+%s - move a claimed batch to done, across all four ledger files
 
 %s
   specflow finish <batch-id> --commit <sha> [--stub-file <path>] [--done-file <path>]
@@ -942,7 +942,7 @@ func cmdNext(args []string) error {
 		return nil
 	}
 
-	fmt.Println(bold("\nspecflow next") + dim("  — claimable batches"))
+	fmt.Println(bold("\nspecflow next") + dim("  - claimable batches"))
 	if len(rep.Claimable) == 0 {
 		fmt.Println(dim("  nothing claimable right now."))
 	}
@@ -998,18 +998,18 @@ func cmdClaim(args []string) error {
 		agents := kit.ConfiguredAgents(target)
 		switch len(agents) {
 		case 0:
-			return fmt.Errorf("no agents recorded in specflow/config.json — pass --as <agent>")
+			return fmt.Errorf("no agents recorded in specflow/config.json - pass --as <agent>")
 		case 1:
 			owner = agents[0]
 		default:
-			return fmt.Errorf("%d agents are wired (%s) — pass --as <agent> to say who owns this claim", len(agents), strings.Join(agents, ", "))
+			return fmt.Errorf("%d agents are wired (%s) - pass --as <agent> to say who owns this claim", len(agents), strings.Join(agents, ", "))
 		}
 	}
 	res, err := kit.Claim(target, id, owner)
 	if err != nil {
 		return err
 	}
-	fmt.Println(bold("\nspecflow claim") + dim("  — written to CLAIMS.md"))
+	fmt.Println(bold("\nspecflow claim") + dim("  - written to CLAIMS.md"))
 	for _, l := range strings.Split(res.Entry, "\n") {
 		fmt.Println(dim("  ") + l)
 	}
@@ -1050,12 +1050,12 @@ func cmdFinish(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(bold("\nspecflow finish") + dim("  — Batch "+res.Batch))
+	fmt.Println(bold("\nspecflow finish") + dim("  - Batch "+res.Batch))
 	fmt.Println(green("  ✓ ") + "CLAIMS.md entry moved to " + cyan("## Completed"))
 	if res.QueueRemoved {
 		fmt.Println(green("  ✓ ") + "batch section removed from " + cyan("BUILD_QUEUE.md"))
 	} else {
-		fmt.Println(yellow("  ⚠ ") + "no matching section in BUILD_QUEUE.md — nothing to remove")
+		fmt.Println(yellow("  ⚠ ") + "no matching section in BUILD_QUEUE.md - nothing to remove")
 	}
 	if !res.NoParagraph {
 		fmt.Println(green("  ✓ ") + "paragraph filed in " + cyan("specflow/history/BUILD_QUEUE_DONE.md"))
@@ -1097,7 +1097,7 @@ func readProse(args []string, flag string) (string, error) {
 
 func migrateClaimsUsage() {
 	fmt.Printf(`
-%s — retrofit the stub shape onto entries written before it existed
+%s - retrofit the stub shape onto entries written before it existed
 
 %s
   specflow migrate-claims [--dry-run]
@@ -1137,7 +1137,7 @@ func cmdMigrateClaims(args []string) error {
 
 	head := bold("\nspecflow migrate-claims")
 	if dry {
-		head += dim("  — dry run, nothing written")
+		head += dim("  - dry run, nothing written")
 	}
 	fmt.Println(head)
 	if len(rep.Entries) == 0 {
@@ -1164,7 +1164,7 @@ func cmdMigrateClaims(args []string) error {
 
 func waiveUsage() {
 	fmt.Printf(`
-%s — keep a deliberate edit to a specflow-managed file
+%s - keep a deliberate edit to a specflow-managed file
 
 %s
   specflow waive <file>...
@@ -1179,8 +1179,8 @@ It changes no file bytes, only %s. The waiver is pinned to the bytes
 you waived, so editing the file again resurfaces it as drift, and it remembers the
 version it was taken against, so upgrade tells you when specflow has moved on.
 
-To take specflow's version instead, reconcile from the sidecar (%s)
-— a region matching the current version is adopted automatically.
+To take specflow's version instead, reconcile from the sidecar (%s);
+a region matching the current version is adopted automatically.
 
   --all        waive every currently drifted file (with --clear, drop every waiver)
   --clear      remove the waiver instead of recording one
@@ -1208,7 +1208,7 @@ func cmdWaive(args []string) error {
 		}
 	}
 	if len(files) == 0 && !all {
-		fmt.Println(yellow("\nspecflow waive") + " — name the file(s) to waive, or pass " + cyan("--all") + " for every drifted file.")
+		fmt.Println(yellow("\nspecflow waive") + " - name the file(s) to waive, or pass " + cyan("--all") + " for every drifted file.")
 		fmt.Println(dim("  see what is drifted with ") + cyan("specflow status") + "\n")
 		os.Exit(1)
 	}
@@ -1224,23 +1224,23 @@ func cmdWaive(args []string) error {
 		fmt.Println(yellow("\nspecflow is not installed here.") + " Run " + cyan("specflow init") + " first.\n")
 		os.Exit(1)
 	}
-	fmt.Println(bold("\nspecflow waive") + dim("  — recorded in specflow/config.json; no file was changed"))
+	fmt.Println(bold("\nspecflow waive") + dim("  - recorded in specflow/config.json; no file was changed"))
 	for _, f := range res.Waived {
-		fmt.Println(green("  ✓ ") + f + dim("  waived — upgrade will leave it alone"))
+		fmt.Println(green("  ✓ ") + f + dim("  waived - upgrade will leave it alone"))
 		// The sidecar was the pending reconciliation; waiving answered it. Say so rather than
 		// deleting it, since this command's whole contract is that it touches no files.
 		if _, err := os.Stat(filepath.Join(target, f+".specflow-new")); err == nil {
-			fmt.Println(dim("      " + f + ".specflow-new is now stale — delete it when you like"))
+			fmt.Println(dim("      " + f + ".specflow-new is now stale - delete it when you like"))
 		}
 	}
 	for _, f := range res.Cleared {
-		fmt.Println(green("  ✓ ") + f + dim("  waiver cleared — upgrade reports it as drift again"))
+		fmt.Println(green("  ✓ ") + f + dim("  waiver cleared - upgrade reports it as drift again"))
 	}
 	for _, sk := range res.Skipped {
 		fmt.Println(dim("  · " + sk))
 	}
 	if len(res.Waived)+len(res.Cleared)+len(res.Skipped) == 0 {
-		fmt.Println(dim("  nothing to do — no drifted files"))
+		fmt.Println(dim("  nothing to do - no drifted files"))
 	}
 	fmt.Println("")
 	return nil
@@ -1248,7 +1248,7 @@ func cmdWaive(args []string) error {
 
 func usage() {
 	fmt.Printf(`
-%s %s — spec-driven batch/claim protocol for AI coding agents
+%s %s - spec-driven batch/claim protocol for AI coding agents
 
 %s
   specflow init [--agents=claude,cursor] [--all]   %s
@@ -1277,7 +1277,7 @@ func usage() {
 		bold("Usage:"),
 		dim("scaffold into the current repo"),
 		dim("record the repo's check command (skips the prompt)"),
-		dim("spec discipline only — no queue/claim"),
+		dim("spec discipline only - no queue/claim"),
 		dim("wire another agent into the repo"),
 		dim("summarize the install (read-only)"),
 		dim("list the batches claimable right now"),

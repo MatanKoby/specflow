@@ -1067,7 +1067,7 @@ func Upgrade(targetDir string, tpl fs.FS, version string) (UpgradeResult, error)
 	}
 	var stamp map[string]any
 	if err := json.Unmarshal(sb, &stamp); err != nil {
-		return res, fmt.Errorf("%s is corrupted (invalid JSON) — fix or restore it before upgrading: %w", filepath.Base(sp), err)
+		return res, fmt.Errorf("%s is corrupted (invalid JSON) - fix or restore it before upgrading: %w", filepath.Base(sp), err)
 	}
 	res.From, _ = stamp["kitVersion"].(string)
 
@@ -1134,7 +1134,7 @@ func PlanUpgrade(targetDir string, tpl fs.FS, version string) (UpgradePlan, erro
 	}
 	var stamp map[string]any
 	if err := json.Unmarshal(sb, &stamp); err != nil {
-		return plan, fmt.Errorf("%s is corrupted (invalid JSON) — fix or restore it before upgrading: %w", filepath.Base(configPath(targetDir)), err)
+		return plan, fmt.Errorf("%s is corrupted (invalid JSON) - fix or restore it before upgrading: %w", filepath.Base(configPath(targetDir)), err)
 	}
 	plan.From, _ = stamp["kitVersion"].(string)
 	decisions, err := upgradeDecisions(targetDir, tpl, stamp)
@@ -1206,7 +1206,7 @@ func AddAgent(targetDir string, tpl fs.FS, version, key string) (AddAgentResult,
 	}
 	var stamp map[string]any
 	if err := json.Unmarshal(sb, &stamp); err != nil {
-		return res, fmt.Errorf("%s is corrupted (invalid JSON) — fix or restore it before adding an agent: %w", filepath.Base(p), err)
+		return res, fmt.Errorf("%s is corrupted (invalid JSON) - fix or restore it before adding an agent: %w", filepath.Base(p), err)
 	}
 	mode := modeOf(stamp)
 	existing := installedAgents(stamp)
@@ -1390,7 +1390,7 @@ func Waive(targetDir string, tpl fs.FS, rels []string, all, clear bool) (WaiveRe
 	}
 	var stamp map[string]any
 	if err := json.Unmarshal(sb, &stamp); err != nil {
-		return res, fmt.Errorf("%s is corrupted (invalid JSON) — fix or restore it: %w", filepath.Base(sp), err)
+		return res, fmt.Errorf("%s is corrupted (invalid JSON) - fix or restore it: %w", filepath.Base(sp), err)
 	}
 	ws := waivedMap(stamp)
 
@@ -1440,7 +1440,7 @@ func Waive(targetDir string, tpl fs.FS, rels []string, all, clear bool) (WaiveRe
 		case d.action == upWaived:
 			res.Skipped = append(res.Skipped, rel+": already waived at these bytes")
 		case d.action != upDrift:
-			res.Skipped = append(res.Skipped, rel+": not drifted — nothing to waive")
+			res.Skipped = append(res.Skipped, rel+": not drifted - nothing to waive")
 		default:
 			ws[rel] = waiver{local: d.localHash, kit: d.kitHash}
 			res.Waived = append(res.Waived, rel)
@@ -1486,7 +1486,7 @@ func Status(targetDir string, tpl fs.FS, version string) (StatusReport, error) {
 	}
 	var stamp map[string]any
 	if err := json.Unmarshal(sb, &stamp); err != nil {
-		return rep, fmt.Errorf("%s is corrupted (invalid JSON) — fix or restore it: %w", filepath.Base(configPath(targetDir)), err)
+		return rep, fmt.Errorf("%s is corrupted (invalid JSON) - fix or restore it: %w", filepath.Base(configPath(targetDir)), err)
 	}
 	rep.Installed = true
 	rep.StampVersion, _ = stamp["kitVersion"].(string)
@@ -1579,12 +1579,12 @@ func Verify(targetDir string, tpl fs.FS, version string) (VerifyReport, error) {
 	var rep VerifyReport
 	sb, err := os.ReadFile(configPath(targetDir))
 	if err != nil {
-		rep.Problems = append(rep.Problems, "specflow/config.json not found — run `specflow init`")
+		rep.Problems = append(rep.Problems, "specflow/config.json not found - run `specflow init`")
 		return rep, nil
 	}
 	var stamp map[string]any
 	if err := json.Unmarshal(sb, &stamp); err != nil {
-		rep.Problems = append(rep.Problems, "specflow/config.json is corrupt (invalid JSON) — fix or restore it")
+		rep.Problems = append(rep.Problems, "specflow/config.json is corrupt (invalid JSON) - fix or restore it")
 		return rep, nil
 	}
 	rep.Installed = true
@@ -1603,9 +1603,9 @@ func Verify(targetDir string, tpl fs.FS, version string) (VerifyReport, error) {
 		b, err := os.ReadFile(destPath(targetDir, e.rel))
 		if err != nil {
 			if tier3 {
-				rep.Warnings = append(rep.Warnings, e.rel+" missing — that agent isn't auto-wired (point its file at AGENTS.md)")
+				rep.Warnings = append(rep.Warnings, e.rel+" missing - that agent isn't auto-wired (point its file at AGENTS.md)")
 			} else {
-				rep.Problems = append(rep.Problems, e.rel+" missing — specflow can't work properly")
+				rep.Problems = append(rep.Problems, e.rel+" missing - specflow can't work properly")
 			}
 			continue
 		}
@@ -1618,7 +1618,7 @@ func Verify(targetDir string, tpl fs.FS, version string) (VerifyReport, error) {
 			case tier3:
 				rep.Warnings = append(rep.Warnings, e.rel+" has no specflow region and doesn't reference AGENTS.md")
 			default:
-				rep.Problems = append(rep.Problems, e.rel+" has no specflow region (markers missing) — run `specflow upgrade`")
+				rep.Problems = append(rep.Problems, e.rel+" has no specflow region (markers missing) - run `specflow upgrade`")
 			}
 			continue
 		}
@@ -1626,7 +1626,7 @@ func Verify(targetDir string, tpl fs.FS, version string) (VerifyReport, error) {
 		// user's and specflow doesn't police it.
 		if leaks := ModeLeaks(mode, parts.region); len(leaks) > 0 {
 			rep.Problems = append(rep.Problems, e.rel+" names batch/claim machinery this spec-only install doesn't have ("+
-				strings.Join(leaks, ", ")+") — run `specflow upgrade`")
+				strings.Join(leaks, ", ")+") - run `specflow upgrade`")
 			continue
 		}
 		switch h := hashRegion(parts.region); {
@@ -1635,9 +1635,9 @@ func Verify(targetDir string, tpl fs.FS, version string) (VerifyReport, error) {
 		case waived[e.rel].local == h:
 			// A waived edit is a decision, not a defect: report it so it stays visible, but as a
 			// state the user chose rather than a warning they are expected to clear.
-			rep.OK = append(rep.OK, e.rel+" (edited, waived — `upgrade` leaves it alone)")
+			rep.OK = append(rep.OK, e.rel+" (edited, waived - `upgrade` leaves it alone)")
 		default:
-			rep.Warnings = append(rep.Warnings, e.rel+" region edited since install (drift) — `upgrade` won't refresh it; reconcile from the .specflow-new sidecar, or `specflow waive` it")
+			rep.Warnings = append(rep.Warnings, e.rel+" region edited since install (drift) - `upgrade` won't refresh it; reconcile from the .specflow-new sidecar, or `specflow waive` it")
 		}
 	}
 
@@ -1651,15 +1651,15 @@ func Verify(targetDir string, tpl fs.FS, version string) (VerifyReport, error) {
 	for _, ra := range adapters {
 		switch ra.dec.state {
 		case adMissing:
-			rep.Warnings = append(rep.Warnings, ra.rel+" missing — that trigger won't fire (`specflow upgrade` restores it)")
+			rep.Warnings = append(rep.Warnings, ra.rel+" missing - that trigger won't fire (`specflow upgrade` restores it)")
 		case adLeaking:
-			rep.Problems = append(rep.Problems, ra.rel+" names batch/claim machinery this spec-only install doesn't have — run `specflow upgrade`")
+			rep.Problems = append(rep.Problems, ra.rel+" names batch/claim machinery this spec-only install doesn't have - run `specflow upgrade`")
 		case adEdited:
-			rep.Warnings = append(rep.Warnings, ra.rel+" edited since install (drift) — `upgrade` won't refresh it; reconcile from the .specflow-new sidecar, or `specflow waive` it")
+			rep.Warnings = append(rep.Warnings, ra.rel+" edited since install (drift) - `upgrade` won't refresh it; reconcile from the .specflow-new sidecar, or `specflow waive` it")
 		case adWaived:
-			rep.OK = append(rep.OK, ra.rel+" (edited, waived — `upgrade` leaves it alone)")
+			rep.OK = append(rep.OK, ra.rel+" (edited, waived - `upgrade` leaves it alone)")
 		case adAdoptable:
-			rep.Warnings = append(rep.Warnings, ra.rel+" predates whole-file management — the next `upgrade` adopts it (your copy is kept as .specflow-bak)")
+			rep.Warnings = append(rep.Warnings, ra.rel+" predates whole-file management - the next `upgrade` adopts it (your copy is kept as .specflow-bak)")
 		default:
 			rep.OK = append(rep.OK, ra.rel)
 		}

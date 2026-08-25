@@ -514,7 +514,7 @@ func Claim(targetDir, id, owner string) (ClaimResult, error) {
 		return res, fmt.Errorf("Batch %s is not claimable: %s", target.ID, why)
 	}
 	entry := []string{
-		"### Batch " + target.ID + " — " + target.Title,
+		"### Batch " + target.ID + " - " + target.Title,
 		"- Owner: " + owner,
 		"- Started: " + time.Now().UTC().Format(stampFormat),
 		"",
@@ -548,7 +548,7 @@ type FinishResult struct {
 func Finish(targetDir, id, commit, summary, paragraph string) (FinishResult, error) {
 	res := FinishResult{Batch: id, NoSummary: strings.TrimSpace(summary) == "", NoParagraph: strings.TrimSpace(paragraph) == ""}
 	if n := stubLines(summary); n > StubMaxLines {
-		return res, fmt.Errorf("the CLAIMS.md stub is %d lines, over the %d-line cap — move the rest into the --done-file narrative and retry (nothing was written)", n, StubMaxLines)
+		return res, fmt.Errorf("the CLAIMS.md stub is %d lines, over the %d-line cap - move the rest into the --done-file narrative and retry (nothing was written)", n, StubMaxLines)
 	}
 	cb, err := os.ReadFile(destPath(targetDir, claimsRel))
 	if err != nil {
@@ -573,7 +573,7 @@ func Finish(targetDir, id, commit, summary, paragraph string) (FinishResult, err
 	// narrative, so it is refused rather than silently rewritten.
 	if named, ok := pointerBatch(summary); ok {
 		if named != "" && !strings.EqualFold(named, res.Batch) {
-			return res, fmt.Errorf("the CLAIMS.md stub's `Full narrative` pointer names Batch %s, but this is Batch %s — fix the pointer and retry (nothing was written)", named, res.Batch)
+			return res, fmt.Errorf("the CLAIMS.md stub's `Full narrative` pointer names Batch %s, but this is Batch %s - fix the pointer and retry (nothing was written)", named, res.Batch)
 		}
 	} else if !res.NoParagraph {
 		// Only alongside a filed narrative: a pointer at a section that was never written is a lie.
@@ -678,7 +678,8 @@ func completeEntry(entry []string, commit, summary string) []string {
 	return merged
 }
 
-// entryTitle recovers the title from a `### Batch N — title` heading, for the archive heading.
+// entryTitle recovers the title from a `### Batch N - title` heading, for the archive heading.
+// Older ledgers use an em or en dash there; the trim below accepts every form.
 func entryTitle(heading string) string {
 	if m := claimEntryHeadRe.FindStringSubmatch(heading); m != nil {
 		rest := strings.TrimSpace(heading[len(m[0]):])
@@ -1038,13 +1039,13 @@ func archiveSection(lines []string, id string) (int, int, bool) {
 	return 0, 0, false
 }
 
-// archiveHeading is the `## Batch N — title` heading BUILD_QUEUE_DONE.md files a narrative under.
+// archiveHeading is the `## Batch N - title` heading BUILD_QUEUE_DONE.md files a narrative under.
 // finish writes it for a batch shipping now, migrate-claims for one that shipped before the stub
 // shape existed; they must agree, or the second one opens a duplicate section.
 func archiveHeading(id, title string) string {
 	h := "## Batch " + id
 	if strings.TrimSpace(title) != "" {
-		h += " — " + title
+		h += " - " + title
 	}
 	return h
 }
@@ -1211,7 +1212,7 @@ func Weigh(targetDir string) Weight {
 		}
 		if w.PreambleLines > w.PreambleLimit {
 			w.Warnings = append(w.Warnings, fmt.Sprintf(
-				"BUILD_QUEUE.md preamble is %d lines, over its %d-line cap — audit it (prune-ledgers.md, section 3)",
+				"BUILD_QUEUE.md preamble is %d lines, over its %d-line cap - audit it (prune-ledgers.md, section 3)",
 				w.PreambleLines, w.PreambleLimit))
 		}
 	}
@@ -1221,7 +1222,7 @@ func Weigh(targetDir string) Weight {
 			w.CompletedCount = len(claims.Completed)
 			if w.CompletedCount > CompletedRetention {
 				w.Warnings = append(w.Warnings, fmt.Sprintf(
-					"CLAIMS.md ## Completed holds %d entries, over the retention of %d — prune (prune-ledgers.md, section 1)",
+					"CLAIMS.md ## Completed holds %d entries, over the retention of %d - prune (prune-ledgers.md, section 1)",
 					w.CompletedCount, CompletedRetention))
 			}
 		}

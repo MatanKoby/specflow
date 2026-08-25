@@ -185,6 +185,9 @@ The managed set this covers:
 - `specflow/procedures/*.md`
 - this repo's own managed copies: `AGENTS.md`, `CLAUDE.md`, `.claude/skills/**`, `.claude/hooks/**`
 - the recorded baselines in `specflow/config.json`, which must stay byte-identical to their templates
+- **every string the CLI emits**: console output, `--help` text, error and warning messages, and the
+  headings `claim` and `finish` write into a downstream `CLAIMS.md` / `BUILD_QUEUE_DONE.md`. Batch EM
+  swept these; a new emitted string must not reintroduce one.
 
 Replacements, in order of preference: a comma, a colon, parentheses around a bracketed clause, or
 two sentences. A spaced hyphen (` - `) is the default when none of those reads better. Single
@@ -192,19 +195,32 @@ hyphens in compound words (well-known, read-only, spec-driven) are fine, and so 
 bullets (·) already in use.
 
 **Deliberately out of scope, and still dashed:** `spec/**`, `README.md`, `BUILD_QUEUE.md`,
-`CLAIMS.md`, `specflow/history/**`, `.github/release-notes/**`, and the Go source under
-`internal/` and `cmd/`. Don't sweep them as a side effect of other work. `internal/kit/queue.go`
-still writes `### Batch N — title` into downstream ledgers and `cmd/specflow` still prints dashes
-to the console; fixing those emitters is a queued follow-up, not an ad-hoc edit.
+`CLAIMS.md`, `specflow/history/**`, `.github/release-notes/**`, and Go *comments* under `internal/`
+and `cmd/`, which are not emitted text. Don't sweep them as a side effect of other work.
+
+Two things in the Go source stay dashed on purpose, and removing them is a regression: the
+separator lists in `internal/kit/queue.go` (the `TrimLeft` sets and the `sep` slice) must go on
+accepting `—` and `–`, because every install that ran 0.1.9 or earlier has ledgers full of
+em-dash headings that `finish`, `next`, and `migrate-claims` still locate by heading. The
+compatibility pins live in `cmd/specflow/main_test.go` (`TestEmDashEraLedgersStillResolve`,
+`TestMigrateClaimsAcceptsEmDashHeadings`).
 
 Check before committing anything under the managed set:
 
 ```sh
 grep -rn '—\|–' templates specflow/procedures AGENTS.md CLAUDE.md .claude/skills .claude/hooks
+grep -n '"[^"]*—' cmd/specflow/main.go internal/kit/*.go
 ```
 
-Clean means four hits, all of them this rule naming the characters it forbids (two lines here, one
-in `CLAUDE.md`, one in the code fence above). Anything else is a regression. The grep covers only
-the em and en dash, because `--` is legitimate and everywhere in the managed set (markdown table
-rules, YAML frontmatter, HTML comments, and CLI flags such as `--ff-only` and `--dry-run`); the
-double hyphen is banned **in prose only**, and that one is caught by reading, not grep.
+The first grep is clean at **five hits**, all of them this rule naming the characters it forbids:
+four here (the opening sentence, the compatibility paragraph, and the two lines of the code fence
+above) and one in `CLAUDE.md`.
+
+The second is clean when every hit is either a Go comment or one of the three separator lists in
+`internal/kit/queue.go` (the two `TrimLeft` sets and the `sep` slice). A hit in a string the CLI
+actually prints or writes is a regression.
+
+Both greps cover only the em and en dash, because `--` is legitimate and everywhere in the managed
+set (markdown table rules, YAML frontmatter, HTML comments, and CLI flags such as `--ff-only` and
+`--dry-run`); the double hyphen is banned **in prose only**, and that one is caught by reading, not
+grep.
