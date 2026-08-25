@@ -61,7 +61,7 @@ near-miss heading. That would silently bless the old shape, and would truncate t
 innocent `### Batch history` heading inside real preamble prose, hiding a genuine sink. Over-counting
 is noisy but visible; under-counting is silent.
 
-**Corrected the same day, from its own output** (`b9e8f3b`). The claimable check first read every
+**Corrected the same day, from its own output** (`cac8c38`). The claimable check first read every
 batch id on the line, which warned on this repo's own pointer: `Claimable: PD. QD shipped` names PD
 and *reports* QD. It now takes the first batch named after the word "claimable" and nothing else,
 because which batch a pointer points at is a question about word order. A sixth test pins the
