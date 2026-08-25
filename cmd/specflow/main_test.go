@@ -2786,8 +2786,120 @@ func TestNextReportsLedgerWeight(t *testing.T) {
 
 	waiver := fmt.Sprintf("<!-- specflow:size-ok - user approved this preamble over %d lines on 2026-01-31 14:05 UTC; next check at 400. -->\n", kit.PreambleMaxLines)
 	mustWrite(t, queuePath, waiver+read(t, queuePath))
-	if out := run(t, tmp, "next").stdout; strings.Contains(out, "over its") {
+	if out := run(t, tmp, "next").stdout; strings.Contains(out, "preamble cap") {
 		t.Errorf("the size-ok waiver did not raise the preamble limit:\n%s", out)
+	}
+}
+
+// ---- Batch QD: the preamble warning says what is wrong, not just how long ----
+
+// archiveBatches files narratives in BUILD_QUEUE_DONE.md, which is what makes "already shipped"
+// answerable without asking the user.
+func archiveBatches(t *testing.T, dir string, ids ...string) {
+	t.Helper()
+	p := filepath.Join(dir, "specflow", "history", "BUILD_QUEUE_DONE.md")
+	body := read(t, p)
+	for _, id := range ids {
+		body += fmt.Sprintf("\n## Batch %s - shipped\n\nIt shipped.\n", id)
+	}
+	mustWrite(t, p, body)
+}
+
+// preambleQueue is a queue whose prose above the first batch narrates work that has shipped, which
+// is the shape that filled a downstream preamble to 446 lines.
+func preambleQueue(t *testing.T, dir, preamble string) {
+	t.Helper()
+	p := filepath.Join(dir, "BUILD_QUEUE.md")
+	body := read(t, p)
+	at := strings.Index(body, "## Batch A")
+	if at < 0 {
+		t.Fatal("seeded queue has no batch heading")
+	}
+	mustWrite(t, p, body[:at]+preamble+"\n"+body[at:])
+}
+
+// TestPreambleWarningNamesTheSectionHoldingIt: an over-cap count with no address reads as a bug in
+// specflow rather than a finding about your own queue - which is how a downstream install read it.
+func TestPreambleWarningNamesTheSectionHoldingIt(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+	preambleQueue(t, tmp, "## Un-done batches\n\n"+
+		strings.Repeat("> a durable fact nobody could place in spec/\n", kit.PreambleMaxLines))
+
+	out := run(t, tmp, "next").stdout
+	if !strings.Contains(out, `above the first "## Batch" heading`) {
+		t.Errorf("the warning did not name the boundary it measured from:\n%s", out)
+	}
+	if !strings.Contains(out, `under "## Un-done batches"`) {
+		t.Errorf("the warning did not name the section holding the bulk:\n%s", out)
+	}
+}
+
+// TestPreambleWarnsOnArchivedBatchNarration: the line count cannot tell live pick-order from
+// history. The ratio of archived to live batch ids can, and it is the number that diagnoses this.
+func TestPreambleWarnsOnArchivedBatchNarration(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+	archiveBatches(t, tmp, "X", "Y", "Z")
+	preambleQueue(t, tmp, "> Batch X shipped, Batch Y shipped, and Batch Z was dropped.\n")
+
+	out := run(t, tmp, "next").stdout
+	if !strings.Contains(out, "3 archived batch ids") {
+		t.Errorf("next did not count the archived batches the preamble narrates:\n%s", out)
+	}
+	if !strings.Contains(out, "narrating shipped work") {
+		t.Errorf("next did not name the defect, only the count:\n%s", out)
+	}
+}
+
+// TestPreambleStaysQuietOnALivePointer: a healthy pick-order pointer names a shipped batch or two
+// to say what a claimable one is waiting on. Warning there would train the reader to ignore this.
+func TestPreambleStaysQuietOnALivePointer(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+	archiveBatches(t, tmp, "X", "Y")
+	preambleQueue(t, tmp, "> Claimable: Batch A, once Batch X's probe is read. Batch B waits on A.\n")
+
+	if out := run(t, tmp, "next").stdout; strings.Contains(out, "narrating shipped work") {
+		t.Errorf("next warned about a current pointer:\n%s", out)
+	}
+}
+
+// TestPreambleWarnsOnStaleClaimableLine: the one preamble defect that misdirects rather than merely
+// reading old. An agent following it claims a batch that shipped weeks ago.
+func TestPreambleWarnsOnStaleClaimableLine(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+	archiveBatches(t, tmp, "50")
+	preambleQueue(t, tmp, "> **Claimable now: 50.** It does not wait on the dependency.\n")
+
+	out := run(t, tmp, "next").stdout
+	if !strings.Contains(out, "calls Batch 50 claimable") {
+		t.Errorf("next did not catch the stale claimable line:\n%s", out)
+	}
+	if !strings.Contains(out, "BUILD_QUEUE.md:") {
+		t.Errorf("the warning did not name the line to fix:\n%s", out)
+	}
+}
+
+// TestNearMissBatchHeadingIsNamed: a heading the parser cannot see is preamble prose - never
+// claimable, and silently inflating the count. Without this the count itself looks wrong.
+func TestNearMissBatchHeadingIsNamed(t *testing.T) {
+	tmp := newRepo(t)
+	run(t, tmp, "init", "--agents=claude", "--check=")
+	seedQueue(t, tmp, twoBatchQueue)
+	preambleQueue(t, tmp, "### Batch C - written one level too deep\n\nIt will never be offered.\n")
+
+	out := run(t, tmp, "next").stdout
+	if !strings.Contains(out, "reads as a batch heading") {
+		t.Errorf("next did not flag the near-miss heading:\n%s", out)
+	}
+	if strings.Contains(out, "Batch C ") && strings.Contains(out, "✓") {
+		t.Errorf("a near-miss heading must not be offered as claimable:\n%s", out)
 	}
 }
 

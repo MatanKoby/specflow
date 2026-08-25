@@ -973,8 +973,12 @@ func cmdNext(args []string) error {
 // prune, and a count of entries can stay correct while the file behind it grows unreadable, so the
 // size is stated every time and warned about only past a bound.
 func printWeight(w kit.Weight) {
-	fmt.Println(dim(fmt.Sprintf("\n  ledger weight: BUILD_QUEUE.md %d lines (preamble %d/%d) · CLAIMS.md %d lines (%d completed)",
-		w.QueueLines, w.PreambleLines, w.PreambleLimit, w.ClaimsLines, w.CompletedCount)))
+	refs := ""
+	if w.ArchivedRefs+w.LiveRefs > 0 {
+		refs = fmt.Sprintf(", names %d archived batch ids and %d live", w.ArchivedRefs, w.LiveRefs)
+	}
+	fmt.Println(dim(fmt.Sprintf("\n  ledger weight: BUILD_QUEUE.md %d lines (preamble %d/%d%s) · CLAIMS.md %d lines (%d completed)",
+		w.QueueLines, w.PreambleLines, w.PreambleLimit, refs, w.ClaimsLines, w.CompletedCount)))
 	for _, warn := range w.Warnings {
 		fmt.Println(yellow("  ⚠ ") + warn)
 	}

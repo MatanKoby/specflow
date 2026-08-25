@@ -39,6 +39,11 @@ const StubMaxLines = 8
 // prune-ledgers.md (section 3) states in prose.
 const PreambleMaxLines = 45
 
+// staleRefFloor is how many archived batches a preamble may name before the count is worth
+// reporting. One or two is a live pointer saying what a claimable batch is waiting on; a dozen is a
+// file narrating its own history. The floor exists so the healthy shape stays silent.
+const staleRefFloor = 3
+
 // Repo-relative paths of the four files the verbs read and write.
 const (
 	queueRel      = "BUILD_QUEUE.md"
@@ -61,7 +66,18 @@ var (
 	qTickedRe    = regexp.MustCompile("`([^`]+)`")
 	qAnyH2Re     = regexp.MustCompile(`^##\s`)
 	qAnyHeadRe   = regexp.MustCompile(`^#{1,6}\s`)
-	qBraceRe     = regexp.MustCompile(`^([^{]*)\{([^{}]*)\}(.*)$`)
+	// A heading that reads as a batch but misses the declared shape (an h3, a lower-case "batch", a
+	// colon after it). The parser cannot see it, so it is preamble prose: never claimable, and
+	// silently inflating the preamble count. Worth naming rather than leaving to be discovered.
+	qNearMissRe = regexp.MustCompile(`(?i)^#{1,6}\s.*\bbatch\b`)
+	// Archive headings run `## Batch N - title`, but older installs wrote deeper ones, so accept any.
+	qArchiveHeadRe = regexp.MustCompile(`^#{2,6}\s+Batch\s+([A-Za-z0-9._-]+)`)
+	// A preamble line claiming something is claimable. High-precision on purpose: this is the line
+	// that sends an agent at a batch, so a stale one misleads rather than merely reading old.
+	qClaimableRe = regexp.MustCompile(`(?i)\bclaimable\b`)
+	// Bare tokens that could name a batch, for the claimable line that writes "50" and not "Batch 50".
+	qIDTokenRe = regexp.MustCompile(`[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?`)
+	qBraceRe   = regexp.MustCompile(`^([^{]*)\{([^{}]*)\}(.*)$`)
 	// Both archives are newest-first, so a new block goes above the first existing entry heading.
 	qArchiveEntryRe = regexp.MustCompile(`^#{2,6}\s`)
 	// The stub's pointer at the archived narrative, and the user's over-cap waiver.
@@ -1185,12 +1201,23 @@ func stubLines(summary string) int {
 // cannot reveal a file that grew heavy while staying correct, which is exactly how a CLAIMS.md at
 // its prescribed 5 entries reached 27 KB in the field.
 type Weight struct {
-	QueueLines     int      `json:"queueLines"`
-	PreambleLines  int      `json:"preambleLines"`
-	PreambleLimit  int      `json:"preambleLimit"`
-	ClaimsLines    int      `json:"claimsLines"`
-	CompletedCount int      `json:"completedCount"`
-	Warnings       []string `json:"warnings,omitempty"`
+	QueueLines     int `json:"queueLines"`
+	PreambleLines  int `json:"preambleLines"`
+	PreambleLimit  int `json:"preambleLimit"`
+	ClaimsLines    int `json:"claimsLines"`
+	CompletedCount int `json:"completedCount"`
+	// The preamble section holding the bulk of those lines, so the count has an address. A reader
+	// handed "467 lines" and nothing else reads it as a bug in specflow rather than a finding
+	// about their own queue, which is what happened downstream.
+	PreambleHeading string `json:"preambleHeading,omitempty"`
+	HeadingLines    int    `json:"preambleHeadingLines,omitempty"`
+	// Batches the preamble names, split by whether they are still in the queue. This is the pair
+	// that actually diagnoses a rotten preamble: a line count cannot tell 400 lines of live
+	// pick-order from 400 lines narrating work that shipped months ago, and the second is the one
+	// that fills. Archived means it has a section in BUILD_QUEUE_DONE.md.
+	ArchivedRefs int      `json:"archivedRefs"`
+	LiveRefs     int      `json:"liveRefs"`
+	Warnings     []string `json:"warnings,omitempty"`
 }
 
 // Weigh measures both ledgers. It never fails: a file it cannot read or parse simply contributes
@@ -1210,11 +1237,12 @@ func Weigh(targetDir string) Weight {
 		if n, ok := sizeWaiver(lines); ok {
 			w.PreambleLimit = n
 		}
-		if w.PreambleLines > w.PreambleLimit {
-			w.Warnings = append(w.Warnings, fmt.Sprintf(
-				"BUILD_QUEUE.md preamble is %d lines, over its %d-line cap - audit it (prune-ledgers.md, section 3)",
-				w.PreambleLines, w.PreambleLimit))
-		}
+		preamble := lines[:w.PreambleLines]
+		w.PreambleHeading, w.HeadingLines = dominantSection(preamble)
+		live := liveBatchIDs(lines)
+		archived := archivedBatchIDs(targetDir)
+		w.ArchivedRefs, w.LiveRefs = refSplit(preamble, live, archived)
+		w.Warnings = append(w.Warnings, preambleWarnings(w, preamble, live, archived)...)
 	}
 	if cb, err := os.ReadFile(destPath(targetDir, claimsRel)); err == nil {
 		w.ClaimsLines = len(splitLines(string(cb)))
@@ -1228,6 +1256,154 @@ func Weigh(targetDir string) Weight {
 		}
 	}
 	return w
+}
+
+// dominantSection names the preamble heading holding the most lines, which is what turns a bare
+// count into an address the reader can act on. Lines above the first heading belong to no section.
+func dominantSection(preamble []string) (heading string, count int) {
+	cur, curStart := "", -1
+	flush := func(end int) {
+		if curStart >= 0 && end-curStart > count {
+			heading, count = cur, end-curStart
+		}
+	}
+	for i, l := range preamble {
+		if qAnyHeadRe.MatchString(l) {
+			flush(i)
+			cur, curStart = strings.TrimSpace(l), i
+		}
+	}
+	flush(len(preamble))
+	return heading, count
+}
+
+// liveBatchIDs are the batches the queue actually declares, lower-cased for comparison against
+// prose that may not match their case.
+func liveBatchIDs(lines []string) map[string]bool {
+	ids := map[string]bool{}
+	for _, l := range lines {
+		if m := qBatchHeadRe.FindStringSubmatch(l); m != nil {
+			ids[strings.ToLower(m[1])] = true
+		}
+	}
+	return ids
+}
+
+// archivedBatchIDs are the batches BUILD_QUEUE_DONE.md holds a narrative for, which is what makes
+// "already shipped" answerable without asking the user. An unreadable archive contributes nothing,
+// same as everywhere else in Weigh.
+func archivedBatchIDs(targetDir string) map[string]bool {
+	ids := map[string]bool{}
+	b, err := os.ReadFile(destPath(targetDir, queueDoneRel))
+	if err != nil {
+		return ids
+	}
+	for _, l := range splitLines(string(b)) {
+		if m := qArchiveHeadRe.FindStringSubmatch(l); m != nil {
+			ids[strings.ToLower(m[1])] = true
+		}
+	}
+	return ids
+}
+
+// refSplit counts the distinct batches the preamble names, split by whether each is still in the
+// queue or already archived. Distinct, not per-mention: one batch narrated across six paragraphs is
+// one stale reference, and counting the mentions would just reward terseness.
+func refSplit(preamble []string, live, archived map[string]bool) (staleCount, liveCount int) {
+	seen := map[string]bool{}
+	for _, l := range preamble {
+		for _, tok := range batchCandidates(l) {
+			id := strings.ToLower(tok)
+			if seen[id] {
+				continue
+			}
+			switch {
+			case live[id]:
+				liveCount++
+			case archived[id]:
+				staleCount++
+			default:
+				continue
+			}
+			seen[id] = true
+		}
+	}
+	return staleCount, liveCount
+}
+
+// staleClaimable finds a preamble line that says a batch is claimable and names one the queue does
+// not have. It is the one preamble defect that misdirects rather than merely reads old: an agent
+// following it claims a batch that shipped. Tokens are matched against the archive rather than
+// requiring the word "Batch", because the line that caused this in the field read "Claimable now: 50".
+func staleClaimable(preamble []string, live, archived map[string]bool) []string {
+	var out []string
+	for i, l := range preamble {
+		if !qClaimableRe.MatchString(l) {
+			continue
+		}
+		for _, tok := range batchCandidates(l) {
+			id := strings.ToLower(tok)
+			if live[id] || !archived[id] {
+				continue
+			}
+			out = append(out, fmt.Sprintf(
+				"BUILD_QUEUE.md:%d calls Batch %s claimable, but it is archived in BUILD_QUEUE_DONE.md and has no section in the queue - rewrite the pointer",
+				i+1, tok))
+			break
+		}
+	}
+	return out
+}
+
+// batchCandidates are the tokens on a line that could be naming a batch: the explicit `Batch <id>`
+// references first, then bare tokens of two characters or more. Bare tokens are needed because
+// prose stops repeating the word once the subject is established ("Claimable now: 50", "49 and 51
+// are the two that wait"), and both counting and the claimable check would miss exactly the lines
+// that matter. Single characters are skipped: a one-letter id would match the word "a" everywhere,
+// and an id that short is only recognizable in its `Batch X` form, which the first pass caught.
+// Callers intersect the result with known ids, so an ordinary word costs nothing.
+func batchCandidates(line string) []string {
+	var out []string
+	for _, m := range qBatchRefRe.FindAllStringSubmatch(line, -1) {
+		out = append(out, m[1])
+	}
+	for _, tok := range qIDTokenRe.FindAllString(line, -1) {
+		if len(tok) >= 2 {
+			out = append(out, tok)
+		}
+	}
+	return out
+}
+
+// preambleWarnings is everything Weigh has to say about the prose above the first batch: how long
+// it is and where, whether it is narrating shipped work, whether it points an agent at a batch that
+// is gone, and whether a heading it holds was meant to be a batch. Length is the weakest of the
+// four, and was the only one specflow used to report.
+func preambleWarnings(w Weight, preamble []string, live, archived map[string]bool) []string {
+	var out []string
+	if w.PreambleLines > w.PreambleLimit {
+		where := ""
+		if w.PreambleHeading != "" && w.HeadingLines >= 10 {
+			where = fmt.Sprintf(" (%d of them under \"%s\")", w.HeadingLines, w.PreambleHeading)
+		}
+		out = append(out, fmt.Sprintf(
+			"BUILD_QUEUE.md has %d lines above the first \"## Batch\" heading%s, over the %d-line preamble cap - audit it (prune-ledgers.md, section 3)",
+			w.PreambleLines, where, w.PreambleLimit))
+	}
+	if w.ArchivedRefs >= staleRefFloor && w.ArchivedRefs > w.LiveRefs {
+		out = append(out, fmt.Sprintf(
+			"BUILD_QUEUE.md preamble names %d archived batch ids and %d live ones - it is narrating shipped work, which belongs in BUILD_QUEUE_DONE.md (prune-ledgers.md, section 3)",
+			w.ArchivedRefs, w.LiveRefs))
+	}
+	out = append(out, staleClaimable(preamble, live, archived)...)
+	for i, l := range preamble {
+		if qNearMissRe.MatchString(l) && !qBatchHeadRe.MatchString(l) {
+			out = append(out, fmt.Sprintf(
+				"BUILD_QUEUE.md:%d reads as a batch heading but does not match \"## Batch <id> - <title>\", so it is parsed as preamble prose and is never claimable",
+				i+1))
+		}
+	}
+	return out
 }
 
 // sizeWaiver reads the `specflow:size-ok … next check at N` line the user's approval leaves at the
